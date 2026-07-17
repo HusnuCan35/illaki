@@ -15,9 +15,9 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { upsertUserProfile } from '../lib/firestore';
+import { upsertUserProfile, getUserSpaces } from '../lib/firestore';
 import { loadUserKeyPair, generateKeyPair, saveUserKeyPair } from '../lib/crypto';
-import { useIdentityStore } from '../stores';
+import { useIdentityStore, useSpaceStore } from '../stores';
 
 function hashColor(str) {
   let hash = 0;
@@ -31,6 +31,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const { setIdentity, clearIdentity } = useIdentityStore();
+  const setSpaces = useSpaceStore(s => s.setSpaces);
 
   // Auth durumunu takip et
   useEffect(() => {
@@ -55,17 +56,22 @@ export function useAuth() {
             avatarColor,
             photoURL: user.photoURL,
           });
+          
+          // Sync spaces from Firestore
+          const userSpaces = await getUserSpaces(user.uid);
+          setSpaces(userSpaces);
         } catch (err) {
-          console.error('Profil güncelleme hatası:', err);
+          console.error('Profil veya odaları güncelleme hatası:', err);
         }
       } else {
         clearIdentity();
+        setSpaces([]);
       }
       setLoading(false);
     });
 
     return unsubscribe;
-  }, [setIdentity, clearIdentity]);
+  }, [setIdentity, clearIdentity, setSpaces]);
 
   // Email + Şifre ile kayıt
   const signUp = useCallback(async (email, password, username) => {

@@ -303,7 +303,7 @@ export async function getUserSpaces(uid) {
  * E2E şifreli mesaj gönder
  */
 export async function sendEncryptedMessage(spaceId, uid, username, content, type = 'text', mediaData = null) {
-  let spaceKey = await getCachedSpaceKey(spaceId);
+  let spaceKey = await getSpaceKey(spaceId, uid);
   if (!spaceKey) {
     // Anahtarı yeniden yükle
     throw new Error('Space anahtarı bulunamadı. Lütfen odayı yeniden açın.');
@@ -361,7 +361,7 @@ export function subscribeToMessages(spaceId, uid, onMessages) {
   );
 
   return onSnapshot(q, async (snap) => {
-    let spaceKey = await getCachedSpaceKey(spaceId);
+    let spaceKey = await getSpaceKey(spaceId, uid);
     if (!spaceKey) return;
 
     const messages = await Promise.all(

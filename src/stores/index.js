@@ -14,33 +14,43 @@ export const useIdentityStore = create(
 );
 
 // Spaces (rooms) store
-export const useSpaceStore = create((set, get) => ({
-  spaces: [],           // [{ id, name, code, members, unread }]
-  activeSpaceId: null,
+export const useSpaceStore = create(
+  persist(
+    (set, get) => ({
+      spaces: [],           // [{ id, name, code, members, unread }]
+      activeSpaceId: null,
 
-  addSpace: (space) => set((s) => ({ spaces: [...s.spaces, space] })),
-  removeSpace: (id) => set((s) => ({ spaces: s.spaces.filter(sp => sp.id !== id) })),
-  setActiveSpace: (id) => set({ activeSpaceId: id }),
-  
-  updateSpace: (id, updates) => set((s) => ({
-    spaces: s.spaces.map(sp => sp.id === id ? { ...sp, ...updates } : sp),
-  })),
+      addSpace: (space) => set((s) => {
+        // Prevent duplicate spaces
+        if (s.spaces.some(sp => sp.id === space.id)) return s;
+        return { spaces: [...s.spaces, space] };
+      }),
+      setSpaces: (spaces) => set({ spaces }),
+      removeSpace: (id) => set((s) => ({ spaces: s.spaces.filter(sp => sp.id !== id) })),
+      setActiveSpace: (id) => set({ activeSpaceId: id }),
+      
+      updateSpace: (id, updates) => set((s) => ({
+        spaces: s.spaces.map(sp => sp.id === id ? { ...sp, ...updates } : sp),
+      })),
 
-  incrementUnread: (id) => set((s) => ({
-    spaces: s.spaces.map(sp =>
-      sp.id === id ? { ...sp, unread: (sp.unread || 0) + 1 } : sp,
-    ),
-  })),
+      incrementUnread: (id) => set((s) => ({
+        spaces: s.spaces.map(sp =>
+          sp.id === id ? { ...sp, unread: (sp.unread || 0) + 1 } : sp,
+        ),
+      })),
 
-  clearUnread: (id) => set((s) => ({
-    spaces: s.spaces.map(sp => sp.id === id ? { ...sp, unread: 0 } : sp),
-  })),
+      clearUnread: (id) => set((s) => ({
+        spaces: s.spaces.map(sp => sp.id === id ? { ...sp, unread: 0 } : sp),
+      })),
 
-  getActiveSpace: () => {
-    const { spaces, activeSpaceId } = get();
-    return spaces.find(sp => sp.id === activeSpaceId) || null;
-  },
-}));
+      getActiveSpace: () => {
+        const { spaces, activeSpaceId } = get();
+        return spaces.find(sp => sp.id === activeSpaceId) || null;
+      },
+    }),
+    { name: 'illaki-spaces' }
+  )
+);
 
 // Messages store (per space)
 export const useMessageStore = create((set, get) => ({
