@@ -1,0 +1,124 @@
+.sidebar {
+  width: 72px;
+  background-color: var(--bg-darkest);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 50;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar for sidebar */
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+.sidebar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.homeButtonWrapper, .serverItemWrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 12px;
+}
+
+.pill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 8px;
+  background-color: white;
+  border-radius: 0 4px 4px 0;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.serverItemWrapper:hover .pill,
+.homeButtonWrapper:hover .pill {
+  opacity: 1;
+  height: 20px;
+}
+
+.pill.pillActive {
+  opacity: 1;
+  height: 40px;
+}
+
+.serverItem, .homeButton, .actionButton {
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.serverItem:hover, .homeButton:hover, .actionButton:hover {
+  border-radius: 16px;
+  background-color: var(--accent);
+  color: white;
+}
+
+.serverItem.serverActive, .homeButton.serverActive {
+  border-radius: 16px;
+  background-color: var(--accent);
+  color: white;
+}
+
+.actionButton:hover {
+  background-color: #3ba55c; /* Discord-like green for add */
+}
+
+.serverIconText {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.serverIconEmoji {
+  font-size: 24px;
+}
+
+.separator {
+  width: 32px;
+  height: 2px;
+  background-color: var(--bg-elevated);
+  border-radius: 1px;
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+.serverList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background-color: var(--danger, #ed4245);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 12px;
+  border: 4px solid var(--bg-darkest);
+}

@@ -113,12 +113,8 @@ export function usePeer() {
         // MESH NETWORK: Host'tan diğer üyelerin listesi geldi, onlara da bağlan
         data.peers.forEach(peerIdToConnect => {
           if (peerIdToConnect !== usePeerStore.getState().peerId && !connectionsRef.current[peerIdToConnect]) {
-            // peerIdToConnect formatı "illaki-KOD" şeklinde. Kod kısmını alıp connectToPeer çağıralım.
             const code = peerIdToConnect.replace(/^illaki-/, '');
             if (code) {
-               // doğrudan connect metodunu kullansak daha iyi ama connectToPeer fonksiyonu closure içinde değil.
-               // Neyse ki connectToPeer reference değişmiyor. 
-               // Ama en kolayı doğrudan peerRef üzerinden bağlanmak:
                if (peerRef.current && !peerRef.current.destroyed) {
                   const conn = peerRef.current.connect(peerIdToConnect, {
                     reliable: true,
@@ -128,8 +124,8 @@ export function usePeer() {
                       spaceCode: data.spaceCode,
                     },
                   });
+                  connectionsRef.current[peerIdToConnect] = conn;
                   conn.on('open', () => {
-                    connectionsRef.current[conn.peer] = conn;
                     usePeerStore.getState().addPeer(conn.peer, {
                       username: 'Bağlanıyor...',
                       status: 'online',
@@ -145,6 +141,28 @@ export function usePeer() {
                }
             }
           }
+        });
+        break;
+      }
+      
+      // Kanal bazlı P2P Mesajları
+      case 'chat':
+      case 'image':
+      case 'video':
+      case 'file': {
+        addMessage(data.spaceId, data.channelId, {
+          id: `p2p_${Date.now()}_${Math.random()}`,
+          content: data.content,
+          sender: data.senderUsername,
+          senderId: data.senderId,
+          own: false,
+          timestamp: data.timestamp,
+          type: data.type,
+          mediaUrl: data.mediaUrl,
+          mediaName: data.mediaName,
+          mediaSize: data.mediaSize,
+          thumbnailUrl: data.thumbnailUrl,
+          mediaDuration: data.mediaDuration,
         });
         break;
       }
@@ -316,22 +334,33 @@ export function usePeer() {
   }, []);
 
   // ── Mesaj gönder ──────────────────────────────────────────────────────────
-  const sendMessage = useCallback((spaceId, content, type = 'text', fileData = null) => {
+  const sendMessage = useCallback((spaceId, channelId, content, type = 'chat', mediaData = null) => {
+    const { identity } = useIdentityStore.getState();
     const message = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      content,
-      sender: identityRef.current?.username || 'Ben',
-      senderId: identityRef.current?.id,
-      timestamp: Date.now(),
       type,
-      fileData,
+      channelId: channelId || 'general',
+      content,
+      senderId: identity.uid,
+      senderUsername: identity.username,
+      timestamp: Date.now(),
+      ...mediaData
     };
+
+    // Herkese gönder
     Object.values(connectionsRef.current).forEach((conn) => {
-      if (conn.open) conn.send({ type: 'message', spaceId, message });
+      if (conn.open) {
+        conn.send(message);
+      }
     });
-    addMessage(spaceId, { ...message, own: true });
-    return message;
-  }, []);
+
+    // Kendi ekranımızda göster
+    addMessage(spaceId, channelId, {
+      ...message,
+      id: `local_${Date.now()}`,
+      own: true,
+      sender: identity.username,
+    });
+  }, [addMessage]);
 
   const broadcastSpaceUpdate = useCallback((spaceId, newName) => {
     Object.values(connectionsRef.current).forEach((conn) => {

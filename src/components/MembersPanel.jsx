@@ -25,10 +25,12 @@ function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick }) {
           {!isSelf && peer.status === 'offline' && <span className={styles.selfTag} style={{ background: 'var(--bg-modifier-hover)' }}>çevrimdışı</span>}
         </span>
         <span className={styles.sub}>
-          {isHost ? (
-            <><Crown size={10} /> Host</>
+          {peer.role === 'host' ? (
+            <span style={{ color: '#faa61a' }}><Crown size={10} /> Kurucu</span>
+          ) : peer.role === 'mod' ? (
+            <span style={{ color: '#43b581' }}>Moderatör</span>
           ) : (
-            peer.status || 'online'
+            'Üye'
           )}
         </span>
       </div>
@@ -72,11 +74,12 @@ export function MembersPanel({ kickPeer }) {
     // Şimdilik dbMembers üzerinden online statüsünü de kullanabiliriz.
     return {
       uid: m.uid,
-      peerId: m.uid, // kick işlemlerinde Firebase UID kullanabiliriz, ama kickPeer PeerJS ID bekler!
+      peerId: m.uid,
       username: m.username,
       avatarColor: m.avatarColor,
       status: m.online ? 'online' : 'offline',
-      isHost: m.role === 'host'
+      isHost: m.role === 'host',
+      role: m.role || 'member'
     };
   });
 
@@ -115,6 +118,7 @@ export function MembersPanel({ kickPeer }) {
             username: identity?.username || 'Ben',
             avatarColor: identity?.avatarColor,
             status: 'online',
+            role: space?.isHost ? 'host' : 'member'
           }}
           isHost={space?.isHost}
           isSelf

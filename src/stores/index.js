@@ -19,6 +19,8 @@ export const useSpaceStore = create(
     (set, get) => ({
       spaces: [],           // [{ id, name, code, members, unread }]
       activeSpaceId: null,
+      channels: {},         // { [spaceId]: [{ id, name, type }] }
+      activeChannelId: 'general',
 
       addSpace: (space) => set((s) => {
         // Prevent duplicate spaces
@@ -27,7 +29,11 @@ export const useSpaceStore = create(
       }),
       setSpaces: (spaces) => set({ spaces }),
       removeSpace: (id) => set((s) => ({ spaces: s.spaces.filter(sp => sp.id !== id) })),
-      setActiveSpace: (id) => set({ activeSpaceId: id }),
+      setActiveSpace: (id) => set({ activeSpaceId: id, activeChannelId: 'general' }),
+      setActiveChannel: (id) => set({ activeChannelId: id }),
+      setChannels: (spaceId, channels) => set((s) => ({
+        channels: { ...s.channels, [spaceId]: channels }
+      })),
       
       updateSpace: (id, updates) => set((s) => ({
         spaces: s.spaces.map(sp => sp.id === id ? { ...sp, ...updates } : sp),
@@ -52,25 +58,30 @@ export const useSpaceStore = create(
   )
 );
 
-// Messages store (per space)
+// Messages store (per space/channel)
 export const useMessageStore = create((set, get) => ({
-  messages: {}, // { [spaceId]: [{ id, content, sender, timestamp, type }] }
+  messages: {}, // { [spaceId_channelId]: [{ id, content, sender, timestamp, type }] }
 
-  addMessage: (spaceId, message) => set((s) => ({
-    messages: {
-      ...s.messages,
-      [spaceId]: [...(s.messages[spaceId] || []), message],
-    },
-  })),
+  addMessage: (spaceId, channelId, message) => set((s) => {
+    const key = `${spaceId}_${channelId || 'general'}`;
+    return {
+      messages: {
+        ...s.messages,
+        [key]: [...(s.messages[key] || []), message],
+      },
+    };
+  }),
 
-  getMessages: (spaceId) => {
+  getMessages: (spaceId, channelId) => {
     const { messages } = get();
-    return messages[spaceId] || [];
+    const key = `${spaceId}_${channelId || 'general'}`;
+    return messages[key] || [];
   },
 
-  clearMessages: (spaceId) => set((s) => {
+  clearMessages: (spaceId, channelId) => set((s) => {
+    const key = `${spaceId}_${channelId || 'general'}`;
     const next = { ...s.messages };
-    delete next[spaceId];
+    delete next[key];
     return { messages: next };
   }),
 }));

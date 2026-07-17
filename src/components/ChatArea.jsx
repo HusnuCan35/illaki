@@ -240,7 +240,7 @@ function ScreenViewer({ stream, label, onStop }) {
 
 export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, membersOpen, screenShare, onOpenSettings }) {
   const { addMessage, getMessages } = useMessageStore();
-  const { activeSpaceId, getActiveSpace } = useSpaceStore();
+  const { activeSpaceId, getActiveSpace, activeChannelId, channels } = useSpaceStore();
   const { identity } = useIdentityStore();
   const { peers } = usePeerStore();
   const { addToast } = useUIStore();
@@ -258,6 +258,8 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
   const unsubscribeRef = useRef(null);
 
   const activeSpace = getActiveSpace();
+  const spaceChannels = activeSpaceId ? channels[activeSpaceId] || [] : [];
+  const activeChannel = spaceChannels.find(c => c.id === activeChannelId);
   const onlinePeers = Object.keys(peers).length;
 
   // Firebase real-time mesaj dinleyicisi
@@ -273,6 +275,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
     try {
       const unsubscribe = subscribeToMessages(
         activeSpaceId,
+        activeChannelId,
         identity.uid,
         (msgs) => setFirebaseMessages(msgs)
       );
@@ -287,10 +290,10 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
         unsubscribeRef.current = null;
       }
     };
-  }, [activeSpaceId, identity?.uid]);
+  }, [activeSpaceId, activeChannelId, identity?.uid]);
 
   // P2P mesajlarını Firebase mesajlarıyla birleştir (duplikat engelle)
-  const p2pMessages = activeSpaceId ? getMessages(activeSpaceId) : [];
+  const p2pMessages = activeSpaceId ? getMessages(activeSpaceId, activeChannelId) : [];
   const allMessages = mergeMessages(firebaseMessages, p2pMessages);
   const groups = groupMessages(allMessages);
 
@@ -312,9 +315,9 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
 
     try {
       // Firebase'e şifreli gönder
-      await sendEncryptedMessage(activeSpaceId, identity.uid, identity.username, content, 'text');
+      await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text');
       // P2P'ye de gönder (anlık iletim)
-      sendP2PMessage(activeSpaceId, content);
+      sendP2PMessage(activeSpaceId, activeChannelId, content);
     } catch (err) {
       console.error('Mesaj gönderilemedi:', err);
       addToast({ type: 'error', message: 'Mesaj gönderilemedi. Lütfen tekrar dene.' });
@@ -322,7 +325,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
       setSending(false);
       inputRef.current?.focus();
     }
-  }, [input, activeSpaceId, identity, sendP2PMessage, addToast]);
+  }, [input, activeSpaceId, activeChannelId, identity, sendP2PMessage, addToast]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -381,7 +384,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
 
       // Firebase'e şifreli mesaj yaz
       await sendEncryptedMessage(
-        activeSpaceId, identity.uid, identity.username,
+        activeSpaceId, activeChannelId, identity.uid, identity.username,
         file.name, // content = dosya adı
         processed.type,
         {
@@ -444,10 +447,10 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.headerIcon}>
-            <span style={{ fontSize: '1rem' }}>{activeSpace?.icon || '#'}</span>
+            <span style={{ fontSize: '1rem' }}>#</span>
           </div>
           <div>
-            <div className={styles.headerName}>{activeSpace?.name}</div>
+            <div className={styles.headerName}>{activeChannel?.name || 'genel'}</div>
             <div className={styles.headerMeta}>
               <span className={styles.onlineCount}>
                 <span className={styles.onlineDot} aria-hidden="true" />
@@ -541,7 +544,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`#${activeSpace?.name || 'space'} kanalına yaz...`}
+              placeholder={`#${activeChannel?.name || 'genel'} kanalına yaz...`}
               rows={1}
               maxLength={2000}
               className={styles.textarea}

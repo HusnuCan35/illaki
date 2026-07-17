@@ -137,6 +137,14 @@ export async function createSpace({ uid, username, name, description = '', isPri
 
   await setDoc(doc(db, 'spaces', spaceId), spaceData);
 
+  // Varsayılan 'genel' kanalını oluştur
+  await setDoc(doc(db, 'spaces', spaceId, 'channels', 'general'), {
+    id: 'general',
+    name: 'genel',
+    type: 'text',
+    createdAt: serverTimestamp(),
+  });
+
   // Host'u member olarak ekle
   await setDoc(doc(db, 'spaces', spaceId, 'members', uid), {
     uid,
@@ -271,6 +279,66 @@ export async function kickMember(spaceId, hostUid, targetUid) {
 }
 
 /**
+ * Üye yetkisini güncelle
+ */
+export async function updateMemberRole(spaceId, hostUid, targetUid, newRole) {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  if (!snap.exists() || snap.data().hostUid !== hostUid) {
+    throw new Error('Bu işlem için yetkin yok.');
+  }
+  const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
+  await updateDoc(memberRef, { role: newRole });
+}
+
+// ────────────────────────────────────────────────────────────
+// Kanallar (Channels)
+// ────────────────────────────────────────────────────────────
+
+export async function createChannel(spaceId, hostUid, { name, type = 'text' }) {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  
+  // Sadece yetkili kişiler kanal açabilir, şimdilik host diyoruz.
+  if (!snap.exists() || snap.data().hostUid !== hostUid) {
+    throw new Error('Bu işlem için yetkin yok.');
+  }
+
+  const channelsRef = collection(db, 'spaces', spaceId, 'channels');
+  const docRef = await addDoc(channelsRef, {
+    name: name.trim().toLowerCase().replace(/\s+/g, '-'),
+    type,
+    createdAt: serverTimestamp(),
+  });
+  
+  return { id: docRef.id, name, type };
+}
+
+export async function deleteChannel(spaceId, hostUid, channelId) {
+  if (channelId === 'general') throw new Error('Varsayılan kanal silinemez.');
+  
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  if (!snap.exists() || snap.data().hostUid !== hostUid) {
+    throw new Error('Bu işlem için yetkin yok.');
+  }
+
+  const channelRef = doc(db, 'spaces', spaceId, 'channels', channelId);
+  await deleteDoc(channelRef);
+}
+
+export function subscribeToChannels(spaceId, onChannels) {
+  const q = query(
+    collection(db, 'spaces', spaceId, 'channels'),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(q, (snap) => {
+    const channels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    onChannels(channels);
+  });
+}
+
+/**
  * Kullanıcının katıldığı ve host olduğu tüm space'leri getir
  */
 export async function getUserSpaces(uid) {
@@ -302,7 +370,7 @@ export async function getUserSpaces(uid) {
 /**
  * E2E şifreli mesaj gönder
  */
-export async function sendEncryptedMessage(spaceId, uid, username, content, type = 'text', mediaData = null) {
+export async function sendEncryptedMessage(spaceId, channelId, uid, username, content, type = 'text', mediaData = null) {
   let spaceKey = await getSpaceKey(spaceId, uid);
   if (!spaceKey) {
     // Anahtarı yeniden yükle
@@ -325,6 +393,7 @@ export async function sendEncryptedMessage(spaceId, uid, username, content, type
   }
 
   const messageData = {
+    channelId: channelId || 'general',
     encryptedContent: ciphertext,
     iv,
     senderId: uid,
@@ -353,9 +422,10 @@ export async function sendEncryptedMessage(spaceId, uid, username, content, type
  * Şifreli mesajları dinle (real-time)
  * @returns {Function} unsubscribe fonksiyonu
  */
-export function subscribeToMessages(spaceId, uid, onMessages) {
+export function subscribeToMessages(spaceId, channelId, uid, onMessages) {
   const q = query(
     collection(db, 'spaces', spaceId, 'messages'),
+    where('channelId', '==', channelId || 'general'),
     orderBy('timestamp', 'asc'),
     limit(100)
   );

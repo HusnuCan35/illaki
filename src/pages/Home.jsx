@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Sidebar } from '../components/Sidebar';
+import { ServerSidebar } from '../components/ServerSidebar';
+import { ChannelSidebar } from '../components/ChannelSidebar';
 import { ChatArea } from '../components/ChatArea';
 import { MembersPanel } from '../components/MembersPanel';
 import { VoiceChannel } from '../components/VoiceChannel';
@@ -38,35 +39,49 @@ export function Home() {
 
   return (
     <div className={styles.root}>
-      <Sidebar
+      <ServerSidebar
         onCreateSpace={() => setCreateOpen(true)}
         onJoinSpace={() => setJoinOpen(true)}
-        onBroadcastUpdate={broadcastSpaceUpdate}
-        onBroadcastDelete={broadcastSpaceDelete}
-        voiceSlot={
-          <VoiceChannel
-            {...voice}
-            connectedPeerIds={connectedPeerIds}
-            onJoin={voice.joinVoice}
-            onLeave={() => {
-              voice.leaveVoice();
-              screenShare.stopScreenShare();
-            }}
-            onToggleMute={voice.toggleMute}
-            onToggleDeafen={voice.toggleDeafen}
-            screenShare={screenShare}
-          />
-        }
       />
 
-      <div className={styles.content}>
-        <ChatArea
-          sendMessage={sendMessage}
-          onToggleMembers={() => setMembersOpen(m => !m)}
-          membersOpen={membersOpen}
-          screenShare={screenShare}
+      {activeSpaceId && (
+        <ChannelSidebar
+          activeSpaceId={activeSpaceId}
           onOpenSettings={() => setSpaceSettingsOpen(true)}
+          onBroadcastUpdate={broadcastSpaceUpdate}
+          onBroadcastDelete={broadcastSpaceDelete}
+          voiceSlot={
+            <VoiceChannel
+              {...voice}
+              connectedPeerIds={connectedPeerIds}
+              onJoin={voice.joinVoice}
+              onLeave={() => {
+                voice.leaveVoice();
+                screenShare.stopScreenShare();
+              }}
+              onToggleMute={voice.toggleMute}
+              onToggleDeafen={voice.toggleDeafen}
+              screenShare={screenShare}
+            />
+          }
         />
+      )}
+
+      <div className={styles.content}>
+        {activeSpaceId ? (
+          <ChatArea
+            sendMessage={sendMessage}
+            onToggleMembers={() => setMembersOpen(m => !m)}
+            membersOpen={membersOpen}
+            screenShare={screenShare}
+            onOpenSettings={() => setSpaceSettingsOpen(true)}
+          />
+        ) : (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'var(--text-muted)' }}>
+            <h2>illaki'ye Hoş Geldiniz</h2>
+            <p>Başlamak için sol menüden bir sunucu seçin veya yeni bir tane oluşturun.</p>
+          </div>
+        )}
       </div>
 
       {membersOpen && activeSpaceId && <MembersPanel kickPeer={kickPeer} />}
