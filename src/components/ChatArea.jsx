@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
-  Play, X, Upload,
+  Play, X, Upload, Settings, LogOut,
 } from 'lucide-react';
 import {
   useMessageStore, useSpaceStore, useIdentityStore,
@@ -238,7 +238,7 @@ function ScreenViewer({ stream, label, onStop }) {
   );
 }
 
-export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, membersOpen, screenShare }) {
+export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, membersOpen, screenShare, onOpenSettings }) {
   const { addMessage, getMessages } = useMessageStore();
   const { activeSpaceId, getActiveSpace } = useSpaceStore();
   const { identity } = useIdentityStore();
@@ -457,6 +457,13 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
             title={membersOpen ? 'Üyeleri Gizle' : 'Üyeleri Göster'}
           >
             <Users size={16} />
+          </button>
+          <button
+            className={styles.headerBtn}
+            onClick={onOpenSettings}
+            title={activeSpace?.isHost ? 'Oda Ayarları' : 'Odadan Ayrıl'}
+          >
+            {activeSpace?.isHost ? <Settings size={16} /> : <LogOut size={16} />}
           </button>
         </div>
       </header>

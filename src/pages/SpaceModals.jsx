@@ -4,7 +4,7 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useSpaceStore, useIdentityStore, useUIStore, usePeerStore } from '../stores';
 import { codeFromPeerId, peerIdFromCode } from '../hooks/usePeer';
-import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess } from '../lib/firestore';
+import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace } from '../lib/firestore';
 import { cacheSpaceKey } from '../lib/crypto';
 import styles from './SpaceModals.module.css';
 
@@ -314,6 +314,154 @@ export function JoinSpaceModal({ isOpen, onClose, connectToPeer }) {
           </Button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+// ─── Space Ayarları Modal ───────────────────────────────────────────────────────
+export function SpaceSettingsModal({ isOpen, onClose }) {
+  const { activeSpaceId, getActiveSpace, removeSpace, setActiveSpace, updateSpace } = useSpaceStore();
+  const { identity } = useIdentityStore();
+  const { addToast } = useUIStore();
+  const space = getActiveSpace();
+
+  const [name, setName] = useState(space?.name || '');
+  const [description, setDescription] = useState(space?.description || '');
+  const [icon, setIcon] = useState(space?.icon || '💬');
+  const [loading, setLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const ICONS = ['💬', '🎮', '🎵', '📚', '💼', '🎨', '🏆', '🚀', '🌍', '🔥'];
+
+  if (!space && isOpen) {
+    onClose();
+    return null;
+  }
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!name.trim() || !identity || !space.isHost) return;
+
+    setLoading(true);
+    try {
+      await updateSpaceSettings(space.id, identity.uid, {
+        name: name.trim(),
+        description: description.trim(),
+        icon,
+      });
+      updateSpace(space.id, { name: name.trim(), description: description.trim(), icon });
+      addToast({ type: 'success', message: 'Oda ayarları güncellendi.' });
+      onClose();
+    } catch (err) {
+      addToast({ type: 'error', message: err.message || 'Güncellenemedi' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!identity) return;
+    setLoading(true);
+    try {
+      await leaveSpace(space.id, identity.uid);
+      removeSpace(space.id);
+      setActiveSpace(null);
+      addToast({ type: 'info', message: 'Odadan ayrıldınız.' });
+      onClose();
+    } catch (err) {
+      addToast({ type: 'error', message: 'Odadan ayrılamadınız.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!identity || !space.isHost) return;
+    setLoading(true);
+    try {
+      await deleteSpace(space.id, identity.uid);
+      removeSpace(space.id);
+      setActiveSpace(null);
+      addToast({ type: 'info', message: 'Oda silindi.' });
+      onClose();
+    } catch (err) {
+      addToast({ type: 'error', message: 'Oda silinemedi.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal 
+      isOpen={isOpen} 
+      onClose={() => { setConfirmDelete(false); onClose(); }} 
+      title={space?.isHost ? 'Oda Ayarları' : 'Odadan Ayrıl'}
+    >
+      {space?.isHost ? (
+        <form onSubmit={handleUpdate} className={styles.form}>
+          <div className={styles.field}>
+            <label className={styles.label}>Space İkonu</label>
+            <div className={styles.iconGrid}>
+              {ICONS.map(ic => (
+                <button
+                  key={ic} type="button"
+                  className={`${styles.iconBtn} ${icon === ic ? styles.iconBtnActive : ''}`}
+                  onClick={() => setIcon(ic)}
+                >{ic}</button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="edit-space-name" className={styles.label}>Space Adı</label>
+            <div className={styles.inputIcon}>
+              <Hash size={16} className={styles.icon} />
+              <input
+                id="edit-space-name" type="text" value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder={space.name}
+                maxLength={32} className={styles.input} required
+              />
+            </div>
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="edit-space-desc" className={styles.label}>Açıklama</label>
+            <div className={styles.inputIcon}>
+              <FileText size={16} className={styles.icon} />
+              <input
+                id="edit-space-desc" type="text" value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder={space.description || 'Kısa açıklama'}
+                maxLength={100} className={styles.input}
+              />
+            </div>
+          </div>
+
+          <div className={styles.actions} style={{ marginTop: '24px', justifyContent: 'space-between' }}>
+            {confirmDelete ? (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: 'var(--dnd)' }}>Emin misin?</span>
+                <Button type="button" onClick={handleDelete} loading={loading} style={{ background: 'var(--dnd)' }}>Evet, Sil</Button>
+                <Button type="button" variant="secondary" onClick={() => setConfirmDelete(false)}>İptal</Button>
+              </div>
+            ) : (
+              <Button type="button" variant="secondary" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--dnd)' }}>Odayı Sil</Button>
+            )}
+            <Button type="submit" loading={loading} disabled={!name.trim()}>Kaydet</Button>
+          </div>
+        </form>
+      ) : (
+        <div style={{ padding: '8px 0' }}>
+          <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '24px' }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{space?.name}</strong> odasından ayrılmak istediğinize emin misiniz?
+          </p>
+          <div className={styles.actions}>
+            <Button variant="secondary" onClick={onClose} type="button">İptal</Button>
+            <Button type="button" loading={loading} onClick={handleLeave} style={{ background: 'var(--dnd)' }}>
+              Odadan Ayrıl
+            </Button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

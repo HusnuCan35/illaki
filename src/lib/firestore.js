@@ -442,6 +442,22 @@ export async function uploadMedia(spaceId, messageId, blob, path, onProgress) {
 }
 
 /**
+ * Kullanıcı avatarını yükle
+ */
+export async function uploadAvatar(uid, file) {
+  const ext = file.name.split('.').pop() || 'png';
+  const storageRef = ref(storage, `avatars/${uid}/profile.${ext}`);
+  const uploadTask = uploadBytes(storageRef, file);
+  const snapshot = await uploadTask;
+  const url = await getDownloadURL(snapshot.ref);
+  
+  // Profil dökümanını güncelle
+  await updateDoc(doc(db, 'users', uid), { photoURL: url });
+  
+  return url;
+}
+
+/**
  * Medyayı sil
  */
 export async function deleteMedia(spaceId, messageId, path) {

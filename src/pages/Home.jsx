@@ -3,7 +3,7 @@ import { Sidebar } from '../components/Sidebar';
 import { ChatArea } from '../components/ChatArea';
 import { MembersPanel } from '../components/MembersPanel';
 import { VoiceChannel } from '../components/VoiceChannel';
-import { CreateSpaceModal, JoinSpaceModal } from './SpaceModals';
+import { CreateSpaceModal, JoinSpaceModal, SpaceSettingsModal } from './SpaceModals';
 import { SettingsModal } from './Settings';
 import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
@@ -15,6 +15,7 @@ export function Home() {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(true);
+  const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
   const { settingsOpen, setSettingsOpen } = useUIStore();
 
   const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, broadcastSpaceUpdate, broadcastSpaceDelete } = usePeer();
@@ -64,6 +65,7 @@ export function Home() {
           onToggleMembers={() => setMembersOpen(m => !m)}
           membersOpen={membersOpen}
           screenShare={screenShare}
+          onOpenSettings={() => setSpaceSettingsOpen(true)}
         />
       </div>
 
@@ -84,6 +86,11 @@ export function Home() {
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      <SpaceSettingsModal
+        isOpen={spaceSettingsOpen}
+        onClose={() => setSpaceSettingsOpen(false)}
       />
     </div>
   );

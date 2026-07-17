@@ -3,6 +3,7 @@ import { User, Mic, Volume2, Palette, Info, ChevronRight, Check } from 'lucide-r
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useIdentityStore, useUIStore } from '../stores';
+import { uploadAvatar } from '../lib/firestore';
 import styles from './Settings.module.css';
 
 const SECTIONS = [
@@ -32,6 +33,7 @@ export function SettingsModal({ isOpen, onClose }) {
   const [inputDevice, setInputDevice] = useState('');
   const [devices, setDevices] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Ses cihazlarını yükle
   const loadDevices = async () => {
@@ -97,14 +99,52 @@ export function SettingsModal({ isOpen, onClose }) {
 
               <div className={styles.field}>
                 <label className={styles.label}>Avatarın</label>
-                <div
-                  className={styles.avatarPreview}
-                  style={{ background: identity?.avatarColor || 'var(--accent)' }}
-                  aria-label="Avatar önizleme"
-                >
-                  {(username || identity?.username || '?').slice(0, 2).toUpperCase()}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div
+                    className={styles.avatarPreview}
+                    style={{ 
+                      background: identity?.avatarColor || 'var(--accent)',
+                      backgroundImage: identity?.photoURL ? `url(${identity.photoURL})` : 'none',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                    aria-label="Avatar önizleme"
+                  >
+                    {!identity?.photoURL && (username || identity?.username || '?').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <input 
+                      type="file" 
+                      id="avatar-upload" 
+                      accept="image/*" 
+                      style={{ display: 'none' }} 
+                      disabled={uploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !identity?.uid) return;
+                        if (file.size > 2 * 1024 * 1024) {
+                          addToast({ type: 'error', message: 'Maksimum dosya boyutu 2MB' });
+                          return;
+                        }
+                        setUploading(true);
+                        try {
+                          const url = await uploadAvatar(identity.uid, file);
+                          setIdentity({ ...identity, photoURL: url });
+                          addToast({ type: 'success', message: 'Avatar yüklendi!' });
+                        } catch (err) {
+                          addToast({ type: 'error', message: 'Avatar yüklenemedi.' });
+                        } finally {
+                          setUploading(false);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                    <Button variant="secondary" onClick={() => document.getElementById('avatar-upload').click()} loading={uploading}>
+                      Fotoğraf Yükle
+                    </Button>
+                    <p className={styles.hint} style={{ marginTop: '8px' }}>Maksimum boyut: 2MB (JPG, PNG)</p>
+                  </div>
                 </div>
-                <p className={styles.hint}>Avatar otomatik oluşturulur.</p>
               </div>
             </div>
           )}

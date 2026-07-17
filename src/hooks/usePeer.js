@@ -109,6 +109,45 @@ export function usePeer() {
         // dosya chunk'ları ChatArea tarafından ele alınır (event dispatch)
         window.dispatchEvent(new CustomEvent('illaki:file-chunk', { detail: data }));
         break;
+      case 'peer-list': {
+        // MESH NETWORK: Host'tan diğer üyelerin listesi geldi, onlara da bağlan
+        data.peers.forEach(peerIdToConnect => {
+          if (peerIdToConnect !== usePeerStore.getState().peerId && !connectionsRef.current[peerIdToConnect]) {
+            // peerIdToConnect formatı "illaki-KOD" şeklinde. Kod kısmını alıp connectToPeer çağıralım.
+            const code = peerIdToConnect.replace(/^illaki-/, '');
+            if (code) {
+               // doğrudan connect metodunu kullansak daha iyi ama connectToPeer fonksiyonu closure içinde değil.
+               // Neyse ki connectToPeer reference değişmiyor. 
+               // Ama en kolayı doğrudan peerRef üzerinden bağlanmak:
+               if (peerRef.current && !peerRef.current.destroyed) {
+                  const conn = peerRef.current.connect(peerIdToConnect, {
+                    reliable: true,
+                    metadata: {
+                      username: identityRef.current?.username,
+                      avatarColor: identityRef.current?.avatarColor,
+                      spaceCode: data.spaceCode,
+                    },
+                  });
+                  conn.on('open', () => {
+                    connectionsRef.current[conn.peer] = conn;
+                    usePeerStore.getState().addPeer(conn.peer, {
+                      username: 'Bağlanıyor...',
+                      status: 'online',
+                      spaceCode: data.spaceCode,
+                    });
+                    conn.send({ type: 'identity', username: identityRef.current?.username, avatarColor: identityRef.current?.avatarColor });
+                  });
+                  conn.on('data', (d) => handleIncomingData(conn.peer, d));
+                  conn.on('close', () => {
+                    delete connectionsRef.current[conn.peer];
+                    usePeerStore.getState().removePeer(conn.peer);
+                  });
+               }
+            }
+          }
+        });
+        break;
+      }
       default: break;
     }
   }, []);
@@ -131,6 +170,12 @@ export function usePeer() {
       const hostSpace = spaces.find(s => s.isHost && s.code === conn.metadata?.spaceCode);
       if (hostSpace) {
         conn.send({ type: 'space-info', code: hostSpace.code, name: hostSpace.name });
+        
+        // MESH NETWORK: Yeni gelene, odadaki diğer kişileri söyle ki onlara da bağlansın
+        const existingPeers = Object.keys(connectionsRef.current).filter(p => p !== conn.peer);
+        if (existingPeers.length > 0) {
+          conn.send({ type: 'peer-list', peers: existingPeers, spaceCode: hostSpace.code });
+        }
       }
     });
     conn.on('data', (data) => handleIncomingData(conn.peer, data));
