@@ -4,7 +4,7 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useSpaceStore, useIdentityStore, useUIStore, usePeerStore } from '../stores';
 import { codeFromPeerId, peerIdFromCode } from '../hooks/usePeer';
-import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace } from '../lib/firestore';
+import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace, uploadSpaceWallpaper } from '../lib/firestore';
 import { cacheSpaceKey } from '../lib/crypto';
 import styles from './SpaceModals.module.css';
 
@@ -328,15 +328,39 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
   const [name, setName] = useState(space?.name || '');
   const [description, setDescription] = useState(space?.description || '');
   const [icon, setIcon] = useState(space?.icon || '💬');
+  const [themeColor, setThemeColor] = useState(space?.themeColor || '#FF7E20');
+  const [backgroundImage, setBackgroundImage] = useState(space?.backgroundImage || '');
   const [loading, setLoading] = useState(false);
+  const [uploadingBg, setUploadingBg] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const ICONS = ['💬', '🎮', '🎵', '📚', '💼', '🎨', '🏆', '🚀', '🌍', '🔥'];
+  const COLORS = ['#FF7E20', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444'];
 
   if (!space && isOpen) {
     onClose();
     return null;
   }
+
+  const handleBgUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !space) return;
+    if (file.size > 5 * 1024 * 1024) {
+      addToast({ type: 'error', message: 'Maksimum duvar kağıdı boyutu 5MB' });
+      return;
+    }
+    setUploadingBg(true);
+    try {
+      const url = await uploadSpaceWallpaper(space.id, file);
+      setBackgroundImage(url);
+      addToast({ type: 'success', message: 'Duvar kağıdı yüklendi.' });
+    } catch (err) {
+      addToast({ type: 'error', message: 'Yüklenemedi.' });
+    } finally {
+      setUploadingBg(false);
+      e.target.value = '';
+    }
+  };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -348,8 +372,10 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
         name: name.trim(),
         description: description.trim(),
         icon,
+        themeColor,
+        backgroundImage,
       });
-      updateSpace(space.id, { name: name.trim(), description: description.trim(), icon });
+      updateSpace(space.id, { name: name.trim(), description: description.trim(), icon, themeColor, backgroundImage });
       addToast({ type: 'success', message: 'Oda ayarları güncellendi.' });
       onClose();
     } catch (err) {
@@ -433,6 +459,44 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                 placeholder={space.description || 'Kısa açıklama'}
                 maxLength={100} className={styles.input}
               />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Tema Rengi</label>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {COLORS.map(c => (
+                <button
+                  key={c} type="button"
+                  onClick={() => setThemeColor(c)}
+                  style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: c, border: 'none', cursor: 'pointer',
+                    boxShadow: themeColor === c ? `0 0 0 3px var(--bg-surface), 0 0 0 5px ${c}` : 'none',
+                    transition: 'box-shadow 0.2s',
+                  }}
+                  aria-label={`${c} rengini seç`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Arka Plan Görseli</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {backgroundImage && (
+                <div style={{ width: 64, height: 64, borderRadius: 8, backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1 }}>
+                <input type="file" id="bg-upload" accept="image/*" style={{ display: 'none' }} disabled={uploadingBg} onChange={handleBgUpload} />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Button variant="secondary" type="button" loading={uploadingBg} onClick={() => document.getElementById('bg-upload').click()}>Görsel Yükle</Button>
+                  {backgroundImage && (
+                    <Button variant="secondary" type="button" onClick={() => setBackgroundImage('')} style={{ color: 'var(--dnd)' }}>Kaldır</Button>
+                  )}
+                </div>
+                <p className={styles.hint} style={{ marginTop: '8px' }}>Sohbetin arka planı. (Maks 5MB)</p>
+              </div>
             </div>
           </div>
 

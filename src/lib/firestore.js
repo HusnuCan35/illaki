@@ -458,6 +458,18 @@ export async function uploadAvatar(uid, file) {
 }
 
 /**
+ * Oda (Space) duvar kağıdını yükle
+ */
+export async function uploadSpaceWallpaper(spaceId, file) {
+  const ext = file.name.split('.').pop() || 'png';
+  const storageRef = ref(storage, `spaces/${spaceId}/wallpaper/bg.${ext}`);
+  const uploadTask = uploadBytes(storageRef, file);
+  const snapshot = await uploadTask;
+  const url = await getDownloadURL(snapshot.ref);
+  return url;
+}
+
+/**
  * Medyayı sil
  */
 export async function deleteMedia(spaceId, messageId, path) {

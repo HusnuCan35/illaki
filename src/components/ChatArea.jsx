@@ -201,7 +201,7 @@ function WelcomeScreen({ space }) {
       <div className={styles.welcomeCode}>
         <Lock size={13} />
         <span>Oda Kodu:</span>
-        <code>{space.code}</code>
+        <code style={{ color: space?.themeColor || 'var(--accent)' }}>{space.code}</code>
       </div>
     </div>
   );
@@ -414,6 +414,20 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Dinamik oda stillerini ayarla
+  const spaceStyle = {
+    ...(activeSpace?.themeColor && { '--accent': activeSpace.themeColor, '--accent-light': activeSpace.themeColor, '--accent-dark': activeSpace.themeColor }),
+  };
+
+  const messagesStyle = {
+    ...(activeSpace?.backgroundImage && { 
+      backgroundImage: `url(${activeSpace.backgroundImage})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+    }),
+  };
+
   if (!activeSpaceId) {
     return (
       <div className={styles.noSpace}>
@@ -425,7 +439,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
   }
 
   return (
-    <div className={styles.chatArea}>
+    <div className={styles.chatArea} style={spaceStyle}>
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
@@ -474,7 +488,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
       )}
 
       {/* Messages */}
-      <main className={styles.messages} role="log" aria-live="polite" aria-label="Mesajlar">
+      <main className={styles.messages} style={messagesStyle} role="log" aria-live="polite" aria-label="Mesajlar">
         {screenShare?.remoteScreenStream && (
           <ScreenViewer stream={screenShare.remoteScreenStream} label={screenShare.remoteSharer} />
         )}
