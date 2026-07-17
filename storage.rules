@@ -1,0 +1,44 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ── Space Medyaları ────────────────────────────────────────────────────────
+    match /spaces/{spaceId}/media/{messageId}/{filename} {
+      // Okuma: giriş yapmış kullanıcılar (URL zaten güvenli, şifreli)
+      allow read: if request.auth != null;
+      
+      // Yazma: giriş yapmış kullanıcılar, max 50MB
+      allow write: if request.auth != null
+        && request.resource.size < 50 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType.matches('video/.*') ||
+          request.resource.contentType.matches('application/pdf') ||
+          request.resource.contentType.matches('application/.*') ||
+          request.resource.contentType.matches('text/.*')
+        );
+      
+      // Silme: sadece dosyayı yükleyen (metadata ile kontrol edilemez, host yönetir)
+      allow delete: if request.auth != null;
+    }
+    
+    // ── Video Thumbnail ────────────────────────────────────────────────────────
+    match /spaces/{spaceId}/media/{messageId}/thumbnail.webp {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType == 'image/webp';
+      allow delete: if request.auth != null;
+    }
+    
+    // ── Kullanıcı Avatarları (gelecek için) ───────────────────────────────────
+    match /avatars/{uid}/{filename} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

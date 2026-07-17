@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Kullanıcı Profilleri ──────────────────────────────────────────────────
+    match /users/{uid} {
+      // Herkes okuyabilir (username göstermek için), sadece kendi profilini yazabilir
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Kullanıcı ECDH Public Keyleri ─────────────────────────────────────────
+    match /userKeys/{uid} {
+      // Herkes okuyabilir (anahtar değişimi için), sadece kendi key'ini yazabilir
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Space (Oda) Dökümanları ───────────────────────────────────────────────
+    match /spaces/{spaceId} {
+      // Herhangi bir giriş yapmış kullanıcı okuyabilir (katılmak için)
+      allow read: if request.auth != null;
+      
+      // Yeni space oluşturmak için giriş şart
+      allow create: if request.auth != null
+        && request.resource.data.hostUid == request.auth.uid;
+      
+      // Güncelleme: sadece host veya kendi encryptedKeys entry'sini ekleyen üye
+      allow update: if request.auth != null && (
+        resource.data.hostUid == request.auth.uid ||
+        // Üye kendi şifreli anahtarını yazabilir
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['encryptedKeys', 'memberCount', 'updatedAt'])
+      );
+      
+      // Silme: sadece host
+      allow delete: if request.auth != null
+        && resource.data.hostUid == request.auth.uid;
+
+      // ── Mesajlar ─────────────────────────────────────────────────────────────
+      match /messages/{messageId} {
+        // Sadece o space'in üyeleri okuyabilir
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+        
+        // Üyeler mesaj gönderebilir, sadece kendi mesajlarını
+        allow create: if request.auth != null
+          && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid))
+          && request.resource.data.senderId == request.auth.uid;
+        
+        // Mesaj güncellenemez (immutable E2E mesajlar)
+        allow update: if false;
+        
+        // Silme: sadece kendi mesajını veya host
+        allow delete: if request.auth != null && (
+          resource.data.senderId == request.auth.uid ||
+          get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid
+        );
+      }
+
+      // ── Üyeler ───────────────────────────────────────────────────────────────
+      match /members/{uid} {
+        // Aynı space'deki üyeler görebilir
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+        
+        // Kendi üyeliğini oluşturabilir/güncelleyebilir
+        allow write: if request.auth != null && request.auth.uid == uid;
+        
+        // Host herhangi bir üyeyi silebilir (kick)
+        allow delete: if request.auth != null && (
+          request.auth.uid == uid ||
+          get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid
+        );
+      }
+    }
+  }
+}

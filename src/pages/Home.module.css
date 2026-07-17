@@ -1,0 +1,22 @@
+.root {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile: collapse members panel */
+@media (max-width: 900px) {
+  .root aside { display: none; }
+}
+
+@media (max-width: 640px) {
+  .root nav { width: 220px; }
+}
