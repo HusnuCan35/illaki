@@ -37,6 +37,9 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   const { peers } = usePeerStore();
   const peerInfo = peers[peerId] || {};
   
+  const displayName = isSelf ? participant.username : (peerInfo.username || participant.username || 'Katılımcı');
+  const displayColor = isSelf ? participant.avatarColor : (peerInfo.avatarColor || participant.avatarColor);
+  
   const effectiveMute = isSelf ? isMuted : !!peerInfo.isMuted;
   const effectiveDeafen = isSelf ? isDeafened : !!peerInfo.isDeafened;
   const isSpeaking = level > 5 && !effectiveMute && !effectiveDeafen;
@@ -62,7 +65,7 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   return (
     <div
       className={`${styles.videoTile} ${isSpeaking ? styles.videoTileSpeaking : ''}`}
-      aria-label={`${participant.username}${isSpeaking ? ' - konuşuyor' : ''}`}
+      aria-label={`${displayName}${isSpeaking ? ' - konuşuyor' : ''}`}
     >
       {participant.videoStream ? (
         <video
@@ -75,16 +78,16 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
       ) : (
         <div
           className={styles.videoAvatar}
-          style={{ background: participant.avatarColor || 'var(--accent)' }}
+          style={{ background: displayColor || 'var(--accent)' }}
         >
-          {(participant.username || '?').slice(0, 2).toUpperCase()}
+          {(displayName || '?').slice(0, 2).toUpperCase()}
           {isSpeaking && <div className={styles.speakingRing} aria-hidden="true" />}
         </div>
       )}
 
       <div className={styles.videoTileFooter}>
         <span className={styles.videoTileName}>
-          {isSelf ? `${participant.username} (Sen)` : participant.username}
+          {isSelf ? `${displayName} (Sen)` : displayName}
         </span>
         <div className={styles.videoTileIcons}>
           {effectiveMute && <MicOff size={12} className={styles.mutedIcon} />}
