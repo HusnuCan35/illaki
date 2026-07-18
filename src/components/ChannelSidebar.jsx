@@ -282,7 +282,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
-            <span className={styles.userStatus}>Çevrimiçi • v1.0.1</span>
+            <span className={styles.userStatus}>Çevrimiçi • v1.0.2</span>
           </div>
         </div>
         <div className={styles.userActions}>
