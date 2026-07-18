@@ -43,24 +43,37 @@
   transform: translateY(-50%);
   color: var(--text-muted);
   pointer-events: none;
+  transition: color 0.3s ease;
 }
 
 .input {
   width: 100%;
-  padding-left: 40px !important;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding-left: 42px !important;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
   font-size: var(--text-sm);
-  padding: 12px 14px;
-  transition: all 0.2s ease;
+  padding: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+}
+
+.input:hover {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .input:focus {
   outline: none;
+  background: rgba(0, 0, 0, 0.4);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 255, 126, 32), 0.15);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb, 255, 126, 32), 0.15),
+              inset 0 0 0 1px var(--accent);
+}
+
+.input:focus ~ .icon {
+  color: var(--accent);
 }
 
 .codeInput {
@@ -136,10 +149,18 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 0.875rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding: 1rem;
+  background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.settingsRow:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .toggleLabel {

@@ -20,7 +20,7 @@ export function Home() {
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
   const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar } = useUIStore();
 
-  const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
+  const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, kickFromVoice, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
   const voice = useVoice(getPeer, broadcastVoiceStatus);
   const screenShare = useScreenShare(getPeer);
   const { peers } = usePeerStore();
@@ -76,6 +76,7 @@ export function Home() {
             onOpenSettings={() => setSpaceSettingsOpen(true)}
             onBroadcastUpdate={broadcastSpaceUpdate}
             onBroadcastDelete={broadcastSpaceDelete}
+            kickFromVoice={kickFromVoice}
             voiceSlot={
               <VoiceChannel
                 {...voice}

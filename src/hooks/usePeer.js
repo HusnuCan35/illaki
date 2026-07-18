@@ -99,6 +99,11 @@ export function usePeer() {
         usePeerStore.getState().removePeer(fromPeerId);
         break;
       }
+      case 'voice-kick': {
+        addToast({ type: 'warning', message: 'Ses kanalından çıkarıldın.' });
+        window.dispatchEvent(new CustomEvent('illaki:voice-kicked'));
+        break;
+      }
       case 'space-update': {
         const { spaces, updateSpace } = useSpaceStore.getState();
         const sp = spaces.find(s => s.id === data.spaceId);
@@ -363,7 +368,15 @@ export function usePeer() {
         addToast({ type: 'info', message: 'Kullanıcı odadan atıldı.' });
       }, 500); // 500ms bekle ki mesaj gitsin
     }
-  }, []);
+  }, [addToast, removePeer]);
+
+  const kickFromVoice = useCallback((targetPeerId) => {
+    const conn = connectionsRef.current[targetPeerId];
+    if (conn) {
+      conn.send({ type: 'voice-kick' });
+      addToast({ type: 'info', message: 'Kullanıcı ses kanalından çıkarıldı.' });
+    }
+  }, [addToast]);
 
   // ── Mesaj gönder ──────────────────────────────────────────────────────────
   const sendMessage = useCallback((spaceId, channelId, content, type = 'chat', mediaData = null) => {
@@ -420,6 +433,7 @@ export function usePeer() {
     sendMessage,
     getPeer: () => peerRef.current,
     kickPeer,
+    kickFromVoice,
     broadcastSpaceUpdate,
     broadcastSpaceDelete,
     broadcastVoiceStatus,

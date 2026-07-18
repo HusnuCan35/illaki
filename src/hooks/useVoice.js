@@ -452,11 +452,13 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   useEffect(() => {
     const handleKicked = () => leaveVoice();
     window.addEventListener('illaki:kicked', handleKicked);
+    window.addEventListener('illaki:voice-kicked', handleKicked);
 
     return () => {
       leaveVoice();
       audioContextRef.current?.close();
       window.removeEventListener('illaki:kicked', handleKicked);
+      window.removeEventListener('illaki:voice-kicked', handleKicked);
     };
   }, [leaveVoice]);
 

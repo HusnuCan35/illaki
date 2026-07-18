@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2 } from 'lucide-react';
+import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2, UserMinus } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, usePeerStore, useUIStore } from '../stores';
 import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace } from '../lib/firestore';
 import { signOut } from 'firebase/auth';
@@ -21,7 +21,7 @@ function Avatar({ username, color, size = 36, status }) {
   );
 }
 
-export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBroadcastUpdate, onBroadcastDelete }) {
+export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBroadcastUpdate, onBroadcastDelete, kickFromVoice }) {
   const { spaces, channels, activeChannelId, setActiveChannel, setChannels, removeSpace, setActiveSpace } = useSpaceStore();
   const { identity, clearIdentity } = useIdentityStore();
   const { setSettingsOpen } = useUIStore();
@@ -225,8 +225,6 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
                     <button
                       className={styles.channelItem}
                       onClick={() => {
-                        // Eğer dışarıdan bir fonksiyon geçilmişse (voiceSlot artık props ile değil fonksiyonla çalışacak)
-                        // Bunu Home componentinden prop olarak almalıyız!
                         window.dispatchEvent(new CustomEvent('illaki:join-voice', { detail: { channelId: channel.id } }));
                       }}
                     >
@@ -254,7 +252,16 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
                       {othersInChannel.map(([id, p]) => (
                         <div key={id} className={styles.voiceParticipantRow}>
                           <Avatar username={p.username} color={p.avatarColor} size={24} status={p.status} />
-                          <span className={styles.voiceParticipantName}>{p.username}</span>
+                          <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{p.username}</span>
+                          {isPrivileged && kickFromVoice && (
+                            <button 
+                              className={styles.kickVoiceBtn}
+                              onClick={() => kickFromVoice(id)}
+                              title="Kullanıcıyı sesten at"
+                            >
+                              <UserMinus size={14} />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

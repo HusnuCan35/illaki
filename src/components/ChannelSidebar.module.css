@@ -342,3 +342,19 @@
     max-width: 100vw;
   }
 }
+
+.kickVoiceBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kickVoiceBtn:hover {
+  color: var(--accent-danger);
+  background: rgba(255, 60, 60, 0.1);
+}
