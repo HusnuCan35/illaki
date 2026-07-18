@@ -46,7 +46,21 @@
 }
 
 .input {
+  width: 100%;
   padding-left: 40px !important;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 255, 126, 32), 0.15);
 }
 
 .codeInput {
@@ -57,6 +71,18 @@
   font-family: var(--font-mono);
   padding: var(--space-4) var(--space-5) !important;
   text-transform: uppercase;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.codeInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 255, 126, 32), 0.15);
 }
 
 .inputError {

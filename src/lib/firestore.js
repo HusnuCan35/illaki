@@ -483,7 +483,7 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
     const { ciphertext: replyContent, iv: replyIv } = await encryptMessage(spaceKey, replyTo.content);
     encryptedReplyTo = {
       messageId: replyTo.id,
-      senderUsername: replyTo.senderUsername,
+      senderUsername: replyTo.sender || replyTo.senderUsername || 'Bilinmiyor',
       encryptedContent: replyContent,
       iv: replyIv,
     };
@@ -606,6 +606,20 @@ export function subscribeToMessages(spaceId, channelId, uid, onMessages) {
             thumbnailUrl = await decryptMessage(spaceKey, data.encryptedThumbnailUrl.ciphertext, data.encryptedThumbnailUrl.iv);
           }
 
+          let decryptedReplyTo = null;
+          if (data.replyTo) {
+            try {
+              const replyContent = await decryptMessage(spaceKey, data.replyTo.encryptedContent, data.replyTo.iv);
+              decryptedReplyTo = {
+                id: data.replyTo.messageId,
+                sender: data.replyTo.senderUsername,
+                content: replyContent
+              };
+            } catch (err) {
+              console.error('Yanıt mesajı çözülemedi', err);
+            }
+          }
+
           return {
             id: d.id,
             content,
@@ -621,6 +635,9 @@ export function subscribeToMessages(spaceId, channelId, uid, onMessages) {
             mediaName: data.mediaName,
             mediaDuration: data.mediaDuration,
             mediaDimensions: data.mediaDimensions,
+            isEdited: data.isEdited || false,
+            reactions: data.reactions || {},
+            replyTo: decryptedReplyTo,
           };
         } catch {
           return {

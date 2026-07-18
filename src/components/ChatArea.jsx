@@ -3,7 +3,7 @@ import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
   Play, X, Upload, Settings, LogOut, Volume2, Music, Menu,
-  Reply, Edit2, Trash2
+  Reply, Edit2, Trash2, Dices
 } from 'lucide-react';
 import {
   useMessageStore, useSpaceStore, useIdentityStore,
@@ -188,10 +188,26 @@ function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity }) {
 
 function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identity }) {
   const [showActions, setShowActions] = useState(false);
-  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(msg.content);
+
+  const handleEditSave = () => {
+    if (editContent.trim() && editContent !== msg.content) {
+      onEdit(msg.id, editContent.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleEditCancel = () => {
+    setEditContent(msg.content);
+    setIsEditing(false);
+  };
+
   if (msg.type === 'system') {
+    const isDice = msg.content.includes('Zar attı');
     return (
       <div className={styles.systemMessage}>
+        {isDice && <Dices size={16} className={styles.diceAnim} />}
         <span>{msg.content}</span>
       </div>
     );
@@ -206,7 +222,7 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
       {msg.replyTo && (
         <div className={styles.replyContext}>
           <div className={styles.replyBar} />
-          <span className={styles.replyUsername}>@{msg.replyTo.senderUsername}</span>
+          <span className={styles.replyUsername}>@{msg.replyTo.sender}</span>
           <span className={styles.replyContent}>
             {msg.replyTo.content || "Medya mesajı"}
           </span>
@@ -214,10 +230,29 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
       )}
       
       <div className={`${styles.msgBubble} ${group.own ? styles.ownBubble : styles.otherBubble}`}>
-        {(msg.type === 'image' || msg.type === 'video' || msg.type === 'file') && msg.mediaUrl ? (
-          <MediaBubble msg={msg} />
+        {isEditing ? (
+          <div className={styles.editMode}>
+            <input 
+              autoFocus 
+              value={editContent} 
+              onChange={e => setEditContent(e.target.value)} 
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleEditSave();
+                if (e.key === 'Escape') handleEditCancel();
+              }}
+              className={styles.editInput}
+            />
+            <div className={styles.editActions}>
+              <button onClick={handleEditCancel} className={styles.cancelBtn}>İptal</button>
+              <button onClick={handleEditSave} className={styles.saveBtn}>Kaydet</button>
+            </div>
+          </div>
         ) : (
-          <span>{msg.content}</span>
+          (msg.type === 'image' || msg.type === 'video' || msg.type === 'file') && msg.mediaUrl ? (
+            <MediaBubble msg={msg} />
+          ) : (
+            <span>{msg.content}</span>
+          )
         )}
         <div className={styles.msgMetaInfo}>
           {msg.isEdited && <span className={styles.editedMark}>(düzenlendi)</span>}
@@ -242,13 +277,13 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
         </div>
       )}
 
-      {showActions && (
+      {showActions && !isEditing && (
         <div className={`${styles.msgActions} ${group.own ? styles.msgActionsRight : styles.msgActionsLeft}`}>
           <button className={styles.actionBtn} onClick={() => onReact(msg.id, '👍')} title="Beğen"><Smile size={14} /></button>
           <button className={styles.actionBtn} onClick={() => onReply(msg)} title="Yanıtla"><Reply size={14} /></button>
           {group.own && (
             <>
-              <button className={styles.actionBtn} onClick={() => onEdit(msg)} title="Düzenle"><Edit2 size={14} /></button>
+              <button className={styles.actionBtn} onClick={() => setIsEditing(true)} title="Düzenle"><Edit2 size={14} /></button>
               <button className={`${styles.actionBtn} ${styles.actionBtnDanger}`} onClick={() => onDelete(msg.id)} title="Sil"><Trash2 size={14} /></button>
             </>
           )}
