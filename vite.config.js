@@ -5,9 +5,12 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  define: {
+    global: 'globalThis',
+  },
   optimizeDeps: {
     include: ['gun', 'gun/sea'],
-    rolldownOptions: {
+    esbuildOptions: {
       define: {
         global: 'globalThis',
       },
