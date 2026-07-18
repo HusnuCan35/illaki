@@ -115,9 +115,7 @@ export async function createSpace({ uid, username, name, description = '', isPri
   const sharedKey = await deriveSharedKey(hostKeyPair.privateKey, hostPublicKey || hostKeyPair.publicKey);
   const encryptedKey = await encryptSpaceKey(spaceKey, sharedKey);
 
-  // Space dokumanini yaz (Batch ile)
-  const batch = writeBatch(db);
-
+  // Space dökümanını yaz
   const spaceData = {
     id: spaceId,
     name,
@@ -131,24 +129,24 @@ export async function createSpace({ uid, username, name, description = '', isPri
     memberCount: 1,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    // Sifreli space key - her uye icin ayri entry
+    // Şifreli space key - her üye için ayrı entry
     encryptedKeys: {
       [uid]: encryptedKey,
     },
   };
 
-  batch.set(doc(db, 'spaces', spaceId), spaceData);
+  await setDoc(doc(db, 'spaces', spaceId), spaceData);
 
-  // Varsayilan 'genel' kanalini olustur
-  batch.set(doc(db, 'spaces', spaceId, 'channels', 'general'), {
+  // Varsayılan 'genel' kanalını oluştur
+  await setDoc(doc(db, 'spaces', spaceId, 'channels', 'general'), {
     id: 'general',
     name: 'genel',
     type: 'text',
     createdAt: serverTimestamp(),
   });
 
-  // Varsayilan ses kanalini olustur
-  batch.set(doc(db, 'spaces', spaceId, 'channels', 'general-voice'), {
+  // Varsayılan ses kanalını oluştur
+  await setDoc(doc(db, 'spaces', spaceId, 'channels', 'general-voice'), {
     id: 'general-voice',
     name: 'Ses Kanalı',
     type: 'voice',
@@ -156,7 +154,7 @@ export async function createSpace({ uid, username, name, description = '', isPri
   });
 
   // Host'u member olarak ekle
-  batch.set(doc(db, 'spaces', spaceId, 'members', uid), {
+  await setDoc(doc(db, 'spaces', spaceId, 'members', uid), {
     uid,
     username,
     role: 'host',
@@ -164,8 +162,6 @@ export async function createSpace({ uid, username, name, description = '', isPri
     lastSeen: serverTimestamp(),
     online: true,
   });
-
-  await batch.commit();
 
   // Space key'i session cache'e yaz
   await cacheSpaceKey(spaceId, spaceKey);
@@ -202,7 +198,9 @@ export async function joinSpace(code, { uid, username }) {
 
   // Yeni üye — Host'tan space key alıp kendi anahtarımızla şifrele
   // Not: Bu işlem için host'un genel anahtarını kullanarak space key'i deşifreleriz
-  // Sonra kendi genel anahtarımızla yeniden şifrele
+  // Sonra kendi genel anahtarımızla yeniden şifreleriz
+  // Tam E2E için: space'e katılma isteği → host onayı akışı eklenebilir
+  // Şimdilik: Firestore'daki şifreli key'i host public key ile çözüp yeniden şifrele
   
   const userKeyPair = await loadUserKeyPair(uid);
   if (!userKeyPair) throw new Error('Şifreleme anahtarı bulunamadı');
@@ -218,10 +216,8 @@ export async function joinSpace(code, { uid, username }) {
     } catch {}
   }
 
-  // Üyeyi kaydet (Batch ile)
-  const batch = writeBatch(db);
-
-  batch.set(memberRef, {
+  // Üyeyi kaydet
+  await setDoc(memberRef, {
     uid,
     username,
     role: 'member',
@@ -230,12 +226,10 @@ export async function joinSpace(code, { uid, username }) {
     online: true,
   });
 
-  batch.update(spaceRef, {
+  await updateDoc(spaceRef, {
     memberCount: (spaceData.memberCount || 1) + 1,
     updatedAt: serverTimestamp(),
   });
-
-  await batch.commit();
 
   return { spaceId, spaceData };
 }
