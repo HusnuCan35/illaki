@@ -152,7 +152,7 @@ export function usePeer() {
                     },
                   });
                   connectionsRef.current[peerIdToConnect] = conn;
-                  conn.on('open', () => {
+                  const handleOpen = () => {
                     usePeerStore.getState().addPeer(conn.peer, {
                       username: 'Bağlanıyor...',
                       status: 'online',
@@ -164,7 +164,9 @@ export function usePeer() {
                       avatarColor: identityRef.current?.avatarColor,
                       voiceChannelId: usePeerStore.getState().voiceChannelId
                     });
-                  });
+                  };
+                  if (conn.open) handleOpen();
+                  else conn.on('open', handleOpen);
                   conn.on('data', (d) => handleIncomingData(conn.peer, d));
                   conn.on('close', () => {
                     delete connectionsRef.current[conn.peer];
@@ -204,7 +206,7 @@ export function usePeer() {
 
   // ── Gelen bağlantı ────────────────────────────────────────────────────────
   const handleIncomingConnection = useCallback((conn) => {
-    conn.on('open', () => {
+    const handleOpen = () => {
       connectionsRef.current[conn.peer] = conn;
       addPeer(conn.peer, {
         username: conn.metadata?.username || 'Anonim',
@@ -212,7 +214,7 @@ export function usePeer() {
         status: 'online',
         spaceCode: conn.metadata?.spaceCode,
       });
-      addToast({ type: 'success', message: `${conn.metadata?.username || 'Biri'} bağllandı` });
+      addToast({ type: 'success', message: `${conn.metadata?.username || 'Biri'} bağlandı` });
       // Kimliğimizi gönder
       conn.send({ 
         type: 'identity', 
@@ -232,7 +234,11 @@ export function usePeer() {
           conn.send({ type: 'peer-list', peers: existingPeers, spaceCode: hostSpace.code });
         }
       }
-    });
+    };
+    
+    if (conn.open) handleOpen();
+    else conn.on('open', handleOpen);
+    
     conn.on('data', (data) => handleIncomingData(conn.peer, data));
     conn.on('close', () => {
       delete connectionsRef.current[conn.peer];
@@ -330,17 +336,28 @@ export function usePeer() {
         reject(new Error('Bağlantı zaman aşımı — host çevrimiçi değil veya kod yanlış.'));
       }, 12000);
 
-      conn.on('open', () => {
+      const handleOpen = () => {
         clearTimeout(timeout);
-        connectionsRef.current[conn.peer] = conn;
-        addPeer(conn.peer, {
-          username: 'Bağlanıyor...',
+        connectionsRef.current[remotePeerId] = conn;
+        addPeer(remotePeerId, {
+          username: conn.metadata?.username || 'Host',
+          avatarColor: conn.metadata?.avatarColor,
           status: 'online',
           spaceCode: remoteCode,
         });
-        addToast({ type: 'success', message: 'Odaya bağlanıldı' });
+        addToast({ type: 'success', message: 'Sunucuya bağlanıldı' });
+        // Kimliğimizi gönder
+        conn.send({ 
+          type: 'identity', 
+          username: identityRef.current?.username, 
+          avatarColor: identityRef.current?.avatarColor,
+          voiceChannelId: usePeerStore.getState().voiceChannelId
+        });
         resolve(conn);
-      });
+      };
+      
+      if (conn.open) handleOpen();
+      else conn.on('open', handleOpen);
 
       conn.on('data', (data) => handleIncomingData(conn.peer, data));
       conn.on('close', () => {
