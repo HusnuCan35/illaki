@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal } from 'lucide-react';
+import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2 } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, usePeerStore, useUIStore } from '../stores';
-import { subscribeToChannels, createChannel, deleteChannel, updateSpaceSettings, deleteSpace } from '../lib/firestore';
+import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace } from '../lib/firestore';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { CreateChannelModal, ChannelSettingsModal } from './ChannelModals';
 import styles from './ChannelSidebar.module.css';
 
 // Avatar Component
@@ -24,41 +25,96 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
   const { spaces, channels, activeChannelId, setActiveChannel, setChannels, removeSpace, setActiveSpace } = useSpaceStore();
   const { identity, clearIdentity } = useIdentityStore();
   const { setSettingsOpen } = useUIStore();
-  const { peerId } = usePeerStore();
+  const { peers, voiceChannelId } = usePeerStore();
   const [codeCopied, setCodeCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState('member');
+  
+  // Modals state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState(null);
 
   const activeSpace = spaces.find(sp => sp.id === activeSpaceId);
   const spaceChannels = channels[activeSpaceId] || [];
 
-  // Geçmişe yönelik uyumluluk: Eğer odada hiç kanal yoksa sanal bir kanal göster
-  const displayChannels = spaceChannels.length > 0 
-    ? spaceChannels 
-    : [{ id: 'general', name: 'genel', type: 'text' }];
+  // Geçmişe yönelik uyumluluk
+  const hasText = spaceChannels.some(c => c.type === 'text');
+  const hasVoice = spaceChannels.some(c => c.type === 'voice');
+  const displayChannels = [...spaceChannels];
+  if (!hasText) displayChannels.push({ id: 'general', name: 'genel', type: 'text' });
+  if (!hasVoice) displayChannels.push({ id: 'general-voice', name: 'Ses Kanalı', type: 'voice' });
 
   useEffect(() => {
     if (!activeSpaceId) return;
-    const unsub = subscribeToChannels(activeSpaceId, (data) => {
+    const unsubChannels = subscribeToChannels(activeSpaceId, (data) => {
       setChannels(activeSpaceId, data);
     });
-    return () => unsub();
-  }, [activeSpaceId]);
+    const unsubMembers = subscribeToMembers(activeSpaceId, (members) => {
+      const me = members.find(m => m.uid === identity?.uid);
+      if (me) setCurrentUserRole(me.role || 'member');
+    });
+    return () => {
+      unsubChannels();
+      unsubMembers();
+    };
+  }, [activeSpaceId, identity?.uid]);
 
   if (!activeSpace) return null;
 
-  const handleCreateChannel = async () => {
-    const name = window.prompt('Yeni kanal adı:');
-    if (!name || !name.trim()) return;
+  const isHost = activeSpace.hostUid === identity?.uid;
+  const isPrivileged = isHost || currentUserRole === 'admin' || currentUserRole === 'mod';
+
+  // Filter channels based on roles
+  const canViewChannel = (c) => {
+    if (!c.allowedRoles || c.allowedRoles.includes('all')) return true;
+    return isPrivileged;
+  };
+
+  const visibleChannels = displayChannels.filter(canViewChannel);
+
+  const handleCreateChannelOpen = (type) => {
+    // Sadece host/yetkililer açabilir, role kontrolü eklenecek
+    setCreateModalOpen(true);
+  };
+
+  const handleEditChannelOpen = (e, channel) => {
+    e.stopPropagation();
+    setEditingChannel(channel);
+    setSettingsModalOpen(true);
+  };
+
+  const handleCreateChannelSubmit = async ({ name, type, allowedRoles }) => {
     try {
-      await createChannel(activeSpaceId, identity.uid, { name: name.trim() });
+      await createChannel(activeSpaceId, identity.uid, { name, type, allowedRoles });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleUpdateChannelSubmit = async ({ name, allowedRoles }) => {
+    if (!editingChannel) return;
+    try {
+      await updateChannel(activeSpaceId, identity.uid, editingChannel.id, { name, allowedRoles });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteChannelSubmit = async () => {
+    if (!editingChannel) return;
+    try {
+      await deleteChannel(activeSpaceId, identity.uid, editingChannel.id);
+      if (activeChannelId === editingChannel.id) setActiveChannel('general');
+      setSettingsModalOpen(false);
     } catch (err) {
       alert(err.message);
     }
   };
 
   const copyPeerId = async () => {
-    if (!peerId) return;
-    const code = peerId.replace('illaki-', '');
+    if (!usePeerStore.getState().peerId) return;
+    const code = usePeerStore.getState().peerId.replace('illaki-', '');
     await navigator.clipboard.writeText(code);
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
@@ -75,8 +131,6 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
       }
     }
   };
-
-  const isHost = activeSpace.hostUid === identity?.uid;
 
   return (
     <div className={styles.container}>
@@ -115,66 +169,100 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionTitle}>METİN KANALLARI</span>
-            {isHost && (
-              <button className={styles.addBtn} onClick={handleCreateChannel}>
+            {isPrivileged && (
+              <button className={styles.addBtn} onClick={() => handleCreateChannelOpen('text')}>
                 <Plus size={16} />
               </button>
             )}
           </div>
           <div className={styles.channelList}>
-            {displayChannels.filter(c => c.type === 'text').map(channel => (
-              <button
-                key={channel.id}
-                className={`${styles.channelItem} ${activeChannelId === channel.id ? styles.active : ''}`}
-                onClick={() => setActiveChannel(channel.id)}
-              >
-                <Hash size={18} className={styles.channelIcon} />
-                <span className={styles.channelName}>{channel.name}</span>
-                {isHost && channel.id !== 'general' && (
-                  <button
-                    className={styles.deleteChannelBtn}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (window.confirm(`"${channel.name}" kanalını silmek istediğinize emin misiniz?`)) {
-                        try {
-                          await deleteChannel(activeSpaceId, identity.uid, channel.id);
-                          if (activeChannelId === channel.id) setActiveChannel('general');
-                        } catch (err) {
-                          alert(err.message);
-                        }
-                      }
-                    }}
-                  >
-                    ×
-                  </button>
+            {visibleChannels.filter(c => c.type === 'text').map(channel => (
+              <div key={channel.id} className={`${styles.channelItemWrapper} ${activeChannelId === channel.id ? styles.active : ''}`}>
+                <button
+                  className={styles.channelItem}
+                  onClick={() => setActiveChannel(channel.id)}
+                >
+                  <Hash size={18} className={styles.channelIcon} />
+                  <span className={styles.channelName}>{channel.name}</span>
+                </button>
+                {isPrivileged && (
+                  <div className={styles.channelActions}>
+                    <button className={styles.actionIconBtn} onClick={(e) => handleEditChannelOpen(e, channel)} title="Düzenle">
+                      <Settings size={14} />
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             ))}
           </div>
         </div>
 
-        {voiceSlot && (
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>SES KANALLARI</span>
-            </div>
-            {voiceSlot}
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionTitle}>SES KANALLARI</span>
+            {isPrivileged && (
+              <button className={styles.addBtn} onClick={() => handleCreateChannelOpen('voice')}>
+                <Plus size={16} />
+              </button>
+            )}
           </div>
-        )}
+          <div className={styles.channelList}>
+            {visibleChannels.filter(c => c.type === 'voice').map(channel => {
+              // Bu odadaki kullanıcılar (kendimiz + peers)
+              const meInChannel = voiceChannelId === channel.id;
+              const othersInChannel = Object.entries(peers).filter(([_, p]) => p.voiceChannelId === channel.id);
+              
+              return (
+                <div key={channel.id}>
+                  <div className={`${styles.channelItemWrapper} ${meInChannel ? styles.activeVoice : ''}`}>
+                    <button
+                      className={styles.channelItem}
+                      onClick={() => {
+                        // Eğer dışarıdan bir fonksiyon geçilmişse (voiceSlot artık props ile değil fonksiyonla çalışacak)
+                        // Bunu Home componentinden prop olarak almalıyız!
+                        window.dispatchEvent(new CustomEvent('illaki:join-voice', { detail: { channelId: channel.id } }));
+                      }}
+                    >
+                      <Volume2 size={18} className={styles.channelIcon} />
+                      <span className={styles.channelName}>{channel.name}</span>
+                    </button>
+                    {isPrivileged && (
+                      <div className={styles.channelActions}>
+                        <button className={styles.actionIconBtn} onClick={(e) => handleEditChannelOpen(e, channel)} title="Ayarlar">
+                          <Settings size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Katılımcılar (Discord gibi kanalın altında liste) */}
+                  {(meInChannel || othersInChannel.length > 0) && (
+                    <div className={styles.voiceParticipantsList}>
+                      {meInChannel && (
+                        <div className={styles.voiceParticipantRow}>
+                          <Avatar username={identity.username} color={identity.avatarColor} size={24} status="online" />
+                          <span className={styles.voiceParticipantName}>{identity.username} (Sen)</span>
+                        </div>
+                      )}
+                      {othersInChannel.map(([id, p]) => (
+                        <div key={id} className={styles.voiceParticipantRow}>
+                          <Avatar username={p.username} color={p.avatarColor} size={24} status={p.status} />
+                          <span className={styles.voiceParticipantName}>{p.username}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Peer ID section */}
-      {peerId && (
-        <div className={styles.peerIdSection}>
-          <div className={styles.peerLabel}>Oda Kodu</div>
-          <button className={styles.peerBox} onClick={copyPeerId}>
-            <span>{peerId.replace('illaki-', '')}</span>
-            {codeCopied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
-        </div>
-      )}
+      {/* Oda kodu (peer ID) kaldırıldı */}
+      {/* Voice Connection Panel (Bottom) */}
+      {voiceSlot}
 
-      {/* User panel */}
       <div className={styles.userPanel}>
         <div className={styles.userInfo}>
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
@@ -192,6 +280,20 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           </button>
         </div>
       </div>
+
+      <CreateChannelModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreate={handleCreateChannelSubmit}
+      />
+
+      <ChannelSettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        channel={editingChannel}
+        onUpdate={handleUpdateChannelSubmit}
+        onDelete={handleDeleteChannelSubmit}
+      />
     </div>
   );
 }

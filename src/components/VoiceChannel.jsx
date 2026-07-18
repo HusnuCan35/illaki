@@ -3,8 +3,10 @@ import {
   Mic, MicOff, Headphones, HeadphonesIcon,
   PhoneOff, Volume2, VolumeX, Radio, MonitorUp, MonitorOff
 } from 'lucide-react';
+import { useSpaceStore, usePeerStore } from '../stores';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { MusicPlayerCore } from './MusicPlayerCore';
 import styles from './VoiceChannel.module.css';
 
 // Ses göstergesi (konuşma seviyesi animasyonu)
@@ -87,48 +89,53 @@ export function VoiceChannel({
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [res, setRes] = useState('1080');
   const [fps, setFps] = useState('30');
+  const [musicState, setMusicState] = useState(null);
+
+  // Aktif kanalın ismini bulalım (store'dan)
+  const { channels, activeSpaceId } = useSpaceStore();
+  const { voiceChannelId } = usePeerStore();
 
   if (!isInVoice) {
-    return (
-      <div className={styles.joinPrompt}>
-        <div className={styles.joinIcon} aria-hidden="true">
-          <Radio size={18} />
-        </div>
-        <div className={styles.joinInfo}>
-          <span className={styles.joinTitle}>Ses Kanalı</span>
-          <span className={styles.joinDesc}>HD kalitede sesli görüşme</span>
-        </div>
-        <button
-          className={styles.joinBtn}
-          onClick={() => onJoin(connectedPeerIds)}
-          aria-label="Ses kanalına katıl"
-          id="join-voice-btn"
-        >
-          <Mic size={15} />
-        </button>
-      </div>
-    );
+    return null; // Artık katılma butonu kanalların üzerinde, burası sadece bağlıyken görünecek
   }
 
-  const participantList = Object.entries(voiceParticipants);
+  const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
 
   return (
-    <div className={styles.voicePanel}>
-      {/* Başlık */}
-      <div className={styles.voiceHeader}>
-        <div className={styles.voiceLive} aria-label="Canlı ses kanalı">
-          <span className={styles.liveDot} aria-hidden="true" />
-          <span>CANLI</span>
+    <div className={styles.connectionPanel}>
+      <div className={styles.connectionInfo}>
+        <div className={styles.connectionStatus}>
+          <Radio size={14} className={styles.connectedIcon} />
+          <span>Ses Bağlantısı</span>
         </div>
-        <span className={styles.voiceTitle}>Ses Kanalı</span>
-        <span className={styles.participantCount} aria-label={`${participantList.length} katılımcı`}>
-          {participantList.length}
-        </span>
+        <div className={styles.connectionChannel}>
+          {activeVoiceChannel?.name || 'Ses Kanalı'}
+        </div>
       </div>
 
-      {/* Katılımcılar */}
-      <div className={styles.participants} role="list" aria-label="Ses kanalı katılımcıları">
-        {participantList.map(([peerId, participant]) => (
+      <div className={styles.participantsList}>
+        {/* Müzik Botu Katılımcısı (Sadece Şarkı Çalıyorsa) */}
+        {musicState?.currentSong && (
+          <div className={`${styles.participant} ${musicState.status === 'playing' ? styles.speaking : ''}`}>
+            <div
+              className={styles.participantAvatar}
+              style={{ background: '#FF0000' }}
+              aria-hidden="true"
+            >
+              🎵
+              {musicState.status === 'playing' && <div className={styles.speakingRing} aria-hidden="true" />}
+            </div>
+            <span className={styles.participantName}>
+              Müzik Botu
+            </span>
+            <div className={styles.participantIcons} aria-hidden="true">
+              <SpeakingBars level={musicState.status === 'playing' ? 12 : 0} active={musicState.status === 'playing'} />
+            </div>
+          </div>
+        )}
+
+        {/* Gerçek Katılımcılar */}
+        {Object.entries(voiceParticipants).map(([peerId, participant]) => (
           <Participant
             key={peerId}
             peerId={peerId}
@@ -183,11 +190,9 @@ export function VoiceChannel({
         <button
           className={`${styles.controlBtn} ${styles.leaveBtn}`}
           onClick={onLeave}
-          aria-label="Ses kanalından ayrıl"
           title="Ayrıl"
-          id="leave-voice-btn"
         >
-          <PhoneOff size={16} />
+          <PhoneOff size={20} />
         </button>
       </div>
 
@@ -239,6 +244,12 @@ export function VoiceChannel({
           </div>
         </div>
       </Modal>
+
+      {/* Arka plan müzik motoru (Bot) */}
+      <MusicPlayerCore 
+        activeSpaceId={activeSpaceId} 
+        onMusicStateChange={setMusicState}
+      />
     </div>
   );
 }

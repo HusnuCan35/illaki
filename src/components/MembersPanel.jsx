@@ -3,10 +3,10 @@ import { useState, useEffect } from 'react';
 import { usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
-import { subscribeToMembers } from '../lib/firestore';
+import { subscribeToMembers, updateMemberRole } from '../lib/firestore';
 import styles from './MembersPanel.module.css';
 
-function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick }) {
+function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChange }) {
   const initial = (peer.username || '?').slice(0, 2).toUpperCase();
   return (
     <div className={styles.member} role="listitem">
@@ -35,13 +35,24 @@ function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick }) {
         </span>
       </div>
       {!isSelf && iAmHost && (
-        <button 
-          className={styles.kickBtn}
-          onClick={() => onKick(peerId, peer.username)}
-          title="Tekmele"
-        >
-          <X size={14} />
-        </button>
+        <div className={styles.actions}>
+          <select 
+            className={styles.roleSelect}
+            value={peer.role || 'member'}
+            onChange={(e) => onRoleChange(peer.uid, e.target.value)}
+          >
+            <option value="member">Üye</option>
+            <option value="mod">Moderatör</option>
+            <option value="admin">Yönetici</option>
+          </select>
+          <button 
+            className={styles.kickBtn}
+            onClick={() => onKick(peerId, peer.username)}
+            title="Tekmele"
+          >
+            <X size={14} />
+          </button>
+        </div>
       )}
     </div>
   );
@@ -55,6 +66,16 @@ export function MembersPanel({ kickPeer }) {
   const [dbMembers, setDbMembers] = useState([]);
 
   const space = getActiveSpace();
+  const iAmHost = space?.hostUid === identity?.uid;
+
+  const handleRoleChange = async (targetUid, newRole) => {
+    try {
+      await updateMemberRole(activeSpaceId, identity.uid, targetUid, newRole);
+    } catch (error) {
+      console.error(error);
+      alert('Yetki değiştirilemedi: ' + error.message);
+    }
+  };
 
   useEffect(() => {
     if (!activeSpaceId) return;
@@ -131,8 +152,9 @@ export function MembersPanel({ kickPeer }) {
             peerId={m.peerId}
             peer={m}
             isHost={m.isHost}
-            iAmHost={space?.isHost}
+            iAmHost={iAmHost}
             onKick={(id, name) => setKickTarget({ id, name })}
+            onRoleChange={handleRoleChange}
           />
         ))}
 

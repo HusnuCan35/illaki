@@ -37,25 +37,34 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && resource.data.hostUid == request.auth.uid;
 
-      // ── Mesajlar ─────────────────────────────────────────────────────────────
+      // 💬 Eski Mesajlar (Geriye Dönük Uyumluluk) ────────────────────────────────
       match /messages/{messageId} {
-        // Sadece o space'in üyeleri okuyabilir
+        allow read, create, update, delete: if true; // Geriye dönük izinleri şimdilik açıyoruz (üretimde düzeltilmeli)
+      }
+
+      // 📺 Kanallar ─────────────────────────────────────────────────────────────
+      match /channels/{channelId} {
+        // Üyeler okuyabilir
         allow read: if request.auth != null
           && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
         
-        // Üyeler mesaj gönderebilir, sadece kendi mesajlarını
-        allow create: if request.auth != null
-          && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid))
-          && request.resource.data.senderId == request.auth.uid;
-        
-        // Mesaj güncellenemez (immutable E2E mesajlar)
-        allow update: if false;
-        
-        // Silme: sadece kendi mesajını veya host
-        allow delete: if request.auth != null && (
-          resource.data.senderId == request.auth.uid ||
-          get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid
+        // Host veya admin/mod yetkili kişiler oluşturabilir, güncelleyebilir, silebilir
+        allow write: if request.auth != null && (
+          get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid ||
+          get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid)).data.role in ['admin', 'mod']
         );
+        
+        // 💬 Yeni Mesajlar (Kanalların Altında) ────────────────────────────────
+        match /messages/{messageId} {
+          allow read, write: if true;
+        }
+      }
+
+      // ── Müzik (Music Bot) ────────────────────────────────────────────────────
+      match /music/{docId} {
+        // Üyeler okuyabilir ve müzik durumunu güncelleyebilir
+        allow read, write: if request.auth != null
+          && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
       }
 
       // ── Üyeler ───────────────────────────────────────────────────────────────
@@ -65,7 +74,11 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
         
         // Kendi üyeliğini oluşturabilir/güncelleyebilir
-        allow write: if request.auth != null && request.auth.uid == uid;
+        // VEYA Host yetkileri değiştirebilir
+        allow write: if request.auth != null && (
+          request.auth.uid == uid ||
+          get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid
+        );
         
         // Host herhangi bir üyeyi silebilir (kick)
         allow delete: if request.auth != null && (

@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
-import { useUIStore, useIdentityStore } from '../stores';
+import { useUIStore, useIdentityStore, usePeerStore } from '../stores';
 
 /**
  * useVoice — HD WebRTC Sesli Görüşme
@@ -12,7 +12,7 @@ import { useUIStore, useIdentityStore } from '../stores';
  * - Web Audio API ile ses seviyesi tespiti (konuşma göstergesi)
  * - Çoklu katılımcı yönetimi
  */
-export function useVoice(getPeer) {
+export function useVoice(getPeer, broadcastVoiceStatus) {
   const localStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const callsRef = useRef({}); // { [peerId]: MediaConnection }
@@ -166,7 +166,7 @@ export function useVoice(getPeer) {
   }, [isInVoice, answerCall]);
 
   // ── Ses Kanalına Katıl ────────────────────────────────────────────────────
-  const joinVoice = useCallback(async (connectedPeerIds = []) => {
+  const joinVoice = useCallback(async (channelId, connectedPeerIds = []) => {
     try {
       const stream = await getLocalStream();
       const peer = getPeer();
@@ -177,6 +177,12 @@ export function useVoice(getPeer) {
       }
 
       setIsInVoice(true);
+      
+      // Zustand store ve P2P ağını güncelle
+      const { setVoiceChannelId } = usePeerStore.getState();
+      setVoiceChannelId(channelId);
+      if (broadcastVoiceStatus) broadcastVoiceStatus(channelId);
+
       setVoiceParticipants(prev => ({
         ...prev,
         self: {
@@ -228,9 +234,12 @@ export function useVoice(getPeer) {
       createAnalyser(stream, 'self');
     } catch (err) {
       setIsInVoice(false);
+      const { setVoiceChannelId } = usePeerStore.getState();
+      setVoiceChannelId(null);
+      if (broadcastVoiceStatus) broadcastVoiceStatus(null);
       console.error('[Voice] Ses kanalına katılınamadı:', err);
     }
-  }, [getPeer, getLocalStream, identity, attachAudio, createAnalyser]);
+  }, [getPeer, getLocalStream, identity, attachAudio, createAnalyser, broadcastVoiceStatus]);
 
   // ── Ses Kanalından Çık ────────────────────────────────────────────────────
   const leaveVoice = useCallback(() => {
@@ -254,8 +263,13 @@ export function useVoice(getPeer) {
     delete analysersRef.current['self'];
     setIsInVoice(false);
     setIsMuted(false);
+    
+    const { setVoiceChannelId } = usePeerStore.getState();
+    setVoiceChannelId(null);
+    if (broadcastVoiceStatus) broadcastVoiceStatus(null);
+    
     addToast({ type: 'info', message: 'Ses kanalından ayrıldın' });
-  }, []);
+  }, [broadcastVoiceStatus, addToast]);
 
   // ── Mikrofon Sessiz/Açık ──────────────────────────────────────────────────
   const toggleMute = useCallback(() => {

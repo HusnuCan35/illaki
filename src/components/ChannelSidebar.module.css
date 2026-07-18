@@ -116,27 +116,68 @@
   gap: 2px;
 }
 
+.channelItemWrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border-radius: 4px;
+}
+.channelItemWrapper:hover {
+  background-color: var(--bg-hover);
+}
+.channelItemWrapper.active {
+  background-color: var(--bg-elevated);
+}
+.channelItemWrapper.activeVoice {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
 .channelItem {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
   background: none;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
   color: var(--text-secondary);
   font-size: 15px;
-  position: relative;
 }
-.channelItem:hover {
-  background-color: var(--bg-hover);
+.channelItemWrapper:hover .channelItem {
   color: var(--text-primary);
 }
-.channelItem.active {
-  background-color: var(--bg-elevated);
+.channelItemWrapper.active .channelItem {
   color: var(--text-primary);
 }
+
+.channelActions {
+  display: none;
+  position: absolute;
+  right: 4px;
+  align-items: center;
+  gap: 4px;
+}
+.channelItemWrapper:hover .channelActions {
+  display: flex;
+}
+
+.actionIconBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+.actionIconBtn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-modifier-hover);
+}
+
 .channelIcon {
   color: var(--text-muted);
 }
@@ -208,6 +249,33 @@
   justify-content: center;
   font-weight: 600;
   position: relative;
+}
+
+.voiceParticipantsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px 4px 32px;
+}
+
+.voiceParticipantRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.voiceParticipantRow:hover {
+  background-color: var(--bg-hover);
+}
+
+.voiceParticipantName {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .statusDot {
   position: absolute;

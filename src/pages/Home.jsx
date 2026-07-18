@@ -3,6 +3,7 @@ import { ServerSidebar } from '../components/ServerSidebar';
 import { ChannelSidebar } from '../components/ChannelSidebar';
 import { ChatArea } from '../components/ChatArea';
 import { MembersPanel } from '../components/MembersPanel';
+import { MusicBotPanel } from '../components/MusicBotPanel';
 import { VoiceChannel } from '../components/VoiceChannel';
 import { CreateSpaceModal, JoinSpaceModal, SpaceSettingsModal } from './SpaceModals';
 import { SettingsModal } from './Settings';
@@ -15,12 +16,12 @@ import styles from './Home.module.css';
 export function Home() {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
-  const [membersOpen, setMembersOpen] = useState(true);
+  const [rightPanel, setRightPanel] = useState(window.innerWidth > 900 ? 'members' : null); // 'members' | 'music' | null
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
-  const { settingsOpen, setSettingsOpen } = useUIStore();
+  const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar } = useUIStore();
 
-  const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, broadcastSpaceUpdate, broadcastSpaceDelete } = usePeer();
-  const voice = useVoice(getPeer);
+  const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
+  const voice = useVoice(getPeer, broadcastVoiceStatus);
   const screenShare = useScreenShare(getPeer);
   const { peers } = usePeerStore();
   const { activeSpaceId } = useSpaceStore();
@@ -37,54 +38,77 @@ export function Home() {
 
   const connectedPeerIds = Object.keys(peers);
 
+  useEffect(() => {
+    const handleJoinVoice = (e) => {
+      const { channelId } = e.detail;
+      voice.joinVoice(channelId, connectedPeerIds);
+    };
+    window.addEventListener('illaki:join-voice', handleJoinVoice);
+    return () => window.removeEventListener('illaki:join-voice', handleJoinVoice);
+  }, [voice.joinVoice, connectedPeerIds]);
+
   return (
     <div className={styles.root}>
-      <ServerSidebar
-        onCreateSpace={() => setCreateOpen(true)}
-        onJoinSpace={() => setJoinOpen(true)}
-      />
-
-      {activeSpaceId && (
-        <ChannelSidebar
-          activeSpaceId={activeSpaceId}
-          onOpenSettings={() => setSpaceSettingsOpen(true)}
-          onBroadcastUpdate={broadcastSpaceUpdate}
-          onBroadcastDelete={broadcastSpaceDelete}
-          voiceSlot={
-            <VoiceChannel
-              {...voice}
-              connectedPeerIds={connectedPeerIds}
-              onJoin={voice.joinVoice}
-              onLeave={() => {
-                voice.leaveVoice();
-                screenShare.stopScreenShare();
-              }}
-              onToggleMute={voice.toggleMute}
-              onToggleDeafen={voice.toggleDeafen}
-              screenShare={screenShare}
-            />
-          }
+      {/* Mobile Overlay */}
+      {sidebarOpen && <div className={styles.sidebarOverlay} onClick={toggleSidebar} />}
+      
+      <div className={`${styles.sidebars} ${sidebarOpen ? styles.sidebarsOpen : ''}`}>
+        <ServerSidebar
+          onCreateSpace={() => setCreateOpen(true)}
+          onJoinSpace={() => setJoinOpen(true)}
         />
-      )}
+
+        {activeSpaceId && (
+          <ChannelSidebar
+            activeSpaceId={activeSpaceId}
+            onOpenSettings={() => setSpaceSettingsOpen(true)}
+            onBroadcastUpdate={broadcastSpaceUpdate}
+            onBroadcastDelete={broadcastSpaceDelete}
+            voiceSlot={
+              <VoiceChannel
+                {...voice}
+                connectedPeerIds={connectedPeerIds}
+                onJoin={voice.joinVoice}
+                onLeave={() => {
+                  voice.leaveVoice();
+                  screenShare.stopScreenShare();
+                }}
+                onToggleMute={voice.toggleMute}
+                onToggleDeafen={voice.toggleDeafen}
+                screenShare={screenShare}
+              />
+            }
+          />
+        )}
+      </div>
 
       <div className={styles.content}>
         {activeSpaceId ? (
           <ChatArea
             sendMessage={sendMessage}
-            onToggleMembers={() => setMembersOpen(m => !m)}
-            membersOpen={membersOpen}
+            onToggleMembers={() => setRightPanel(p => p === 'members' ? null : 'members')}
+            onToggleMusic={() => setRightPanel(p => p === 'music' ? null : 'music')}
+            rightPanel={rightPanel}
             screenShare={screenShare}
             onOpenSettings={() => setSpaceSettingsOpen(true)}
+            onToggleSidebar={toggleSidebar}
           />
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'var(--text-muted)' }}>
+          <div className={styles.welcomeScreen}>
+            {/* Mobile menu button for welcome screen */}
+            <button className={styles.mobileMenuBtnWelcome} onClick={toggleSidebar}>
+              ☰ Menü
+            </button>
             <h2>illaki'ye Hoş Geldiniz</h2>
             <p>Başlamak için sol menüden bir sunucu seçin veya yeni bir tane oluşturun.</p>
           </div>
         )}
       </div>
 
-      {membersOpen && activeSpaceId && <MembersPanel kickPeer={kickPeer} />}
+      <div className={`${styles.rightPanels} ${rightPanel ? styles.rightPanelsOpen : ''}`}>
+        {activeSpaceId && rightPanel === 'members' && <MembersPanel kickPeer={kickPeer} />}
+        {activeSpaceId && rightPanel === 'music' && <MusicBotPanel />}
+      </div>
 
       {/* CreateSpaceModal artık initPeerWithCode almıyor — peerId zaten var */}
       <CreateSpaceModal

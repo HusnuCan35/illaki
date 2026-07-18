@@ -89,10 +89,12 @@ export const useMessageStore = create((set, get) => ({
 // Peers / Connection status store
 export const usePeerStore = create((set) => ({
   peerId: null,          // our own peer ID
-  peers: {},             // { [peerId]: { username, status, connection } }
+  voiceChannelId: null,  // our own voice channel
+  peers: {},             // { [peerId]: { username, status, connection, voiceChannelId } }
   connectionStatus: 'disconnected', // disconnected | connecting | connected
 
   setPeerId: (id) => set({ peerId: id }),
+  setVoiceChannelId: (id) => set({ voiceChannelId: id }),
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
   addPeer: (id, data) => set((s) => ({
@@ -111,17 +113,19 @@ export const usePeerStore = create((set) => ({
 // UI / App state store
 export const useUIStore = create((set) => ({
   view: 'landing',   // landing | home | chat | settings
-  sidebarOpen: true,
+  sidebarOpen: window.innerWidth > 768,
   settingsOpen: false,
   joinModalOpen: false,
   createModalOpen: false,
   toasts: [],
+  musicVolume: 50, // 0-100
 
   setView: (view) => set({ view }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSettingsOpen: (v) => set({ settingsOpen: v }),
   setJoinModalOpen: (v) => set({ joinModalOpen: v }),
   setCreateModalOpen: (v) => set({ createModalOpen: v }),
+  setMusicVolume: (v) => set({ musicVolume: v }),
 
   addToast: (toast) => set((s) => ({
     toasts: [...s.toasts, { id: Date.now(), ...toast }],

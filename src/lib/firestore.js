@@ -145,6 +145,14 @@ export async function createSpace({ uid, username, name, description = '', isPri
     createdAt: serverTimestamp(),
   });
 
+  // Varsayılan ses kanalını oluştur
+  await setDoc(doc(db, 'spaces', spaceId, 'channels', 'general-voice'), {
+    id: 'general-voice',
+    name: 'Ses Kanalı',
+    type: 'voice',
+    createdAt: serverTimestamp(),
+  });
+
   // Host'u member olarak ekle
   await setDoc(doc(db, 'spaces', spaceId, 'members', uid), {
     uid,
@@ -295,12 +303,19 @@ export async function updateMemberRole(spaceId, hostUid, targetUid, newRole) {
 // Kanallar (Channels)
 // ────────────────────────────────────────────────────────────
 
-export async function createChannel(spaceId, hostUid, { name, type = 'text' }) {
+export async function createChannel(spaceId, requesterUid, { name, type = 'text', allowedRoles = ['all'] }) {
   const spaceRef = doc(db, 'spaces', spaceId);
   const snap = await getDoc(spaceRef);
   
-  // Sadece yetkili kişiler kanal açabilir, şimdilik host diyoruz.
-  if (!snap.exists() || snap.data().hostUid !== hostUid) {
+  const isHost = snap.exists() && snap.data().hostUid === requesterUid;
+  
+  let role = 'member';
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (memberSnap.exists()) role = memberSnap.data().role;
+  }
+  
+  if (!isHost && role !== 'admin' && role !== 'mod') {
     throw new Error('Bu işlem için yetkin yok.');
   }
 
@@ -308,18 +323,46 @@ export async function createChannel(spaceId, hostUid, { name, type = 'text' }) {
   const docRef = await addDoc(channelsRef, {
     name: name.trim().toLowerCase().replace(/\s+/g, '-'),
     type,
+    allowedRoles,
     createdAt: serverTimestamp(),
   });
   
-  return { id: docRef.id, name, type };
+  return { id: docRef.id, name, type, allowedRoles };
 }
 
-export async function deleteChannel(spaceId, hostUid, channelId) {
+export async function updateChannel(spaceId, requesterUid, channelId, updates) {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  
+  const isHost = snap.exists() && snap.data().hostUid === requesterUid;
+  let role = 'member';
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (memberSnap.exists()) role = memberSnap.data().role;
+  }
+  
+  if (!isHost && role !== 'admin' && role !== 'mod') {
+    throw new Error('Bu işlem için yetkin yok.');
+  }
+
+  const channelRef = doc(db, 'spaces', spaceId, 'channels', channelId);
+  await updateDoc(channelRef, updates);
+}
+
+export async function deleteChannel(spaceId, requesterUid, channelId) {
   if (channelId === 'general') throw new Error('Varsayılan kanal silinemez.');
   
   const spaceRef = doc(db, 'spaces', spaceId);
   const snap = await getDoc(spaceRef);
-  if (!snap.exists() || snap.data().hostUid !== hostUid) {
+  
+  const isHost = snap.exists() && snap.data().hostUid === requesterUid;
+  let role = 'member';
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (memberSnap.exists()) role = memberSnap.data().role;
+  }
+  
+  if (!isHost && role !== 'admin' && role !== 'mod') {
     throw new Error('Bu işlem için yetkin yok.');
   }
 
@@ -411,7 +454,7 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
   };
 
   const ref = await addDoc(
-    collection(db, 'spaces', spaceId, 'messages'),
+    collection(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages'),
     messageData
   );
 
@@ -424,8 +467,7 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
  */
 export function subscribeToMessages(spaceId, channelId, uid, onMessages) {
   const q = query(
-    collection(db, 'spaces', spaceId, 'messages'),
-    where('channelId', '==', channelId || 'general'),
+    collection(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages'),
     orderBy('timestamp', 'asc'),
     limit(100)
   );

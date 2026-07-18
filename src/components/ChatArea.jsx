@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
-  Play, X, Upload, Settings, LogOut,
+  Play, X, Upload, Settings, LogOut, Volume2, Music, Menu
 } from 'lucide-react';
 import {
   useMessageStore, useSpaceStore, useIdentityStore,
@@ -238,7 +238,7 @@ function ScreenViewer({ stream, label, onStop }) {
   );
 }
 
-export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, membersOpen, screenShare, onOpenSettings }) {
+export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggleMusic, rightPanel, screenShare, onOpenSettings, onToggleSidebar }) {
   const { addMessage, getMessages } = useMessageStore();
   const { activeSpaceId, getActiveSpace, activeChannelId, channels } = useSpaceStore();
   const { identity } = useIdentityStore();
@@ -446,8 +446,16 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
+          <button 
+            className={styles.mobileMenuBtn} 
+            onClick={onToggleSidebar}
+            title="Menüyü Aç"
+            aria-label="Menü"
+          >
+            <Menu size={20} />
+          </button>
           <div className={styles.headerIcon}>
-            <span style={{ fontSize: '1rem' }}>#</span>
+            <span style={{ fontSize: '1rem' }}>{activeChannel?.type === 'voice' ? <Volume2 size={16} /> : '#'}</span>
           </div>
           <div>
             <div className={styles.headerName}>{activeChannel?.name || 'genel'}</div>
@@ -464,14 +472,23 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, members
         </div>
 
         <div className={styles.headerActions}>
+          <button
+            className={`${styles.headerBtn} ${rightPanel === 'music' ? styles.headerBtnActive : ''}`}
+            onClick={onToggleMusic}
+            title="Müzik Botu"
+          >
+            <Music size={16} />
+          </button>
           <button className={styles.codeButton} onClick={copyCode} title="Oda kodunu kopyala">
             <code>{activeSpace?.code}</code>
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
           <button
-            className={`${styles.headerBtn} ${membersOpen ? styles.headerBtnActive : ''}`}
+            className={`${styles.headerBtn} ${rightPanel === 'members' ? styles.headerBtnActive : ''}`}
             onClick={onToggleMembers}
-            title={membersOpen ? 'Üyeleri Gizle' : 'Üyeleri Göster'}
+            title="Üyeler"
+            aria-label="Üyeleri Gizle/Göster"
+            aria-pressed={rightPanel === 'members'}
           >
             <Users size={16} />
           </button>

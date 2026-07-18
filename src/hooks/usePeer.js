@@ -59,7 +59,14 @@ export function usePeer() {
         break;
       }
       case 'identity':
-        updatePeer(fromPeerId, { username: data.username, avatarColor: data.avatarColor });
+        updatePeer(fromPeerId, { 
+          username: data.username, 
+          avatarColor: data.avatarColor,
+          voiceChannelId: data.voiceChannelId
+        });
+        break;
+      case 'voice-status':
+        updatePeer(fromPeerId, { voiceChannelId: data.channelId });
         break;
       case 'kick': {
         addToast({ type: 'error', message: 'Odadan atıldın.' });
@@ -131,7 +138,12 @@ export function usePeer() {
                       status: 'online',
                       spaceCode: data.spaceCode,
                     });
-                    conn.send({ type: 'identity', username: identityRef.current?.username, avatarColor: identityRef.current?.avatarColor });
+                    conn.send({ 
+                      type: 'identity', 
+                      username: identityRef.current?.username, 
+                      avatarColor: identityRef.current?.avatarColor,
+                      voiceChannelId: usePeerStore.getState().voiceChannelId
+                    });
                   });
                   conn.on('data', (d) => handleIncomingData(conn.peer, d));
                   conn.on('close', () => {
@@ -182,7 +194,12 @@ export function usePeer() {
       });
       addToast({ type: 'success', message: `${conn.metadata?.username || 'Biri'} bağllandı` });
       // Kimliğimizi gönder
-      conn.send({ type: 'identity', username: identityRef.current?.username, avatarColor: identityRef.current?.avatarColor });
+      conn.send({ 
+        type: 'identity', 
+        username: identityRef.current?.username, 
+        avatarColor: identityRef.current?.avatarColor,
+        voiceChannelId: usePeerStore.getState().voiceChannelId
+      });
       // Eğer hostuz, space bilgisini gönder ki joiner space adını güncellesin
       const { spaces } = useSpaceStore.getState();
       const hostSpace = spaces.find(s => s.isHost && s.code === conn.metadata?.spaceCode);
@@ -374,6 +391,12 @@ export function usePeer() {
     });
   }, []);
 
+  const broadcastVoiceStatus = useCallback((channelId) => {
+    Object.values(connectionsRef.current).forEach((conn) => {
+      if (conn.open) conn.send({ type: 'voice-status', channelId });
+    });
+  }, []);
+
   const getPeer = useCallback(() => peerRef.current, []);
 
   useEffect(() => () => { peerRef.current?.destroy(); }, []);
@@ -384,5 +407,6 @@ export function usePeer() {
     kickPeer,
     broadcastSpaceUpdate,
     broadcastSpaceDelete,
+    broadcastVoiceStatus,
   };
 }
