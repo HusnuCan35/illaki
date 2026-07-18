@@ -58,6 +58,10 @@ export function useAuth() {
             photoURL: user.photoURL,
           });
           
+          // İlk yükleme
+          const initialSpaces = await getUserSpaces(user.uid);
+          setSpaces(initialSpaces);
+
           // Real-time spaces listener
           unsubSpaces = subscribeToUserSpaces(user.uid, (spaces) => {
             setSpaces(spaces);

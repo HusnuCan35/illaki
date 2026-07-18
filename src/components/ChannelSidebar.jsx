@@ -67,6 +67,12 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
     };
   }, [activeSpaceId, identity?.uid]);
 
+  useEffect(() => {
+    if (activeSpaceId && spaces.length > 0 && !spaces.some(s => s.id === activeSpaceId)) {
+      setActiveSpace(spaces[0]?.id || null);
+    }
+  }, [activeSpaceId, spaces, setActiveSpace]);
+
   if (!activeSpace) {
     return (
       <div className={styles.container}>
@@ -293,7 +299,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
-            <span className={styles.userStatus}>Çevrimiçi • v1.0.6</span>
+            <span className={styles.userStatus}>Çevrimiçi • v1.0.7</span>
           </div>
         </div>
         <div className={styles.userActions}>

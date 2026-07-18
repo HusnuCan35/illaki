@@ -27,7 +27,13 @@ export const useSpaceStore = create(
         if (s.spaces.some(sp => sp.id === space.id)) return s;
         return { spaces: [...s.spaces, space] };
       }),
-      setSpaces: (spaces) => set({ spaces }),
+      setSpaces: (spaces) => set((s) => {
+        const spaceExists = spaces.some(sp => sp.id === s.activeSpaceId);
+        return {
+          spaces,
+          activeSpaceId: spaceExists ? s.activeSpaceId : (spaces[0]?.id || null),
+        };
+      }),
       removeSpace: (id) => set((s) => ({ spaces: s.spaces.filter(sp => sp.id !== id) })),
       setActiveSpace: (id) => set({ activeSpaceId: id, activeChannelId: 'general' }),
       setActiveChannel: (id) => set({ activeChannelId: id }),

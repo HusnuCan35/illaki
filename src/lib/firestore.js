@@ -455,17 +455,27 @@ export async function getUserSpaces(uid) {
  * Kullanıcının odalarını gerçek zamanlı takip et (Silme/Ekleme/Düzenleme anlık yansır)
  */
 export function subscribeToUserSpaces(uid, onSpaces) {
-  let unsubUser = () => {};
-  
   const qHost = query(collection(db, 'spaces'), where('hostUid', '==', uid));
   const unsubHost = onSnapshot(qHost, async () => {
-    const spaces = await getUserSpaces(uid);
-    onSpaces(spaces);
+    try {
+      const spaces = await getUserSpaces(uid);
+      onSpaces(spaces);
+    } catch (err) {
+      console.warn('[Firestore] Host odaları alma hatası:', err);
+    }
+  }, (err) => {
+    console.warn('[Firestore] Host odaları dinleme hatası:', err);
   });
 
-  unsubUser = onSnapshot(doc(db, 'users', uid), async () => {
-    const spaces = await getUserSpaces(uid);
-    onSpaces(spaces);
+  const unsubUser = onSnapshot(doc(db, 'users', uid), async () => {
+    try {
+      const spaces = await getUserSpaces(uid);
+      onSpaces(spaces);
+    } catch (err) {
+      console.warn('[Firestore] Kullanıcı odaları alma hatası:', err);
+    }
+  }, (err) => {
+    console.warn('[Firestore] Kullanıcı belgesi dinleme hatası:', err);
   });
 
   return () => {
