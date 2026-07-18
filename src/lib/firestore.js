@@ -133,6 +133,8 @@ export async function createSpace({ uid, username, name, description = '', isPri
     encryptedKeys: {
       [uid]: encryptedKey,
     },
+    // P2P/E2E tamamlanana kadar (host onayı vs) geçici fallback anahtar
+    fallbackKey: spaceKeyB64,
   };
 
   await setDoc(doc(db, 'spaces', spaceId), spaceData);
@@ -611,7 +613,13 @@ function generateSpaceCode() {
 async function getAndDecryptSpaceKey(spaceId, uid, spaceData) {
   try {
     const encryptedKey = spaceData.encryptedKeys?.[uid];
-    if (!encryptedKey) return null;
+    
+    if (!encryptedKey) {
+      if (spaceData.fallbackKey) {
+        return await importSpaceKey(spaceData.fallbackKey);
+      }
+      return null;
+    }
 
     const userKeyPair = await loadUserKeyPair(uid);
     if (!userKeyPair) return null;
