@@ -3,7 +3,7 @@
  * Email/Şifre + Google ile giriş/kayıt
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -32,10 +32,16 @@ export function useAuth() {
   const [authError, setAuthError] = useState(null);
   const { setIdentity, clearIdentity } = useIdentityStore();
   const setSpaces = useSpaceStore(s => s.setSpaces);
+  const unsubSpacesRef = useRef(null);
 
   // Auth durumunu takip et
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (unsubSpacesRef.current) {
+        unsubSpacesRef.current();
+        unsubSpacesRef.current = null;
+      }
+
       if (user) {
         const avatarColor = hashColor(user.displayName || user.email || user.uid);
         const identity = {
@@ -50,7 +56,6 @@ export function useAuth() {
         setIdentity(identity);
 
         // Profili ve Odaları gerçek zamanlı senkronize et
-        let unsubSpaces = () => {};
         try {
           await upsertUserProfile(user.uid, {
             username: identity.username,
@@ -63,16 +68,12 @@ export function useAuth() {
           setSpaces(initialSpaces);
 
           // Real-time spaces listener
-          unsubSpaces = subscribeToUserSpaces(user.uid, (spaces) => {
+          unsubSpacesRef.current = subscribeToUserSpaces(user.uid, (spaces) => {
             setSpaces(spaces);
           });
         } catch (err) {
           console.error('Profil veya odaları güncelleme hatası:', err);
         }
-
-        return () => {
-          unsubSpaces();
-        };
       } else {
         clearIdentity();
         setSpaces([]);
@@ -80,7 +81,12 @@ export function useAuth() {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (unsubSpacesRef.current) {
+        unsubSpacesRef.current();
+      }
+    };
   }, [setIdentity, clearIdentity, setSpaces]);
 
   // Email + Şifre ile kayıt
