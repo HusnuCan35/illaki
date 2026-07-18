@@ -15,7 +15,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { upsertUserProfile, getUserSpaces } from '../lib/firestore';
+import { upsertUserProfile, getUserSpaces, subscribeToUserSpaces } from '../lib/firestore';
 import { loadUserKeyPair, generateKeyPair, saveUserKeyPair } from '../lib/crypto';
 import { useIdentityStore, useSpaceStore } from '../stores';
 
@@ -49,7 +49,8 @@ export function useAuth() {
         };
         setIdentity(identity);
 
-        // Profili Firestore'a yaz/güncelle (ECDH anahtar üretimi dahil)
+        // Profili ve Odaları gerçek zamanlı senkronize et
+        let unsubSpaces = () => {};
         try {
           await upsertUserProfile(user.uid, {
             username: identity.username,
@@ -57,12 +58,17 @@ export function useAuth() {
             photoURL: user.photoURL,
           });
           
-          // Sync spaces from Firestore
-          const userSpaces = await getUserSpaces(user.uid);
-          setSpaces(userSpaces);
+          // Real-time spaces listener
+          unsubSpaces = subscribeToUserSpaces(user.uid, (spaces) => {
+            setSpaces(spaces);
+          });
         } catch (err) {
           console.error('Profil veya odaları güncelleme hatası:', err);
         }
+
+        return () => {
+          unsubSpaces();
+        };
       } else {
         clearIdentity();
         setSpaces([]);
