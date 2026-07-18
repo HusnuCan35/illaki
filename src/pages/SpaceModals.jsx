@@ -242,10 +242,10 @@ export function JoinSpaceModal({ isOpen, onClose, connectToPeer }) {
         await cacheSpaceKey(spaceId, spaceKey);
       }
 
-      // PeerJS bağlantısı kur (anlık mesajlar için)
+      // PeerJS bağlantısı kur (anlık mesajlar için) - Arka planda
       try {
         const hostPeerId = peerIdFromCode(trimmed);
-        await connectToPeer(trimmed);
+        connectToPeer(trimmed).catch(() => {});
       } catch {
         // PeerJS bağlantısı opsiyonel — Firebase yeterli
       }

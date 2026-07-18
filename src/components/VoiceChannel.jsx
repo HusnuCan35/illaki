@@ -33,6 +33,13 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   const videoRef = useRef(null);
   const [level, setLevel] = useState(0);
   const frameRef = useRef(null);
+  
+  const { peers } = usePeerStore();
+  const peerInfo = peers[peerId] || {};
+  
+  const effectiveMute = isSelf ? isMuted : !!peerInfo.isMuted;
+  const effectiveDeafen = isSelf ? isDeafened : !!peerInfo.isDeafened;
+  const isSpeaking = level > 5 && !effectiveMute && !effectiveDeafen;
 
   useEffect(() => {
     const tick = () => {
@@ -51,7 +58,6 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
     }
   }, [participant.videoStream]);
 
-  const isSpeaking = level > 8;
 
   return (
     <div
@@ -81,9 +87,9 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
           {isSelf ? `${participant.username} (Sen)` : participant.username}
         </span>
         <div className={styles.videoTileIcons}>
-          {(isSelf ? isMuted : false) && <MicOff size={12} className={styles.mutedIcon} />}
-          {(isSelf ? isDeafened : false) && <VolumeX size={12} className={styles.mutedIcon} />}
-          <SpeakingBars level={level} active={isSpeaking && !(isSelf && isMuted)} />
+          {effectiveMute && <MicOff size={12} className={styles.mutedIcon} />}
+          {effectiveDeafen && <VolumeX size={12} className={styles.mutedIcon} />}
+          <SpeakingBars level={level} active={isSpeaking} />
         </div>
       </div>
     </div>

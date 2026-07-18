@@ -276,7 +276,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
       const { setVoiceChannelId } = usePeerStore.getState();
       setVoiceChannelId(channelId);
-      if (broadcastVoiceStatus) broadcastVoiceStatus(channelId);
+      if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId, isMuted, isDeafened });
 
       // Kendimizi ekle
       setVoiceParticipants(prev => ({
@@ -374,8 +374,8 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setIsInVoice(false);
       const { setVoiceChannelId } = usePeerStore.getState();
       setVoiceChannelId(null);
-      if (broadcastVoiceStatus) broadcastVoiceStatus(null);
-      console.error('[Voice] Ses kanalına katılınamadı:', err);
+      if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId: null, isMuted: false, isDeafened: false });
+      console.error('[Voice] Ses kanalına katılamadı:', err);
     }
   }, [getPeer, getLocalStream, identity, attachAudio, createAnalyser, broadcastVoiceStatus, addToast]);
 
@@ -409,7 +409,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
     const { setVoiceChannelId } = usePeerStore.getState();
     setVoiceChannelId(null);
-    if (broadcastVoiceStatus) broadcastVoiceStatus(null);
+    if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId: null, isMuted: false, isDeafened: false });
 
     addToast({ type: 'info', message: 'Ses kanalından ayrıldın' });
   }, [broadcastVoiceStatus, addToast]);
@@ -420,9 +420,15 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     if (!stream) return;
     const track = stream.getAudioTracks()[0];
     if (!track) return;
-    track.enabled = !track.enabled;
-    setIsMuted(!track.enabled);
-  }, []);
+    const nextMute = !track.enabled;
+    track.enabled = !nextMute;
+    setIsMuted(nextMute);
+    
+    const { voiceChannelId } = usePeerStore.getState();
+    if (broadcastVoiceStatus && voiceChannelId) {
+      broadcastVoiceStatus({ channelId: voiceChannelId, isMuted: nextMute, isDeafened });
+    }
+  }, [isDeafened, broadcastVoiceStatus]);
 
   // ── Kulaklık Sessiz/Açık ──────────────────────────────────────────────────
   const toggleDeafen = useCallback(() => {
@@ -432,9 +438,15 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         const audio = document.getElementById(`audio-${peerId}`);
         if (audio) audio.volume = next ? 0 : 1;
       });
+      
+      const { voiceChannelId } = usePeerStore.getState();
+      if (broadcastVoiceStatus && voiceChannelId) {
+        broadcastVoiceStatus({ channelId: voiceChannelId, isMuted, isDeafened: next });
+      }
+      
       return next;
     });
-  }, []);
+  }, [isMuted, broadcastVoiceStatus]);
 
   // Cleanup and Kick handling
   useEffect(() => {

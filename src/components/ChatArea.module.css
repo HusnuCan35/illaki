@@ -734,7 +734,7 @@
 
 .inputContainer {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--space-2);
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
@@ -768,7 +768,7 @@
 .inputWrapper {
   flex: 1;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   min-width: 0;
 }
 

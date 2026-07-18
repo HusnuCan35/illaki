@@ -77,7 +77,11 @@ export function usePeer() {
         });
         break;
       case 'voice-status':
-        updatePeer(fromPeerId, { voiceChannelId: data.channelId });
+        updatePeer(fromPeerId, { 
+          voiceChannelId: data.channelId,
+          isMuted: data.isMuted,
+          isDeafened: data.isDeafened
+        });
         break;
       case 'kick': {
         addToast({ type: 'error', message: 'Odadan atıldın.' });
@@ -402,9 +406,9 @@ export function usePeer() {
     });
   }, []);
 
-  const broadcastVoiceStatus = useCallback((channelId) => {
+  const broadcastVoiceStatus = useCallback((status) => {
     Object.values(connectionsRef.current).forEach((conn) => {
-      if (conn.open) conn.send({ type: 'voice-status', channelId });
+      if (conn.open) conn.send({ type: 'voice-status', ...status });
     });
   }, []);
 

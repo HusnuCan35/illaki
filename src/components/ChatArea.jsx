@@ -780,6 +780,21 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
             onChange={handleFileSelect}
             accept="image/*,video/*,.pdf,.doc,.docx,.zip,.txt"
           />
+
+          <button
+            className={styles.inputAction}
+            onClick={() => setShowGameZone(!showGameZone)}
+            title="Mini Oyunlar"
+          >
+            <Gamepad2 size={18} />
+          </button>
+          {showGameZone && (
+            <GameZone 
+              onClose={() => setShowGameZone(false)}
+              onGameCommand={(cmd) => handleSend(cmd)}
+            />
+          )}
+
           <button
             className={styles.inputAction}
             title="Dosya ekle"
@@ -790,20 +805,6 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
           </button>
 
           <div className={styles.inputWrapper}>
-            <button
-              className={styles.iconBtn}
-              onClick={() => setShowGameZone(!showGameZone)}
-              title="Mini Oyunlar"
-            >
-              <Gamepad2 size={18} />
-            </button>
-            {showGameZone && (
-              <GameZone 
-                onClose={() => setShowGameZone(false)}
-                onGameCommand={(cmd) => handleSend(cmd)}
-              />
-            )}
-            
             <textarea
               ref={inputRef}
               id="message-input"
