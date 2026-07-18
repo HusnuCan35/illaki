@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { usePeerStore, useMessageStore, useSpaceStore, useUIStore, useIdentityStore } from '../stores';
-import { updateMemberPeerId, getSpaceOnlineMembers } from '../lib/firestore';
+import { updateMemberPeerId, getSpaceOnlineMembers, kickMemberFromVoice } from '../lib/firestore';
 
 /**
  * Peer ID formatı: "illaki-XXXXXXXX" (8 büyük harf/rakam)
@@ -399,12 +399,15 @@ export function usePeer() {
     }
   }, [addToast, removePeer]);
 
-  const kickFromVoice = useCallback((targetPeerId) => {
+  const kickFromVoice = useCallback((targetPeerId, spaceId, targetUid) => {
     const conn = connectionsRef.current[targetPeerId];
     if (conn) {
       conn.send({ type: 'voice-kick' });
-      addToast({ type: 'info', message: 'Kullanıcı ses kanalından çıkarıldı.' });
     }
+    if (spaceId && (targetUid || targetPeerId)) {
+      kickMemberFromVoice(spaceId, identityRef.current?.uid, targetUid || targetPeerId);
+    }
+    addToast({ type: 'info', message: 'Kullanıcı ses kanalından çıkarıldı.' });
   }, [addToast]);
 
   // ── Mesaj gönder ──────────────────────────────────────────────────────────

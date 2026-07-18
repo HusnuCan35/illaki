@@ -324,6 +324,29 @@ export async function updateMemberPeerId(spaceId, uid, peerId) {
 }
 
 /**
+ * Üyenin ses kanalı durumunu Firestore'da güncelle (anlık ses kanalı görünürlüğü için)
+ */
+export async function updateMemberVoiceStatus(spaceId, uid, voiceChannelId) {
+  try {
+    const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
+    await updateDoc(memberRef, { voiceChannelId, lastSeen: serverTimestamp() });
+  } catch {}
+}
+
+/**
+ * Üyeyi ses kanalından at (Firestore üzerinden anlık düşürme)
+ */
+export async function kickMemberFromVoice(spaceId, hostUid, targetUid) {
+  try {
+    const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
+    await updateDoc(memberRef, { 
+      voiceChannelId: null, 
+      voiceKickedAt: Date.now() 
+    });
+  } catch {}
+}
+
+/**
  * Bir space'in online üyelerini peer ID'leriyle birlikte getir (ses kanalı için)
  */
 export async function getSpaceOnlineMembers(spaceId, myUid) {

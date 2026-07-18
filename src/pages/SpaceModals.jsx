@@ -4,7 +4,7 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useSpaceStore, useIdentityStore, useUIStore, usePeerStore } from '../stores';
 import { codeFromPeerId, peerIdFromCode } from '../hooks/usePeer';
-import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace, uploadSpaceWallpaper } from '../lib/firestore';
+import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace, uploadSpaceWallpaper, subscribeToMembers, updateMemberRole } from '../lib/firestore';
 import { cacheSpaceKey } from '../lib/crypto';
 import styles from './SpaceModals.module.css';
 
@@ -325,6 +325,8 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
   const { addToast } = useUIStore();
   const space = getActiveSpace();
 
+  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'roles'
+  const [members, setMembers] = useState([]);
   const [name, setName] = useState(space?.name || '');
   const [description, setDescription] = useState(space?.description || '');
   const [icon, setIcon] = useState(space?.icon || '💬');
@@ -333,6 +335,14 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (!space?.id || !isOpen) return;
+    const unsub = subscribeToMembers(space.id, (mList) => {
+      setMembers(mList);
+    });
+    return () => unsub();
+  }, [space?.id, isOpen]);
 
   const ICONS = ['💬', '🎮', '🎵', '📚', '💼', '🎨', '🏆', '🚀', '🌍', '🔥'];
   const COLORS = ['#FF7E20', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444'];
@@ -424,95 +434,167 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
       title={space?.isHost ? 'Oda Ayarları' : 'Odadan Ayrıl'}
     >
       {space?.isHost ? (
-        <form onSubmit={handleUpdate} className={styles.form}>
-          <div className={styles.field}>
-            <label className={styles.label}>Space İkonu</label>
-            <div className={styles.iconGrid}>
-              {ICONS.map(ic => (
-                <button
-                  key={ic} type="button"
-                  className={`${styles.iconBtn} ${icon === ic ? styles.iconBtnActive : ''}`}
-                  onClick={() => setIcon(ic)}
-                >{ic}</button>
-              ))}
-            </div>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="edit-space-name" className={styles.label}>Space Adı</label>
-            <div className={styles.inputIcon}>
-              <Hash size={16} className={styles.icon} />
-              <input
-                id="edit-space-name" type="text" value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder={space.name}
-                maxLength={32} className={styles.input} required
-              />
-            </div>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="edit-space-desc" className={styles.label}>Açıklama</label>
-            <div className={styles.inputIcon}>
-              <FileText size={16} className={styles.icon} />
-              <input
-                id="edit-space-desc" type="text" value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder={space.description || 'Kısa açıklama'}
-                maxLength={100} className={styles.input}
-              />
-            </div>
+        <div>
+          {/* Tab başlıkları */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('general')}
+              style={{
+                padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                background: activeTab === 'general' ? 'var(--accent)' : 'transparent',
+                color: activeTab === 'general' ? '#fff' : 'var(--text-secondary)'
+              }}
+            >
+              Genel Ayarlar
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('roles')}
+              style={{
+                padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                background: activeTab === 'roles' ? 'var(--accent)' : 'transparent',
+                color: activeTab === 'roles' ? '#fff' : 'var(--text-secondary)'
+              }}
+            >
+              Roller & Üyeler ({members.length})
+            </button>
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.label}>Tema Rengi</label>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              {COLORS.map(c => (
-                <button
-                  key={c} type="button"
-                  onClick={() => setThemeColor(c)}
-                  style={{
-                    width: '32px', height: '32px', borderRadius: '50%',
-                    background: c, border: 'none', cursor: 'pointer',
-                    boxShadow: themeColor === c ? `0 0 0 3px var(--bg-surface), 0 0 0 5px ${c}` : 'none',
-                    transition: 'box-shadow 0.2s',
-                  }}
-                  aria-label={`${c} rengini seç`}
-                />
-              ))}
-            </div>
-          </div>
+          {activeTab === 'general' && (
+            <form onSubmit={handleUpdate} className={styles.form}>
+              <div className={styles.field}>
+                <label className={styles.label}>Space İkonu</label>
+                <div className={styles.iconGrid}>
+                  {ICONS.map(ic => (
+                    <button
+                      key={ic} type="button"
+                      className={`${styles.iconBtn} ${icon === ic ? styles.iconBtnActive : ''}`}
+                      onClick={() => setIcon(ic)}
+                    >{ic}</button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="edit-space-name" className={styles.label}>Space Adı</label>
+                <div className={styles.inputIcon}>
+                  <Hash size={16} className={styles.icon} />
+                  <input
+                    id="edit-space-name" type="text" value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={space.name}
+                    maxLength={32} className={styles.input} required
+                  />
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="edit-space-desc" className={styles.label}>Açıklama</label>
+                <div className={styles.inputIcon}>
+                  <FileText size={16} className={styles.icon} />
+                  <input
+                    id="edit-space-desc" type="text" value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder={space.description || 'Kısa açıklama'}
+                    maxLength={100} className={styles.input}
+                  />
+                </div>
+              </div>
 
-          <div className={styles.field}>
-            <label className={styles.label}>Arka Plan Görseli</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {backgroundImage && (
-                <div style={{ width: 64, height: 64, borderRadius: 8, backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0 }} />
-              )}
-              <div style={{ flex: 1 }}>
-                <input type="file" id="bg-upload" accept="image/*" style={{ display: 'none' }} disabled={uploadingBg} onChange={handleBgUpload} />
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <Button variant="secondary" type="button" loading={uploadingBg} onClick={() => document.getElementById('bg-upload').click()}>Görsel Yükle</Button>
+              <div className={styles.field}>
+                <label className={styles.label}>Tema Rengi</label>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {COLORS.map(c => (
+                    <button
+                      key={c} type="button"
+                      onClick={() => setThemeColor(c)}
+                      style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: c, border: 'none', cursor: 'pointer',
+                        boxShadow: themeColor === c ? `0 0 0 3px var(--bg-surface), 0 0 0 5px ${c}` : 'none',
+                        transition: 'box-shadow 0.2s',
+                      }}
+                      aria-label={`${c} rengini seç`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Arka Plan Görseli</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   {backgroundImage && (
-                    <Button variant="secondary" type="button" onClick={() => setBackgroundImage('')} style={{ color: 'var(--dnd)' }}>Kaldır</Button>
+                    <div style={{ width: 64, height: 64, borderRadius: 8, backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" id="bg-upload" accept="image/*" style={{ display: 'none' }} disabled={uploadingBg} onChange={handleBgUpload} />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Button variant="secondary" type="button" loading={uploadingBg} onClick={() => document.getElementById('bg-upload').click()}>Görsel Yükle</Button>
+                      {backgroundImage && (
+                        <Button variant="secondary" type="button" onClick={() => setBackgroundImage('')} style={{ color: 'var(--dnd)' }}>Kaldır</Button>
+                      )}
+                    </div>
+                    <p className={styles.hint} style={{ marginTop: '8px' }}>Sohbetin arka planı. (Maks 5MB)</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.actions} style={{ marginTop: '24px', justifyContent: 'space-between' }}>
+                {confirmDelete ? (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--dnd)' }}>Emin misin?</span>
+                    <Button type="button" onClick={handleDelete} loading={loading} style={{ background: 'var(--dnd)' }}>Evet, Sil</Button>
+                    <Button type="button" variant="secondary" onClick={() => setConfirmDelete(false)}>İptal</Button>
+                  </div>
+                ) : (
+                  <Button type="button" variant="secondary" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--dnd)' }}>Odayı Sil</Button>
+                )}
+                <Button type="submit" loading={loading} disabled={!name.trim()}>Kaydet</Button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === 'roles' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+              {members.map(m => (
+                <div key={m.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-modifier-hover)', borderRadius: '8px' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, display: 'block' }}>{m.username} {m.uid === identity?.uid && '(Sen)'}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{m.role === 'host' ? 'Kurucu' : m.role === 'mod' ? 'Moderatör' : m.role === 'admin' ? 'Yönetici' : 'Üye'}</span>
+                  </div>
+                  {m.uid !== identity?.uid && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[
+                        { val: 'member', label: 'Üye' },
+                        { val: 'mod', label: 'Mod' },
+                        { val: 'admin', label: 'Admin' },
+                      ].map(r => (
+                        <button
+                          key={r.val}
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await updateMemberRole(space.id, identity.uid, m.uid, r.val);
+                              addToast({ type: 'success', message: `${m.username} yetkisi güncellendi.` });
+                            } catch (err) {
+                              addToast({ type: 'error', message: err.message });
+                            }
+                          }}
+                          style={{
+                            padding: '4px 10px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 500,
+                            background: (m.role || 'member') === r.val ? 'var(--accent)' : 'var(--bg-surface)',
+                            color: (m.role || 'member') === r.val ? '#fff' : 'var(--text-secondary)'
+                          }}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <p className={styles.hint} style={{ marginTop: '8px' }}>Sohbetin arka planı. (Maks 5MB)</p>
-              </div>
+              ))}
             </div>
-          </div>
-
-          <div className={styles.actions} style={{ marginTop: '24px', justifyContent: 'space-between' }}>
-            {confirmDelete ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: 'var(--dnd)' }}>Emin misin?</span>
-                <Button type="button" onClick={handleDelete} loading={loading} style={{ background: 'var(--dnd)' }}>Evet, Sil</Button>
-                <Button type="button" variant="secondary" onClick={() => setConfirmDelete(false)}>İptal</Button>
-              </div>
-            ) : (
-              <Button type="button" variant="secondary" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--dnd)' }}>Odayı Sil</Button>
-            )}
-            <Button type="submit" loading={loading} disabled={!name.trim()}>Kaydet</Button>
-          </div>
-        </form>
+          )}
+        </div>
       ) : (
         <div style={{ padding: '8px 0' }}>
           <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '24px' }}>

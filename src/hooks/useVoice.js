@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useUIStore, useIdentityStore, usePeerStore } from '../stores';
-import { getSpaceOnlineMembers } from '../lib/firestore';
+import { getSpaceOnlineMembers, updateMemberVoiceStatus } from '../lib/firestore';
 
 /**
  * useVoice — HD WebRTC Sesli + Görüntülü Görüşme
@@ -285,6 +285,11 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setVoiceChannelId(channelId);
       if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId, isMuted, isDeafened });
 
+      const { activeSpaceId, spaces } = (await import('../stores')).useSpaceStore.getState();
+      if (activeSpaceId && identity?.uid) {
+        updateMemberVoiceStatus(activeSpaceId, identity.uid, channelId);
+      }
+
       // Kendimizi ekle
       setVoiceParticipants(prev => ({
         ...prev,
@@ -301,7 +306,6 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
       // ── Firestore'dan diğer üyelerin peer ID'lerini al ──────────────────────
       // Bu sayede P2P bağlantısı olmayan ama aynı space'de olan kullanıcılar da bulunur
-      const { activeSpaceId, spaces } = (await import('../stores')).useSpaceStore.getState();
       let allPeerIds = [...connectedPeerIds]; // P2P üzerinden bilinen peerlar
 
       if (activeSpaceId) {
@@ -432,6 +436,11 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     const { setVoiceChannelId } = usePeerStore.getState();
     setVoiceChannelId(null);
     if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId: null, isMuted: false, isDeafened: false });
+
+    const { activeSpaceId } = (import('../stores')).useSpaceStore.getState();
+    if (activeSpaceId && identity?.uid) {
+      updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
+    }
 
     addToast({ type: 'info', message: 'Ses kanalından ayrıldın' });
   }, [broadcastVoiceStatus, addToast]);

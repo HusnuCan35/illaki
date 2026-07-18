@@ -229,9 +229,26 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           </div>
           <div className={styles.channelList}>
             {visibleChannels.filter(c => c.type === 'voice').map(channel => {
-              // Bu odadaki kullanıcılar (kendimiz + peers)
+              // Bu odadaki kullanıcılar (kendimiz + peers + dbMembers)
               const meInChannel = voiceChannelId === channel.id;
-              const othersInChannel = Object.entries(peers).filter(([_, p]) => p.voiceChannelId === channel.id);
+              const othersInChannel = Object.entries(peers)
+                .filter(([_, p]) => p.voiceChannelId === channel.id)
+                .map(([id, p]) => ({ id, ...p }));
+
+              // Firestore'daki üyeleri de dahil et (anlık senkronizasyon için)
+              (dbMembers || []).forEach(m => {
+                if (m.uid !== identity?.uid && m.voiceChannelId === channel.id) {
+                  if (!othersInChannel.some(p => p.id === m.peerId || p.username === m.username || p.uid === m.uid)) {
+                    othersInChannel.push({
+                      id: m.peerId || m.uid,
+                      uid: m.uid,
+                      username: m.username,
+                      avatarColor: m.avatarColor,
+                      status: m.online ? 'online' : 'offline',
+                    });
+                  }
+                }
+              });
               
               return (
                 <div key={channel.id}>
@@ -263,16 +280,16 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
                           <span className={styles.voiceParticipantName}>{identity.username} (Sen)</span>
                         </div>
                       )}
-                      {othersInChannel.map(([id, p]) => {
+                      {othersInChannel.map((p) => {
                         const nameToShow = (p.username && p.username !== 'Katılımcı' && p.username !== 'Anonim') ? p.username : 'Üye';
                         return (
-                          <div key={id} className={styles.voiceParticipantRow}>
+                          <div key={p.id} className={styles.voiceParticipantRow}>
                             <Avatar username={nameToShow} color={p.avatarColor} size={24} status={p.status || 'online'} />
                             <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{nameToShow}</span>
                             {isPrivileged && kickFromVoice && (
                               <button 
                                 className={styles.kickVoiceBtn}
-                                onClick={() => kickFromVoice(id)}
+                                onClick={() => kickFromVoice(p.id, activeSpaceId, p.uid || p.id)}
                                 title="Kullanıcıyı sesten at"
                               >
                                 <UserMinus size={14} />
@@ -299,7 +316,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
-            <span className={styles.userStatus}>Çevrimiçi • v1.0.8</span>
+            <span className={styles.userStatus}>Çevrimiçi • v1.0.9</span>
           </div>
         </div>
         <div className={styles.userActions}>
