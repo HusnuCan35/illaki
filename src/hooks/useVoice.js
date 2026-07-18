@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { useUIStore, useIdentityStore, usePeerStore } from '../stores';
 
 /**
- * useVoice — HD WebRTC Sesli Görüşme
+ * useVoice — HD WebRTC Sesli + Görüntülü Görüşme
  *
  * Özellikler:
  * - Opus HD codec (48kHz, stereo)
@@ -11,18 +11,22 @@ import { useUIStore, useIdentityStore, usePeerStore } from '../stores';
  * - Otomatik kazanç kontrolü (autoGainControl)
  * - Web Audio API ile ses seviyesi tespiti (konuşma göstergesi)
  * - Çoklu katılımcı yönetimi
+ * - Kamera paylaşımı (WebRTC video track)
  */
 export function useVoice(getPeer, broadcastVoiceStatus) {
-  const localStreamRef = useRef(null);
+  const localStreamRef = useRef(null);       // ses akışı
+  const localVideoRef  = useRef(null);       // kamera akışı
   const audioContextRef = useRef(null);
-  const callsRef = useRef({}); // { [peerId]: MediaConnection }
-  const analysersRef = useRef({}); // { [peerId]: { analyser, dataArray } }
+  const callsRef = useRef({});               // { [peerId]: MediaConnection }
+  const analysersRef = useRef({});           // { [peerId]: { analyser, dataArray } }
 
   const [isInVoice, setIsInVoice] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
-  const [voiceParticipants, setVoiceParticipants] = useState({}); // { [peerId]: { username, speaking, stream } }
-  const [micPermission, setMicPermission] = useState('unknown'); // unknown | granted | denied
+  const [isCameraOn, setIsCameraOn] = useState(false);
+  const [localVideoStream, setLocalVideoStream] = useState(null);
+  const [voiceParticipants, setVoiceParticipants] = useState({});
+  const [micPermission, setMicPermission] = useState('unknown');
 
   const { addToast } = useUIStore();
   const { identity } = useIdentityStore();
@@ -34,18 +38,12 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          // HD ses kısıtlamaları
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           sampleRate: 48000,
-          channelCount: 1,        // mono — daha iyi Opus performansı
+          channelCount: 1,
           latency: 0,
-          // Yüksek kalite hint
-          googEchoCancellation: true,
-          googNoiseSuppression: true,
-          googHighpassFilter: true,
-          googAudioMirroring: false,
         },
         video: false,
       });
@@ -64,7 +62,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       }
       throw err;
     }
-  }, []);
+  }, [addToast]);
 
   // ── Web Audio Analyser Oluştur ─────────────────────────────────────────────
   const createAnalyser = useCallback((stream, peerId) => {
@@ -84,7 +82,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     analysersRef.current[peerId] = { analyser, dataArray };
   }, []);
 
-  // ── Ses Seviyesi Okuma (konuşma tespiti) ──────────────────────────────────
+  // ── Ses Seviyesi Okuma ─────────────────────────────────────────────────────
   const getSpeakingLevel = useCallback((peerId) => {
     const entry = analysersRef.current[peerId];
     if (!entry) return 0;
@@ -93,9 +91,8 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     return Math.min(100, avg * 2);
   }, []);
 
-  // ── Ses Oynatıcı Oluştur ──────────────────────────────────────────────────
+  // ── Ses Oynatıcı Oluştur ───────────────────────────────────────────────────
   const attachAudio = useCallback((stream, peerId) => {
-    // Mevcut audio element varsa kaldır
     const old = document.getElementById(`audio-${peerId}`);
     if (old) old.remove();
 
@@ -103,26 +100,123 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     audio.id = `audio-${peerId}`;
     audio.srcObject = stream;
     audio.autoplay = true;
-    audio.volume = isDeafened ? 0 : 1;
-    // Ekrana eklemeden çal
+    audio.volume = 1;
     audio.style.display = 'none';
     document.body.appendChild(audio);
 
     createAnalyser(stream, peerId);
-  }, [isDeafened]);
+  }, [createAnalyser]);
+
+  // ── Kamera Aç/Kapat ───────────────────────────────────────────────────────
+  const toggleCamera = useCallback(async () => {
+    if (isCameraOn) {
+      // Kamerayı kapat
+      if (localVideoRef.current) {
+        localVideoRef.current.getTracks().forEach(t => t.stop());
+        localVideoRef.current = null;
+      }
+      setIsCameraOn(false);
+      setLocalVideoStream(null);
+
+      // Mevcut call'lardan video track'i kaldır
+      for (const call of Object.values(callsRef.current)) {
+        try {
+          const sender = call.peerConnection?.getSenders?.().find(s => s.track?.kind === 'video');
+          if (sender) {
+            call.peerConnection.removeTrack(sender);
+          }
+        } catch {}
+      }
+
+      // Katılımcılarda kendi video'sunu kaldır
+      setVoiceParticipants(prev => ({
+        ...prev,
+        self: { ...prev.self, videoStream: null },
+      }));
+
+      addToast({ type: 'info', message: 'Kamera kapatıldı' });
+    } else {
+      // Kamerayı aç
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
+          },
+          audio: false,
+        });
+
+        localVideoRef.current = videoStream;
+        setIsCameraOn(true);
+        setLocalVideoStream(videoStream);
+
+        // Kendi self katılımcısını güncelle
+        setVoiceParticipants(prev => ({
+          ...prev,
+          self: { ...prev.self, videoStream },
+        }));
+
+        // Mevcut call'lara video track ekle (renegotiation)
+        const videoTrack = videoStream.getVideoTracks()[0];
+        for (const call of Object.values(callsRef.current)) {
+          try {
+            call.peerConnection?.addTrack(videoTrack, videoStream);
+          } catch {}
+        }
+
+        addToast({ type: 'success', message: 'Kamera açıldı 📷' });
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          addToast({ type: 'error', message: 'Kamera izni reddedildi' });
+        } else {
+          addToast({ type: 'error', message: 'Kamera açılamadı: ' + err.message });
+        }
+      }
+    }
+  }, [isCameraOn, addToast]);
 
   // ── Gelen Aramayı Cevapla ──────────────────────────────────────────────────
   const answerCall = useCallback(async (call) => {
     try {
-      const stream = await getLocalStream();
-      call.answer(stream);
+      const audioStream = await getLocalStream();
+
+      // Kamera açıksa video track'i de ekle
+      let combinedStream = audioStream;
+      if (localVideoRef.current) {
+        combinedStream = new MediaStream([
+          ...audioStream.getAudioTracks(),
+          ...localVideoRef.current.getVideoTracks(),
+        ]);
+      }
+
+      call.answer(combinedStream);
 
       call.on('stream', (remoteStream) => {
-        attachAudio(remoteStream, call.peer);
-        setVoiceParticipants(prev => ({
-          ...prev,
-          [call.peer]: { username: 'Bağlanan kullanıcı', speaking: false, stream: remoteStream },
-        }));
+        // Ses track'lerini audio elementine yönlendir
+        const audioTracks = remoteStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          const audioOnlyStream = new MediaStream(audioTracks);
+          attachAudio(audioOnlyStream, call.peer);
+        }
+
+        // Video track'leri varsa katılımcı state'ini güncelle
+        setVoiceParticipants(prev => {
+          const existing = prev[call.peer] || {};
+          const videoTracks = remoteStream.getVideoTracks();
+          const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
+          return {
+            ...prev,
+            [call.peer]: {
+              ...existing,
+              username: call.metadata?.username || existing.username || 'Katılımcı',
+              avatarColor: call.metadata?.avatarColor || existing.avatarColor,
+              speaking: false,
+              videoStream,
+            },
+          };
+        });
+
         addToast({ type: 'info', message: 'Sesli görüşme bağlandı' });
       });
 
@@ -142,16 +236,16 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     } catch (err) {
       console.error('[Voice] Gelen arama yanıtlanamadı:', err);
     }
-  }, [getLocalStream, attachAudio]);
+  }, [getLocalStream, attachAudio, addToast]);
 
   // ── Gelen Arama Dinleyici ─────────────────────────────────────────────────
   useEffect(() => {
     const handleIncoming = (e) => {
       const { call } = e.detail;
+      if (call.metadata?.type === 'screen') return; // ekran paylaşımı useScreenShare tarafından ele alınır
       if (isInVoice) {
         answerCall(call);
       } else {
-        // Sesli kanalda değilsek çağrıyı reddet (otomatik mikrofon açılmasını önle)
         call.close();
       }
     };
@@ -162,7 +256,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   // ── Ses Kanalına Katıl ────────────────────────────────────────────────────
   const joinVoice = useCallback(async (channelId, connectedPeerIds = []) => {
     try {
-      const stream = await getLocalStream();
+      const audioStream = await getLocalStream();
       const peer = getPeer();
 
       if (!peer) {
@@ -171,8 +265,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       }
 
       setIsInVoice(true);
-      
-      // Zustand store ve P2P ağını güncelle
+
       const { setVoiceChannelId } = usePeerStore.getState();
       setVoiceChannelId(channelId);
       if (broadcastVoiceStatus) broadcastVoiceStatus(channelId);
@@ -181,32 +274,56 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         ...prev,
         self: {
           username: identity?.username || 'Ben',
+          avatarColor: identity?.avatarColor,
           speaking: false,
-          stream,
           isSelf: true,
+          videoStream: localVideoRef.current || null,
         },
       }));
 
+      createAnalyser(audioStream, 'self');
+
       // Mevcut bağlı kullanıcılara arama yap
       for (const peerId of connectedPeerIds) {
-        if (callsRef.current[peerId]) continue; // zaten aranıyor
+        if (callsRef.current[peerId]) continue;
 
-        const call = peer.call(peerId, stream, {
-          metadata: { username: identity?.username, avatarColor: identity?.avatarColor },
-          // Opus codec tercih et
+        // Kamera açıksa ses+video akışı, değilse sadece ses
+        let streamToSend = audioStream;
+        if (localVideoRef.current) {
+          streamToSend = new MediaStream([
+            ...audioStream.getAudioTracks(),
+            ...localVideoRef.current.getVideoTracks(),
+          ]);
+        }
+
+        const call = peer.call(peerId, streamToSend, {
+          metadata: {
+            username: identity?.username,
+            avatarColor: identity?.avatarColor,
+          },
           sdpTransform: (sdp) => preferOpusHD(sdp),
         });
 
         call.on('stream', (remoteStream) => {
-          attachAudio(remoteStream, peerId);
-          setVoiceParticipants(prev => ({
-            ...prev,
-            [peerId]: {
-              username: prev[peerId]?.username || 'Katılımcı',
-              speaking: false,
-              stream: remoteStream,
-            },
-          }));
+          const audioTracks = remoteStream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            attachAudio(new MediaStream(audioTracks), peerId);
+          }
+
+          setVoiceParticipants(prev => {
+            const existing = prev[peerId] || {};
+            const videoTracks = remoteStream.getVideoTracks();
+            const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
+            return {
+              ...prev,
+              [peerId]: {
+                ...existing,
+                username: existing.username || 'Katılımcı',
+                speaking: false,
+                videoStream,
+              },
+            };
+          });
         });
 
         call.on('close', () => {
@@ -225,7 +342,6 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       }
 
       addToast({ type: 'success', message: 'Ses kanalına katıldın 🎙️' });
-      createAnalyser(stream, 'self');
     } catch (err) {
       setIsInVoice(false);
       const { setVoiceChannelId } = usePeerStore.getState();
@@ -233,19 +349,24 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       if (broadcastVoiceStatus) broadcastVoiceStatus(null);
       console.error('[Voice] Ses kanalına katılınamadı:', err);
     }
-  }, [getPeer, getLocalStream, identity, attachAudio, createAnalyser, broadcastVoiceStatus]);
+  }, [getPeer, getLocalStream, identity, attachAudio, createAnalyser, broadcastVoiceStatus, addToast]);
 
   // ── Ses Kanalından Çık ────────────────────────────────────────────────────
   const leaveVoice = useCallback(() => {
-    // Tüm aramaları kapat
     Object.values(callsRef.current).forEach(call => call.close());
     callsRef.current = {};
 
-    // Yerel akışı durdur
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     localStreamRef.current = null;
 
-    // Tüm audio element'leri temizle
+    // Kamerayı da kapat
+    if (localVideoRef.current) {
+      localVideoRef.current.getTracks().forEach(t => t.stop());
+      localVideoRef.current = null;
+    }
+    setIsCameraOn(false);
+    setLocalVideoStream(null);
+
     setVoiceParticipants(prev => {
       Object.keys(prev).forEach(id => {
         const el = document.getElementById(`audio-${id}`);
@@ -257,11 +378,11 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     delete analysersRef.current['self'];
     setIsInVoice(false);
     setIsMuted(false);
-    
+
     const { setVoiceChannelId } = usePeerStore.getState();
     setVoiceChannelId(null);
     if (broadcastVoiceStatus) broadcastVoiceStatus(null);
-    
+
     addToast({ type: 'info', message: 'Ses kanalından ayrıldın' });
   }, [broadcastVoiceStatus, addToast]);
 
@@ -303,6 +424,8 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     isInVoice,
     isMuted,
     isDeafened,
+    isCameraOn,
+    localVideoStream,
     voiceParticipants,
     micPermission,
     getSpeakingLevel,
@@ -310,23 +433,19 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     leaveVoice,
     toggleMute,
     toggleDeafen,
+    toggleCamera,
   };
 }
 
 // ── Opus HD SDP Dönüştürücü ───────────────────────────────────────────────────
-// WebRTC SDP'de Opus codec'i ön plana çıkar ve HD parametreleri ekle
 function preferOpusHD(sdp) {
-  // Opus codec'i bul ve önce koy
   const opusPattern = /a=rtpmap:(\d+) opus\/48000\/2/;
   const match = sdp.match(opusPattern);
   if (!match) return sdp;
 
   const opusPayload = match[1];
-
-  // Opus parametrelerini ekle: stereo, yüksek bitrate, DTX
   const fmtpLine = `a=fmtp:${opusPayload} minptime=10;useinbandfec=1;stereo=0;maxaveragebitrate=128000;cbr=0`;
 
-  // Mevcut fmtp satırını değiştir ya da yeni ekle
   if (sdp.includes(`a=fmtp:${opusPayload}`)) {
     return sdp.replace(/a=fmtp:\d+ .*opus.*/i, fmtpLine);
   } else {

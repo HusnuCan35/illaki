@@ -60,21 +60,24 @@
   transform: scale(1.08);
 }
 
-/* Voice Panel */
+/* ── Voice Panel ─────────────────────────────────────────────────────────── */
 .connectionPanel {
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-modifier-active, rgba(255, 255, 255, 0.05));
-  padding: 8px;
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  backdrop-filter: blur(8px);
+  padding: 10px;
+  border-radius: 10px;
   margin: 0 8px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  gap: 8px;
 }
 
 .connectionInfo {
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
+  gap: 2px;
 }
 
 .connectionStatus {
@@ -82,8 +85,9 @@
   align-items: center;
   gap: 6px;
   color: var(--success, #23a559);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .connectedIcon {
@@ -99,13 +103,93 @@
 
 .connectionChannel {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   padding-left: 20px;
 }
 
+/* ── Video Grid ───────────────────────────────────────────────────────────── */
+.videoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.videoGridSingle {
+  grid-template-columns: 1fr;
+}
+
+.videoTile {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-overlay, #1a1a2e);
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease;
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videoTileSpeaking {
+  border-color: var(--success, #23a559);
+  box-shadow: 0 0 0 2px rgba(35, 165, 89, 0.25);
+}
+
+.videoEl {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.videoAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  position: relative;
+}
+
+.videoTileFooter {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.6));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.videoTileName {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.videoTileIcons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────── */
 .controls {
   display: flex;
   justify-content: space-between;
@@ -114,46 +198,59 @@
 
 .controlBtn {
   flex: 1;
-  background: var(--bg-elevated);
-  border: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
   color: var(--text-normal);
   padding: 8px 0;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  min-width: 0;
 }
 
 .controlBtn:hover {
-  background: var(--bg-hover);
+  background: rgba(255,255,255,0.12);
   color: var(--text-primary);
-  border-color: var(--border-strong);
+  border-color: rgba(255,255,255,0.15);
+  transform: translateY(-1px);
 }
 
 .controlActive {
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--dnd);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
 }
 
 .controlActive:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.25) !important;
+}
+
+.controlCameraOn {
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #22c55e !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.controlCameraOn:hover {
+  background: rgba(34, 197, 94, 0.25) !important;
 }
 
 .leaveBtn {
   background: rgba(239, 68, 68, 0.12) !important;
-  color: var(--dnd) !important;
+  color: #ef4444 !important;
   border-color: rgba(239, 68, 68, 0.25) !important;
-  flex: 0 0 40px;
+  flex: 0 0 38px;
 }
 
 .leaveBtn:hover {
   background: rgba(239, 68, 68, 0.25) !important;
+  transform: translateY(-1px);
 }
 
-/* Modal Styling */
+/* ── Modal Styling ────────────────────────────────────────────────────────── */
 .modalContent {
   display: flex;
   flex-direction: column;
@@ -197,28 +294,27 @@
   margin-top: var(--space-2);
 }
 
-/* Katılımcı Listesi ve Kartları */
-.participantsList {
+/* ── Speaking Bars ────────────────────────────────────────────────────────── */
+.bars {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
 }
 
-.participant {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  border-radius: 8px;
-  background: var(--bg-modifier-hover);
-  transition: all 0.2s ease;
+.bar {
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.4);
+  transition: height 0.1s ease;
 }
 
-.speaking {
-  border: 2px solid var(--success);
-  padding: 6px;
+.barsActive .bar {
+  background: var(--success, #23a559);
 }
+
+/* ── Participant Legacy (kept for compatibility) ───────────────────────────── */
+.participantsList { display: none; }
 
 .participantAvatar {
   width: 32px;
@@ -247,23 +343,15 @@
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(35, 165, 89, 0); }
 }
 
-.participantName {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-normal);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.mutedIcon { color: #ef4444; }
 
-.participantIcons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-}
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .videoGrid {
+    grid-template-columns: 1fr;
+  }
 
-.mutedIcon {
-  color: var(--dnd);
+  .controlBtn {
+    padding: 7px 0;
+  }
 }

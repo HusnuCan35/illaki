@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Mic, MicOff, Headphones, HeadphonesIcon,
-  PhoneOff, Volume2, VolumeX, Radio, MonitorUp, MonitorOff
+  Mic, MicOff, Headphones,
+  PhoneOff, Volume2, VolumeX, Radio, MonitorUp, MonitorOff,
+  Camera, CameraOff
 } from 'lucide-react';
 import { useSpaceStore, usePeerStore } from '../stores';
 import { Modal } from './ui/Modal';
@@ -27,8 +28,9 @@ function SpeakingBars({ level, active }) {
   );
 }
 
-// Katılımcı kartı
-function Participant({ participant, peerId, getSpeakingLevel, isMuted, isDeafened }) {
+// Video tile bileşeni — kamera açıksa video, değilse avatar
+function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened, isSelf }) {
+  const videoRef = useRef(null);
   const [level, setLevel] = useState(0);
   const frameRef = useRef(null);
 
@@ -42,40 +44,61 @@ function Participant({ participant, peerId, getSpeakingLevel, isMuted, isDeafene
     return () => cancelAnimationFrame(frameRef.current);
   }, [peerId, getSpeakingLevel]);
 
+  // Video stream'i video elementine bağla
+  useEffect(() => {
+    if (videoRef.current && participant.videoStream) {
+      videoRef.current.srcObject = participant.videoStream;
+    }
+  }, [participant.videoStream]);
+
   const isSpeaking = level > 8;
 
   return (
     <div
-      className={`${styles.participant} ${isSpeaking ? styles.speaking : ''}`}
+      className={`${styles.videoTile} ${isSpeaking ? styles.videoTileSpeaking : ''}`}
       aria-label={`${participant.username}${isSpeaking ? ' - konuşuyor' : ''}`}
     >
-      <div
-        className={styles.participantAvatar}
-        style={{ background: participant.avatarColor || 'var(--accent)' }}
-        aria-hidden="true"
-      >
-        {(participant.username || '?').slice(0, 2).toUpperCase()}
-        {isSpeaking && <div className={styles.speakingRing} aria-hidden="true" />}
-      </div>
-      <span className={styles.participantName}>
-        {participant.isSelf ? `${participant.username} (Sen)` : participant.username}
-      </span>
-      <div className={styles.participantIcons} aria-hidden="true">
-        {(participant.isSelf ? isMuted : false) && <MicOff size={12} className={styles.mutedIcon} />}
-        {(participant.isSelf ? isDeafened : false) && <HeadphonesIcon size={12} className={styles.mutedIcon} />}
-        <SpeakingBars level={level} active={isSpeaking && !(participant.isSelf && isMuted)} />
+      {participant.videoStream ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          muted={isSelf}
+          playsInline
+          className={styles.videoEl}
+        />
+      ) : (
+        <div
+          className={styles.videoAvatar}
+          style={{ background: participant.avatarColor || 'var(--accent)' }}
+        >
+          {(participant.username || '?').slice(0, 2).toUpperCase()}
+          {isSpeaking && <div className={styles.speakingRing} aria-hidden="true" />}
+        </div>
+      )}
+
+      <div className={styles.videoTileFooter}>
+        <span className={styles.videoTileName}>
+          {isSelf ? `${participant.username} (Sen)` : participant.username}
+        </span>
+        <div className={styles.videoTileIcons}>
+          {(isSelf ? isMuted : false) && <MicOff size={12} className={styles.mutedIcon} />}
+          {(isSelf ? isDeafened : false) && <VolumeX size={12} className={styles.mutedIcon} />}
+          <SpeakingBars level={level} active={isSpeaking && !(isSelf && isMuted)} />
+        </div>
       </div>
     </div>
   );
 }
 
 /**
- * VoiceChannel — Ses kanalı UI bileşeni
+ * VoiceChannel — Ses + Video kanalı UI bileşeni
  */
 export function VoiceChannel({
   isInVoice,
   isMuted,
   isDeafened,
+  isCameraOn,
+  localVideoStream,
   voiceParticipants,
   getSpeakingLevel,
   micPermission,
@@ -83,6 +106,7 @@ export function VoiceChannel({
   onLeave,
   onToggleMute,
   onToggleDeafen,
+  onToggleCamera,
   screenShare,
   connectedPeerIds = [],
 }) {
@@ -91,15 +115,15 @@ export function VoiceChannel({
   const [fps, setFps] = useState('30');
   const [musicState, setMusicState] = useState(null);
 
-  // Aktif kanalın ismini bulalım (store'dan)
   const { channels, activeSpaceId } = useSpaceStore();
   const { voiceChannelId } = usePeerStore();
 
   if (!isInVoice) {
-    return null; // Artık katılma butonu kanalların üzerinde, burası sadece bağlıyken görünecek
+    return null;
   }
 
   const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
+  const participantEntries = Object.entries(voiceParticipants);
 
   return (
     <div className={styles.connectionPanel}>
@@ -113,42 +137,41 @@ export function VoiceChannel({
         </div>
       </div>
 
-      <div className={styles.participantsList}>
-        {/* Müzik Botu Katılımcısı (Sadece Şarkı Çalıyorsa) */}
-        {musicState?.currentSong && (
-          <div className={`${styles.participant} ${musicState.status === 'playing' ? styles.speaking : ''}`}>
-            <div
-              className={styles.participantAvatar}
-              style={{ background: '#FF0000' }}
-              aria-hidden="true"
-            >
-              🎵
-              {musicState.status === 'playing' && <div className={styles.speakingRing} aria-hidden="true" />}
+      {/* Video Grid */}
+      {participantEntries.length > 0 && (
+        <div className={`${styles.videoGrid} ${participantEntries.length === 1 ? styles.videoGridSingle : ''}`}>
+          {/* Müzik Botu */}
+          {musicState?.currentSong && (
+            <div className={`${styles.videoTile} ${musicState.status === 'playing' ? styles.videoTileSpeaking : ''}`}>
+              <div className={styles.videoAvatar} style={{ background: '#FF0000' }}>
+                🎵
+                {musicState.status === 'playing' && <div className={styles.speakingRing} />}
+              </div>
+              <div className={styles.videoTileFooter}>
+                <span className={styles.videoTileName}>Müzik Botu</span>
+                <SpeakingBars level={musicState.status === 'playing' ? 12 : 0} active={musicState.status === 'playing'} />
+              </div>
             </div>
-            <span className={styles.participantName}>
-              Müzik Botu
-            </span>
-            <div className={styles.participantIcons} aria-hidden="true">
-              <SpeakingBars level={musicState.status === 'playing' ? 12 : 0} active={musicState.status === 'playing'} />
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Gerçek Katılımcılar */}
-        {Object.entries(voiceParticipants).map(([peerId, participant]) => (
-          <Participant
-            key={peerId}
-            peerId={peerId}
-            participant={participant}
-            getSpeakingLevel={getSpeakingLevel}
-            isMuted={isMuted}
-            isDeafened={isDeafened}
-          />
-        ))}
-      </div>
+          {/* Gerçek Katılımcılar */}
+          {participantEntries.map(([peerId, participant]) => (
+            <VideoTile
+              key={peerId}
+              peerId={peerId}
+              participant={participant}
+              getSpeakingLevel={getSpeakingLevel}
+              isMuted={isMuted}
+              isDeafened={isDeafened}
+              isSelf={participant.isSelf}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Kontroller */}
       <div className={styles.controls}>
+        {/* Mikrofon */}
         <button
           className={`${styles.controlBtn} ${isMuted ? styles.controlActive : ''}`}
           onClick={onToggleMute}
@@ -159,6 +182,7 @@ export function VoiceChannel({
           {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
         </button>
 
+        {/* Kulaklık */}
         <button
           className={`${styles.controlBtn} ${isDeafened ? styles.controlActive : ''}`}
           onClick={onToggleDeafen}
@@ -169,39 +193,51 @@ export function VoiceChannel({
           {isDeafened ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </button>
 
-        <div className={styles.qualityMenuWrapper}>
-          <button
-            className={`${styles.controlBtn} ${screenShare?.isSharing ? styles.controlActive : ''}`}
-            onClick={() => {
-              if (screenShare?.isSharing) {
-                screenShare.stopScreenShare();
-                setShowQualityMenu(false);
-              } else {
-                setShowQualityMenu(true);
-              }
-            }}
-            aria-label={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
-            title={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
-          >
-            {screenShare?.isSharing ? <MonitorOff size={16} /> : <MonitorUp size={16} />}
-          </button>
-        </div>
+        {/* Kamera */}
+        <button
+          className={`${styles.controlBtn} ${isCameraOn ? styles.controlCameraOn : ''}`}
+          onClick={onToggleCamera}
+          aria-label={isCameraOn ? 'Kamerayı kapat' : 'Kamerayı aç'}
+          aria-pressed={isCameraOn}
+          title={isCameraOn ? 'Kamerayı Kapat' : 'Kamera Aç'}
+        >
+          {isCameraOn ? <Camera size={16} /> : <CameraOff size={16} />}
+        </button>
 
+        {/* Ekran Paylaşımı */}
+        <button
+          className={`${styles.controlBtn} ${screenShare?.isSharing ? styles.controlActive : ''}`}
+          onClick={() => {
+            if (screenShare?.isSharing) {
+              screenShare.stopScreenShare();
+              setShowQualityMenu(false);
+            } else {
+              setShowQualityMenu(true);
+            }
+          }}
+          aria-label={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
+          title={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
+        >
+          {screenShare?.isSharing ? <MonitorOff size={16} /> : <MonitorUp size={16} />}
+        </button>
+
+        {/* Ayrıl */}
         <button
           className={`${styles.controlBtn} ${styles.leaveBtn}`}
           onClick={onLeave}
           title="Ayrıl"
         >
-          <PhoneOff size={20} />
+          <PhoneOff size={16} />
         </button>
       </div>
 
+      {/* Ekran Paylaşımı Kalite Modalı */}
       <Modal isOpen={showQualityMenu} onClose={() => setShowQualityMenu(false)} title="Ekran Paylaşımı">
         <div className={styles.modalContent}>
           <div className={styles.modalField}>
             <label className={styles.modalLabel}>Çözünürlük</label>
-            <select 
-              value={res} 
+            <select
+              value={res}
               onChange={e => setRes(e.target.value)}
               className={styles.modalSelect}
             >
@@ -211,11 +247,11 @@ export function VoiceChannel({
               <option value="2160">2160p (4K Ultra HD)</option>
             </select>
           </div>
-          
+
           <div className={styles.modalField}>
             <label className={styles.modalLabel}>Kare Hızı (FPS)</label>
-            <select 
-              value={fps} 
+            <select
+              value={fps}
               onChange={e => setFps(e.target.value)}
               className={styles.modalSelect}
             >
@@ -226,7 +262,7 @@ export function VoiceChannel({
 
           <div className={styles.modalActions}>
             <Button variant="secondary" onClick={() => setShowQualityMenu(false)}>İptal</Button>
-            <Button 
+            <Button
               onClick={() => {
                 const resMap = {
                   '720': { w: 1280, h: 720 },
@@ -245,9 +281,9 @@ export function VoiceChannel({
         </div>
       </Modal>
 
-      {/* Arka plan müzik motoru (Bot) */}
-      <MusicPlayerCore 
-        activeSpaceId={activeSpaceId} 
+      {/* Arka plan müzik motoru */}
+      <MusicPlayerCore
+        activeSpaceId={activeSpaceId}
         onMusicStateChange={setMusicState}
       />
     </div>

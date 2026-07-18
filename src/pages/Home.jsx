@@ -87,6 +87,7 @@ export function Home() {
                 }}
                 onToggleMute={voice.toggleMute}
                 onToggleDeafen={voice.toggleDeafen}
+                onToggleCamera={voice.toggleCamera}
                 screenShare={screenShare}
               />
             }

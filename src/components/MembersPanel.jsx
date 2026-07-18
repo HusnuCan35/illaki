@@ -1,4 +1,4 @@
-import { Users, Wifi, WifiOff, Crown, UserX, X, AlertTriangle } from 'lucide-react';
+import { Users, Wifi, WifiOff, Crown, Shield, UserCheck, UserX, X, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
 import { Modal } from './ui/Modal';
@@ -36,19 +36,28 @@ function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChang
       </div>
       {!isSelf && iAmHost && (
         <div className={styles.actions}>
-          <select 
-            className={styles.roleSelect}
-            value={peer.role || 'member'}
-            onChange={(e) => onRoleChange(peer.uid, e.target.value)}
-          >
-            <option value="member">Üye</option>
-            <option value="mod">Moderatör</option>
-            <option value="admin">Yönetici</option>
-          </select>
-          <button 
+          {/* Şık Pill Rol Seçici */}
+          <div className={styles.rolePills}>
+            {[
+              { value: 'member', label: 'Üye', icon: <UserCheck size={11} /> },
+              { value: 'mod',    label: 'Mod',  icon: <Shield size={11} /> },
+              { value: 'admin',  label: 'Admin', icon: <Crown size={11} /> },
+            ].map(r => (
+              <button
+                key={r.value}
+                className={`${styles.rolePill} ${(peer.role || 'member') === r.value ? styles[`rolePill_${r.value}`] : ''}`}
+                onClick={() => onRoleChange(peer.uid, r.value)}
+                title={r.label}
+              >
+                {r.icon}
+                <span>{r.label}</span>
+              </button>
+            ))}
+          </div>
+          <button
             className={styles.kickBtn}
             onClick={() => onKick(peerId, peer.username)}
-            title="Tekmele"
+            title="Sunucudan Çıkar"
           >
             <X size={14} />
           </button>
