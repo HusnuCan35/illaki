@@ -697,18 +697,20 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
         <UploadIndicator progress={uploadProgress.progress} fileName={uploadProgress.fileName} />
       )}
 
+      {/* Screen Share (Pinned to Top) */}
+      {screenShare?.remoteScreenStream && (
+        <ScreenViewer stream={screenShare.remoteScreenStream} label={screenShare.remoteSharer} />
+      )}
+      {screenShare?.localScreenStream && !screenShare?.remoteScreenStream && (
+        <ScreenViewer
+          stream={screenShare.localScreenStream}
+          label="Sen"
+          onStop={() => screenShare.stopScreenShare()}
+        />
+      )}
+
       {/* Messages */}
       <main className={styles.messages} style={messagesStyle} role="log" aria-live="polite" aria-label="Mesajlar">
-        {screenShare?.remoteScreenStream && (
-          <ScreenViewer stream={screenShare.remoteScreenStream} label={screenShare.remoteSharer} />
-        )}
-        {screenShare?.localScreenStream && !screenShare?.remoteScreenStream && (
-          <ScreenViewer
-            stream={screenShare.localScreenStream}
-            label="Sen"
-            onStop={() => screenShare.stopScreenShare()}
-          />
-        )}
         {allMessages.length === 0 && !screenShare?.remoteScreenStream && !screenShare?.localScreenStream ? (
           <WelcomeScreen space={activeSpace} />
         ) : (

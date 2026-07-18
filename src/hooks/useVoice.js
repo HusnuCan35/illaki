@@ -416,18 +416,21 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
   // ── Mikrofon Sessiz/Açık ──────────────────────────────────────────────────
   const toggleMute = useCallback(() => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    const track = stream.getAudioTracks()[0];
-    if (!track) return;
-    const nextMute = !track.enabled;
-    track.enabled = !nextMute;
-    setIsMuted(nextMute);
-    
-    const { voiceChannelId } = usePeerStore.getState();
-    if (broadcastVoiceStatus && voiceChannelId) {
-      broadcastVoiceStatus({ channelId: voiceChannelId, isMuted: nextMute, isDeafened });
-    }
+    setIsMuted(prev => {
+      const nextMute = !prev;
+      const stream = localStreamRef.current;
+      if (stream) {
+        const track = stream.getAudioTracks()[0];
+        if (track) track.enabled = !nextMute;
+      }
+      
+      const { voiceChannelId } = usePeerStore.getState();
+      if (broadcastVoiceStatus && voiceChannelId) {
+        broadcastVoiceStatus({ channelId: voiceChannelId, isMuted: nextMute, isDeafened });
+      }
+      
+      return nextMute;
+    });
   }, [isDeafened, broadcastVoiceStatus]);
 
   // ── Kulaklık Sessiz/Açık ──────────────────────────────────────────────────
