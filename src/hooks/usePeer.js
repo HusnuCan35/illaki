@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { usePeerStore, useMessageStore, useSpaceStore, useUIStore, useIdentityStore } from '../stores';
-import { updateMemberPeerId } from '../lib/firestore';
+import { updateMemberPeerId, getSpaceOnlineMembers } from '../lib/firestore';
 
 /**
  * Peer ID formatı: "illaki-XXXXXXXX" (8 büyük harf/rakam)
@@ -310,68 +310,78 @@ export function usePeer() {
     return peer;
   }, [handleIncomingConnection]);
 
-  // ── Bir peer'e bağlan ─────────────────────────────────────────────────────
-  const connectToPeer = useCallback((remoteCode, spaceId) => {
-    return new Promise((resolve, reject) => {
-      if (!peerRef.current || peerRef.current.destroyed) {
-        return reject(new Error('Peer hazır değil'));
-      }
+  // ── Tek bir peer'e bağlan ──────────────────────────────────────────────────
+  const connectToSinglePeer = useCallback((targetPeerId, spaceCode) => {
+    if (!peerRef.current || peerRef.current.destroyed) return;
+    if (targetPeerId === peerRef.current.id) return;
+    if (connectionsRef.current[targetPeerId]) return; // Zaten bağlı
 
-      const remotePeerId = peerIdFromCode(remoteCode);
-      if (remotePeerId === peerId) {
-        return reject(new Error('Kendine bağlanamazsın'));
-      }
-
-      const conn = peerRef.current.connect(remotePeerId, {
-        reliable: true,
-        metadata: {
-          username: identityRef.current?.username,
-          avatarColor: identityRef.current?.avatarColor,
-          spaceCode: remoteCode,
-        },
-      });
-
-      // 12 saniye timeout
-      const timeout = setTimeout(() => {
-        reject(new Error('Bağlantı zaman aşımı — host çevrimiçi değil veya kod yanlış.'));
-      }, 12000);
-
-      const handleOpen = () => {
-        clearTimeout(timeout);
-        connectionsRef.current[remotePeerId] = conn;
-        addPeer(remotePeerId, {
-          username: conn.metadata?.username || 'Host',
-          avatarColor: conn.metadata?.avatarColor,
-          status: 'online',
-          spaceCode: remoteCode,
-        });
-        addToast({ type: 'success', message: 'Sunucuya bağlanıldı' });
-        // Kimliğimizi gönder
-        conn.send({ 
-          type: 'identity', 
-          username: identityRef.current?.username, 
-          avatarColor: identityRef.current?.avatarColor,
-          voiceChannelId: usePeerStore.getState().voiceChannelId
-        });
-        resolve(conn);
-      };
-      
-      if (conn.open) handleOpen();
-      else conn.on('open', handleOpen);
-
-      conn.on('data', (data) => handleIncomingData(conn.peer, data));
-      conn.on('close', () => {
-        clearTimeout(timeout);
-        delete connectionsRef.current[conn.peer];
-        removePeer(conn.peer);
-      });
-      conn.on('error', (err) => {
-        clearTimeout(timeout);
-        console.error('[Illaki] Bağlantı koptu:', err);
-        reject(err);
-      });
+    const conn = peerRef.current.connect(targetPeerId, {
+      reliable: true,
+      metadata: {
+        username: identityRef.current?.username,
+        avatarColor: identityRef.current?.avatarColor,
+        spaceCode,
+      },
     });
-  }, [peerId, handleIncomingData]);
+
+    const handleOpen = () => {
+      connectionsRef.current[targetPeerId] = conn;
+      addPeer(targetPeerId, {
+        username: conn.metadata?.username || 'Üye',
+        avatarColor: conn.metadata?.avatarColor,
+        status: 'online',
+        spaceCode,
+      });
+      addToast({ type: 'success', message: `${conn.metadata?.username || 'Biri'} bağlandı` });
+      // Kimliğimizi ve ses durumumuzu gönder
+      conn.send({ 
+        type: 'identity', 
+        username: identityRef.current?.username, 
+        avatarColor: identityRef.current?.avatarColor,
+        voiceChannelId: usePeerStore.getState().voiceChannelId
+      });
+    };
+
+    if (conn.open) handleOpen();
+    else conn.on('open', handleOpen);
+
+    conn.on('data', (data) => handleIncomingData(conn.peer, data));
+    conn.on('close', () => {
+      delete connectionsRef.current[conn.peer];
+      removePeer(conn.peer);
+    });
+    conn.on('error', (err) => {
+      console.warn('[Illaki] P2P bağlantı hatası:', targetPeerId, err);
+    });
+  }, [handleIncomingData, addPeer, removePeer, addToast]);
+
+  // ── Bir peer'e veya sunucudaki üyelere bağlan ─────────────────────────────
+  const connectToPeer = useCallback(async (remoteCode, spaceId) => {
+    if (!peerRef.current || peerRef.current.destroyed) return;
+
+    const targetSpaceId = spaceId || (remoteCode ? `space_${remoteCode.toUpperCase()}` : null);
+
+    // 1. Odadaki tüm online üyelerin peer ID'lerini Firestore'dan çek ve P2P bağlan
+    if (targetSpaceId) {
+      try {
+        const members = await getSpaceOnlineMembers(targetSpaceId, identityRef.current?.uid);
+        for (const member of members) {
+          if (member.peerId && member.peerId !== peerRef.current.id) {
+            connectToSinglePeer(member.peerId, remoteCode);
+          }
+        }
+      } catch (err) {
+        console.warn('[Illaki] Online üyelere bağlanılamadı:', err);
+      }
+    }
+
+    // 2. İkincil yöntem: Kod doğrudan peerId formatındaysa ("AB3K9PQM" → "illaki-AB3K9PQM")
+    const directPeerId = peerIdFromCode(remoteCode);
+    if (directPeerId && directPeerId !== peerRef.current.id) {
+      connectToSinglePeer(directPeerId, remoteCode);
+    }
+  }, [connectToSinglePeer]);
 
   // ── Üyeyi tekmeleme (Kick) ────────────────────────────────────────────────
   const kickPeer = useCallback((targetPeerId, spaceId) => {
