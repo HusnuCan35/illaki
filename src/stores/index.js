@@ -87,28 +87,38 @@ export const useMessageStore = create((set, get) => ({
 }));
 
 // Peers / Connection status store
-export const usePeerStore = create((set) => ({
-  peerId: null,          // our own peer ID
-  voiceChannelId: null,  // our own voice channel
-  peers: {},             // { [peerId]: { username, status, connection, voiceChannelId } }
-  connectionStatus: 'disconnected', // disconnected | connecting | connected
+export const usePeerStore = create(
+  persist(
+    (set) => ({
+      peerId: null,          // our own peer ID
+      voiceChannelId: null,  // our own voice channel
+      peers: {},             // { [peerId]: { username, status, connection, voiceChannelId } }
+      connectionStatus: 'disconnected', // disconnected | connecting | connected
 
-  setPeerId: (id) => set({ peerId: id }),
-  setVoiceChannelId: (id) => set({ voiceChannelId: id }),
-  setConnectionStatus: (status) => set({ connectionStatus: status }),
+      setPeerId: (id) => set({ peerId: id }),
+      setVoiceChannelId: (id) => set({ voiceChannelId: id }),
+      setConnectionStatus: (status) => set({ connectionStatus: status }),
 
-  addPeer: (id, data) => set((s) => ({
-    peers: { ...s.peers, [id]: data },
-  })),
-  removePeer: (id) => set((s) => {
-    const next = { ...s.peers };
-    delete next[id];
-    return { peers: next };
-  }),
-  updatePeer: (id, updates) => set((s) => ({
-    peers: { ...s.peers, [id]: { ...s.peers[id], ...updates } },
-  })),
-}));
+      addPeer: (id, data) => set((s) => ({
+        peers: { ...s.peers, [id]: data },
+      })),
+      removePeer: (id) => set((s) => {
+        const next = { ...s.peers };
+        delete next[id];
+        return { peers: next };
+      }),
+      updatePeer: (id, updates) => set((s) => ({
+        peers: { ...s.peers, [id]: { ...s.peers[id], ...updates } },
+      })),
+    }),
+    { 
+      name: 'illaki-peer',
+      // Sadece peerId'yi kalıcı yap, diğer P2P state'leri sekmeler arası korunmasın
+      partialize: (state) => ({ peerId: state.peerId })
+    }
+  )
+);
+
 
 // UI / App state store
 export const useUIStore = create((set) => ({

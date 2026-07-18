@@ -151,14 +151,8 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       if (isInVoice) {
         answerCall(call);
       } else {
-        // Sesli kanalda değilsek bildiri göster
-        addToast({
-          type: 'info',
-          message: 'Sesli görüşme isteği var — ses kanalına katıl',
-          duration: 8000,
-        });
-        // Otomatik cevapla (isteğe bağlı: sonradan accept/reject eklenebilir)
-        answerCall(call);
+        // Sesli kanalda değilsek çağrıyı reddet (otomatik mikrofon açılmasını önle)
+        call.close();
       }
     };
     window.addEventListener('illaki:incoming-call', handleIncoming);

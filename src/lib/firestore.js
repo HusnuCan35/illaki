@@ -165,6 +165,11 @@ export async function createSpace({ uid, username, name, description = '', isPri
     online: true,
   });
 
+  // Kullanıcının katıldığı odalara ekle
+  await updateDoc(doc(db, 'users', uid), {
+    joinedSpaces: arrayUnion(spaceId)
+  });
+
   // Space key'i session cache'e yaz
   await cacheSpaceKey(spaceId, spaceKey);
 
@@ -231,6 +236,11 @@ export async function joinSpace(code, { uid, username }) {
   await updateDoc(spaceRef, {
     memberCount: (spaceData.memberCount || 1) + 1,
     updatedAt: serverTimestamp(),
+  });
+
+  // Kullanıcının katıldığı odalara ekle
+  await updateDoc(doc(db, 'users', uid), {
+    joinedSpaces: arrayUnion(spaceId)
   });
 
   return { spaceId, spaceData };
@@ -387,15 +397,8 @@ export function subscribeToChannels(spaceId, onChannels) {
  * Kullanıcının katıldığı ve host olduğu tüm space'leri getir
  */
 export async function getUserSpaces(uid) {
-  // Üye olduğu odalar
-  const memberQuery = query(
-    collection(db, 'spaces'),
-    where(`members.${uid}`, '!=', null)
-  );
-  
-  // Basitleştirilmiş: members alt koleksiyonunda ara
-  // Tüm space'leri tara (üretimde index gerekir)
   const results = [];
+  const spaceIds = new Set();
   
   // Host olduğu odalar
   const hostQuery = query(
@@ -403,7 +406,25 @@ export async function getUserSpaces(uid) {
     where('hostUid', '==', uid)
   );
   const hostSnap = await getDocs(hostQuery);
-  hostSnap.docs.forEach(d => results.push({ id: d.id, ...d.data(), isHost: true }));
+  hostSnap.docs.forEach(d => {
+    results.push({ id: d.id, ...d.data(), isHost: true });
+    spaceIds.add(d.id);
+  });
+  
+  // Katıldığı odalar (user document'tan)
+  const userDoc = await getDoc(doc(db, 'users', uid));
+  if (userDoc.exists()) {
+    const joined = userDoc.data().joinedSpaces || [];
+    for (const spaceId of joined) {
+      if (!spaceIds.has(spaceId)) {
+        const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
+        if (spaceSnap.exists()) {
+          results.push({ id: spaceSnap.id, ...spaceSnap.data(), isHost: false });
+          spaceIds.add(spaceId);
+        }
+      }
+    }
+  }
   
   return results;
 }

@@ -36,6 +36,18 @@ export function Home() {
     initPeer().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-connect to space P2P network when activeSpaceId changes (e.g. on load or switch)
+  useEffect(() => {
+    if (activeSpaceId) {
+      const space = useSpaceStore.getState().spaces.find(s => s.id === activeSpaceId);
+      if (space && space.code) {
+        connectToPeer(space.code, activeSpaceId).catch(() => {
+          // Ignore errors, likely already connected or we are the host
+        });
+      }
+    }
+  }, [activeSpaceId, connectToPeer]);
+
   const connectedPeerIds = Object.keys(peers);
 
   useEffect(() => {
