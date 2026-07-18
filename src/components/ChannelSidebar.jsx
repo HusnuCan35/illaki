@@ -249,21 +249,24 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
                           <span className={styles.voiceParticipantName}>{identity.username} (Sen)</span>
                         </div>
                       )}
-                      {othersInChannel.map(([id, p]) => (
-                        <div key={id} className={styles.voiceParticipantRow}>
-                          <Avatar username={p.username} color={p.avatarColor} size={24} status={p.status} />
-                          <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{p.username}</span>
-                          {isPrivileged && kickFromVoice && (
-                            <button 
-                              className={styles.kickVoiceBtn}
-                              onClick={() => kickFromVoice(id)}
-                              title="Kullanıcıyı sesten at"
-                            >
-                              <UserMinus size={14} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                      {othersInChannel.map(([id, p]) => {
+                        const nameToShow = (p.username && p.username !== 'Katılımcı' && p.username !== 'Anonim') ? p.username : 'Üye';
+                        return (
+                          <div key={id} className={styles.voiceParticipantRow}>
+                            <Avatar username={nameToShow} color={p.avatarColor} size={24} status={p.status || 'online'} />
+                            <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{nameToShow}</span>
+                            {isPrivileged && kickFromVoice && (
+                              <button 
+                                className={styles.kickVoiceBtn}
+                                onClick={() => kickFromVoice(id)}
+                                title="Kullanıcıyı sesten at"
+                              >
+                                <UserMinus size={14} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -282,7 +285,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
-            <span className={styles.userStatus}>Çevrimiçi • v1.0.2</span>
+            <span className={styles.userStatus}>Çevrimiçi • v1.0.3</span>
           </div>
         </div>
         <div className={styles.userActions}>

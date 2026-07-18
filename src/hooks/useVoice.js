@@ -207,11 +207,18 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           const videoTracks = remoteStream.getVideoTracks();
           const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
 
-          // Username: call.metadata → peers store → mevcut → 'Katılımcı'
           const peersStore = usePeerStore.getState();
           const peerInfo = peersStore.peers[call.peer];
-          const username = call.metadata?.username || peerInfo?.username || existing.username || 'Katılımcı';
+          const username = call.metadata?.username || (peerInfo?.username !== 'Katılımcı' && peerInfo?.username !== 'Anonim' ? peerInfo?.username : null) || existing.username || 'Katılımcı';
           const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || existing.avatarColor;
+
+          if (username !== 'Katılımcı') {
+            peersStore.updatePeer(call.peer, {
+              username,
+              avatarColor,
+              voiceChannelId: peersStore.voiceChannelId,
+            });
+          }
 
           return {
             ...prev,
@@ -342,11 +349,26 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
             const existing = prev[pId] || {};
             const videoTracks = remoteStream.getVideoTracks();
             const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
+            
+            const peersStore = usePeerStore.getState();
+            const peerInfo = peersStore.peers[pId];
+            const username = (peerInfo?.username !== 'Katılımcı' && peerInfo?.username !== 'Anonim' ? peerInfo?.username : null) || existing.username || 'Katılımcı';
+            const avatarColor = peerInfo?.avatarColor || existing.avatarColor;
+
+            if (username !== 'Katılımcı') {
+              peersStore.updatePeer(pId, {
+                username,
+                avatarColor,
+                voiceChannelId: channelId,
+              });
+            }
+
             return {
               ...prev,
               [pId]: {
                 ...existing,
-                username: existing.username || 'Katılımcı',
+                username,
+                avatarColor,
                 speaking: false,
                 videoStream,
               },
