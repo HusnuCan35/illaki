@@ -500,10 +500,9 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
       } else {
         // Normal mesaj
         await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text', null, currentReply);
+        // P2P'ye sadece normal mesajlar gitsin
+        sendP2PMessage(activeSpaceId, activeChannelId, content);
       }
-      
-      // P2P'ye de gönder (anlık iletim)
-      sendP2PMessage(activeSpaceId, activeChannelId, content);
       
     } catch (err) {
       console.error('Mesaj gönderilemedi:', err);
