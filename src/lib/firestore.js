@@ -13,7 +13,7 @@ import {
   doc, collection, getDoc, setDoc, updateDoc, deleteDoc,
   addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, arrayUnion, arrayRemove,
-  where, getDocs, writeBatch,
+  where, getDocs, writeBatch, runTransaction, increment
 } from 'firebase/firestore';
 import {
   ref, uploadBytes, getDownloadURL, deleteObject,
@@ -311,6 +311,28 @@ export async function updateMemberRole(spaceId, hostUid, targetUid, newRole) {
   await updateDoc(memberRef, { role: newRole });
 }
 
+/**
+ * Kullanıcının peer ID'sini üye belgesine yaz (ses kanalı keşfi için)
+ */
+export async function updateMemberPeerId(spaceId, uid, peerId) {
+  try {
+    const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
+    await updateDoc(memberRef, { peerId, online: true, lastSeen: serverTimestamp() });
+  } catch {
+    // Üye belgesi yoksa sessizce devam et
+  }
+}
+
+/**
+ * Bir space'in online üyelerini peer ID'leriyle birlikte getir (ses kanalı için)
+ */
+export async function getSpaceOnlineMembers(spaceId, myUid) {
+  const membersSnap = await getDocs(collection(db, 'spaces', spaceId, 'members'));
+  return membersSnap.docs
+    .map(d => ({ uid: d.id, ...d.data() }))
+    .filter(m => m.uid !== myUid && m.peerId);
+}
+
 // ────────────────────────────────────────────────────────────
 // Kanallar (Channels)
 // ────────────────────────────────────────────────────────────
@@ -436,10 +458,9 @@ export async function getUserSpaces(uid) {
 /**
  * E2E şifreli mesaj gönder
  */
-export async function sendEncryptedMessage(spaceId, channelId, uid, username, content, type = 'text', mediaData = null) {
+export async function sendEncryptedMessage(spaceId, channelId, uid, username, content, type = 'text', mediaData = null, replyTo = null) {
   let spaceKey = await getSpaceKey(spaceId, uid);
   if (!spaceKey) {
-    // Anahtarı yeniden yükle
     throw new Error('Space anahtarı bulunamadı. Lütfen odayı yeniden açın.');
   }
 
@@ -448,7 +469,6 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
   let encryptedMediaUrl = null;
   let encryptedThumbnailUrl = null;
 
-  // Medya URL'si varsa onu da şifrele
   if (mediaData?.url) {
     const encrypted = await encryptMessage(spaceKey, mediaData.url);
     encryptedMediaUrl = encrypted;
@@ -456,6 +476,17 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
   if (mediaData?.thumbnailUrl) {
     const encrypted = await encryptMessage(spaceKey, mediaData.thumbnailUrl);
     encryptedThumbnailUrl = encrypted;
+  }
+
+  let encryptedReplyTo = null;
+  if (replyTo) {
+    const { ciphertext: replyContent, iv: replyIv } = await encryptMessage(spaceKey, replyTo.content);
+    encryptedReplyTo = {
+      messageId: replyTo.id,
+      senderUsername: replyTo.senderUsername,
+      encryptedContent: replyContent,
+      iv: replyIv,
+    };
   }
 
   const messageData = {
@@ -474,6 +505,11 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
     mediaName: mediaData?.name || null,
     mediaDuration: mediaData?.duration || null,
     mediaDimensions: mediaData?.dimensions || null,
+    // Reply
+    replyTo: encryptedReplyTo,
+    // Ek alanlar (başlangıçta)
+    isEdited: false,
+    reactions: {}, // { "emoji": ["uid1", "uid2"] }
   };
 
   const ref = await addDoc(
@@ -482,6 +518,61 @@ export async function sendEncryptedMessage(spaceId, channelId, uid, username, co
   );
 
   return { id: ref.id, ...messageData };
+}
+
+// ── Mesaj Aksiyonları (Sil, Düzenle, Tepki) ──
+
+export async function editMessage(spaceId, channelId, messageId, uid, newContent) {
+  let spaceKey = await getSpaceKey(spaceId, uid);
+  if (!spaceKey) throw new Error('Space anahtarı bulunamadı.');
+  
+  const { ciphertext, iv } = await encryptMessage(spaceKey, newContent);
+  
+  const msgRef = doc(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages', messageId);
+  await updateDoc(msgRef, {
+    encryptedContent: ciphertext,
+    iv: iv,
+    isEdited: true
+  });
+}
+
+export async function deleteMessage(spaceId, channelId, messageId) {
+  const msgRef = doc(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages', messageId);
+  await deleteDoc(msgRef);
+}
+
+export async function toggleMessageReaction(spaceId, channelId, messageId, uid, emoji) {
+  const msgRef = doc(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages', messageId);
+  
+  // Firestore işleminde transaction kullanarak race condition'ı engelliyoruz
+  await runTransaction(db, async (transaction) => {
+    const msgDoc = await transaction.get(msgRef);
+    if (!msgDoc.exists()) return;
+    
+    const data = msgDoc.data();
+    const reactions = data.reactions || {};
+    const usersForEmoji = reactions[emoji] || [];
+    
+    if (usersForEmoji.includes(uid)) {
+      reactions[emoji] = usersForEmoji.filter(id => id !== uid);
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    } else {
+      reactions[emoji] = [...usersForEmoji, uid];
+    }
+    
+    transaction.update(msgRef, { reactions });
+  });
+}
+
+// ── Puan Sistemi ──
+
+export async function updateMemberPoints(spaceId, uid, pointsToAdd) {
+  const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
+  await updateDoc(memberRef, {
+    points: increment(pointsToAdd) // Firestore increment kullanarak güvenli artırım
+  });
 }
 
 /**

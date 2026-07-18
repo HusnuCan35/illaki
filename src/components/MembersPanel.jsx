@@ -32,6 +32,11 @@ function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChang
           ) : (
             'Üye'
           )}
+          {peer.points > 0 && (
+            <span className={styles.pointsBadge} title={`${peer.points} Puan`}>
+              ⭐ {peer.points}
+            </span>
+          )}
         </span>
       </div>
       {!isSelf && iAmHost && (
@@ -99,9 +104,6 @@ export function MembersPanel({ kickPeer }) {
   
   // Önce dbMembers üzerinden birleştirilmiş bir liste yap
   const mergedMembers = dbMembers.filter(m => m.uid !== identity?.uid).map(m => {
-    // PeerJS'de var mı? (P2P bağlantısı varsa kesin onlinedır ve PeerJS ID'si ile eşleştirilir)
-    // Ancak PeerJS'de uid'yi tutmuyoruz, username üzerinden veya metadata üzerinden eşleştirmeliyiz.
-    // Şimdilik dbMembers üzerinden online statüsünü de kullanabiliriz.
     return {
       uid: m.uid,
       peerId: m.uid,
@@ -109,7 +111,8 @@ export function MembersPanel({ kickPeer }) {
       avatarColor: m.avatarColor,
       status: m.online ? 'online' : 'offline',
       isHost: m.role === 'host',
-      role: m.role || 'member'
+      role: m.role || 'member',
+      points: m.points || 0
     };
   });
 

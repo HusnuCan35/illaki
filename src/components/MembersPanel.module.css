@@ -188,7 +188,20 @@
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+}
+
+.pointsBadge {
+  background: rgba(250, 166, 26, 0.15);
+  color: #faa61a;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid rgba(250, 166, 26, 0.3);
 }
 
 .empty {
@@ -200,4 +213,27 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
   text-align: center;
+}
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .panel {
+    width: 100vw;
+    max-width: 100vw;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .rolePill {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+
+  .member {
+    padding: 10px var(--space-2);
+  }
+
+  .actions {
+    opacity: 1; /* Always visible on mobile (no hover) */
+  }
 }

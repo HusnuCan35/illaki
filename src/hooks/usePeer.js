@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { usePeerStore, useMessageStore, useSpaceStore, useUIStore, useIdentityStore } from '../stores';
+import { updateMemberPeerId } from '../lib/firestore';
 
 /**
  * Peer ID formatı: "illaki-XXXXXXXX" (8 büyük harf/rakam)
@@ -253,6 +254,15 @@ export function usePeer() {
       setPeerId(id);
       setConnectionStatus('connected');
       console.log('[Illaki] Peer hazır, ID:', id);
+
+      // Tüm katılınan space'lere peer ID'yi yaz (ses kanalı keşfi için)
+      const { spaces } = useSpaceStore.getState();
+      const { identity: ident } = useIdentityStore.getState();
+      if (ident?.uid && spaces.length > 0) {
+        spaces.forEach(space => {
+          updateMemberPeerId(space.id, ident.uid, id).catch(() => {});
+        });
+      }
     });
 
     peer.on('connection', handleIncomingConnection);

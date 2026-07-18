@@ -352,7 +352,180 @@
   color: var(--accent);
 }
 
-/* Messages area */
+/* Message Actions (Hover) */
+.msgBubbleWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.msgActions {
+  position: absolute;
+  top: -16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  display: flex;
+  gap: 2px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 10;
+}
+
+.msgActionsRight {
+  right: 0;
+}
+
+.msgActionsLeft {
+  left: 0;
+}
+
+.actionBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.actionBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.actionBtnDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+/* Reply Context */
+.replyContext {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+  padding-left: 20px;
+  position: relative;
+  opacity: 0.8;
+}
+
+.replyBar {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-left: 2px solid var(--border-accent);
+  border-top: 2px solid var(--border-accent);
+  border-top-left-radius: 4px;
+}
+
+.replyUsername {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.replyContent {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* Reactions */
+.reactionsArea {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.reactionPill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.reactionPill:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
+}
+
+.reactionPillActive {
+  background: rgba(var(--accent-rgb), 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Reply Banner */
+.replyingToBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-elevated);
+  padding: 8px 12px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.replyingToInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cancelReplyBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.cancelReplyBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.editedMark {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.systemMessage {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  margin: 8px 0;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-full);
+}
+
+/* Main Messages Area */
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -743,4 +916,97 @@
   max-height: 60vh;
   object-fit: contain;
   background: #000;
+}
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Header */
+  .mobileMenuBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .header {
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
+    height: 52px;
+  }
+
+  .headerActions {
+    gap: 4px;
+  }
+
+  .codeButton code,
+  .e2eBadge {
+    display: none;
+  }
+
+  .headerName {
+    font-size: 0.9rem;
+  }
+
+  /* Messages */
+  .messages {
+    padding: var(--space-3);
+  }
+
+  .msgGroup {
+    gap: 6px;
+  }
+
+  .msgContent {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* Input area */
+  .inputArea {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .inputBox {
+    font-size: 0.95rem;
+    padding: 10px 14px;
+  }
+
+  .sendBtn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .toolbarBtn {
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+  }
+
+  /* Emoji picker on mobile */
+  .emojiWrapper {
+    bottom: 60px;
+    right: var(--space-3);
+    left: var(--space-3);
+    transform: none;
+  }
+
+  /* Screen share video */
+  .screenVideo {
+    max-height: 40vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    height: 48px;
+  }
+
+  .msgAvatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .inputWrapper {
+    flex-wrap: nowrap;
+  }
 }

@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
-  Play, X, Upload, Settings, LogOut, Volume2, Music, Menu
+  Play, X, Upload, Settings, LogOut, Volume2, Music, Menu,
+  Reply, Edit2, Trash2
 } from 'lucide-react';
 import {
   useMessageStore, useSpaceStore, useIdentityStore,
@@ -159,31 +160,100 @@ function formatDuration(s) {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-function MessageGroup({ group }) {
+function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity }) {
   return (
     <div className={`${styles.msgGroup} ${group.own ? styles.own : ''}`}>
-      {!group.own && <AvatarMini username={group.sender} />}
+      {!group.own && group.type !== 'system' && <AvatarMini username={group.sender} />}
       <div className={styles.msgContent}>
-        {!group.own && <div className={styles.msgSender}>{group.sender}</div>}
+        {!group.own && group.type !== 'system' && <div className={styles.msgSender}>{group.sender}</div>}
         <div className={styles.msgBubbles}>
           {group.messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`${styles.msgBubble} ${group.own ? styles.ownBubble : styles.otherBubble}`}
-            >
-              {(msg.type === 'image' || msg.type === 'video' || msg.type === 'file') && msg.mediaUrl ? (
-                <MediaBubble msg={msg} />
-              ) : (
-                <span>{msg.content}</span>
-              )}
-              <time className={styles.msgTime} dateTime={new Date(msg.timestamp).toISOString()}>
-                {formatTime(msg.timestamp)}
-              </time>
-            </div>
+            <MessageBubble 
+              key={msg.id} 
+              msg={msg} 
+              group={group} 
+              onReply={onReply} 
+              onDelete={onDelete} 
+              onEdit={onEdit} 
+              onReact={onReact} 
+              identity={identity}
+            />
           ))}
         </div>
       </div>
-      {group.own && <AvatarMini username={group.sender} own />}
+      {group.own && group.type !== 'system' && <AvatarMini username={group.sender} own />}
+    </div>
+  );
+}
+
+function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identity }) {
+  const [showActions, setShowActions] = useState(false);
+  
+  if (msg.type === 'system') {
+    return (
+      <div className={styles.systemMessage}>
+        <span>{msg.content}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className={styles.msgBubbleWrapper}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      {msg.replyTo && (
+        <div className={styles.replyContext}>
+          <div className={styles.replyBar} />
+          <span className={styles.replyUsername}>@{msg.replyTo.senderUsername}</span>
+          <span className={styles.replyContent}>
+            {msg.replyTo.content || "Medya mesajı"}
+          </span>
+        </div>
+      )}
+      
+      <div className={`${styles.msgBubble} ${group.own ? styles.ownBubble : styles.otherBubble}`}>
+        {(msg.type === 'image' || msg.type === 'video' || msg.type === 'file') && msg.mediaUrl ? (
+          <MediaBubble msg={msg} />
+        ) : (
+          <span>{msg.content}</span>
+        )}
+        <div className={styles.msgMetaInfo}>
+          {msg.isEdited && <span className={styles.editedMark}>(düzenlendi)</span>}
+          <time className={styles.msgTime} dateTime={new Date(msg.timestamp).toISOString()}>
+            {formatTime(msg.timestamp)}
+          </time>
+        </div>
+      </div>
+      
+      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+        <div className={styles.reactionsArea}>
+          {Object.entries(msg.reactions).map(([emoji, users]) => (
+            <button 
+              key={emoji} 
+              className={`${styles.reactionPill} ${users.includes(identity?.uid) ? styles.reactionPillActive : ''}`}
+              onClick={() => onReact(msg.id, emoji)}
+            >
+              <span className={styles.reactionEmoji}>{emoji}</span>
+              <span className={styles.reactionCount}>{users.length}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showActions && (
+        <div className={`${styles.msgActions} ${group.own ? styles.msgActionsRight : styles.msgActionsLeft}`}>
+          <button className={styles.actionBtn} onClick={() => onReact(msg.id, '👍')} title="Beğen"><Smile size={14} /></button>
+          <button className={styles.actionBtn} onClick={() => onReply(msg)} title="Yanıtla"><Reply size={14} /></button>
+          {group.own && (
+            <>
+              <button className={styles.actionBtn} onClick={() => onEdit(msg)} title="Düzenle"><Edit2 size={14} /></button>
+              <button className={`${styles.actionBtn} ${styles.actionBtnDanger}`} onClick={() => onDelete(msg.id)} title="Sil"><Trash2 size={14} /></button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -262,6 +332,8 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
   const activeChannel = spaceChannels.find(c => c.id === activeChannelId);
   const onlinePeers = Object.keys(peers).length;
 
+  const [replyingTo, setReplyingTo] = useState(null);
+
   // Firebase real-time mesaj dinleyicisi
   useEffect(() => {
     if (!activeSpaceId || !identity?.uid) return;
@@ -310,17 +382,94 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
   }, [activeSpaceId]);
 
   const handleSend = useCallback(async () => {
-    const content = input.trim();
+    let content = input.trim();
     if (!content || !activeSpaceId || !identity) return;
 
     setSending(true);
     setInput('');
+    const currentReply = replyingTo;
+    setReplyingTo(null);
 
     try {
-      // Firebase'e şifreli gönder
-      await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text');
+      let isGameCommand = false;
+      let gameResult = null;
+      let pointsAwarded = 0;
+
+      // Oyun komutlarını yakala
+      if (content.startsWith('/')) {
+        const cmd = content.toLowerCase();
+        isGameCommand = true;
+        
+        if (cmd === '/zar') {
+          const roll = Math.floor(Math.random() * 6) + 1;
+          pointsAwarded = roll * 10;
+          gameResult = `🎲 Zar attı ve **${roll}** geldi! (+${pointsAwarded} Puan)`;
+        } else if (['/tas', '/kagit', '/makas'].includes(cmd)) {
+          const choices = ['tas', 'kagit', 'makas'];
+          const botChoice = choices[Math.floor(Math.random() * 3)];
+          const userChoice = cmd.substring(1);
+          
+          let resultText = '';
+          if (userChoice === botChoice) {
+            resultText = 'Berabere!';
+            pointsAwarded = 5;
+          } else if (
+            (userChoice === 'tas' && botChoice === 'makas') ||
+            (userChoice === 'kagit' && botChoice === 'tas') ||
+            (userChoice === 'makas' && botChoice === 'kagit')
+          ) {
+            resultText = 'Kazandın!';
+            pointsAwarded = 25;
+          } else {
+            resultText = 'Kaybettin.';
+            pointsAwarded = 0;
+          }
+          
+          const emojiMap = { tas: '🪨', kagit: '📄', makas: '✂️' };
+          gameResult = `🤖 Bot **${emojiMap[botChoice]}** seçti. Sen **${emojiMap[userChoice]}** seçtin. ${resultText} (+${pointsAwarded} Puan)`;
+        } else if (['/yazi', '/tura'].includes(cmd)) {
+          const isYazi = Math.random() > 0.5;
+          const userChoice = cmd.substring(1);
+          const result = isYazi ? 'yazi' : 'tura';
+          
+          if (userChoice === result) {
+            pointsAwarded = 20;
+            gameResult = `🪙 Madeni para atıldı: **${result.toUpperCase()}**. Kazandın! (+${pointsAwarded} Puan)`;
+          } else {
+            gameResult = `🪙 Madeni para atıldı: **${result.toUpperCase()}**. Kaybettin!`;
+          }
+        } else if (cmd === '/jackpot') {
+          const roll = Math.random();
+          if (roll > 0.95) { // %5 şans
+            pointsAwarded = 1000;
+            gameResult = `🎰 **JACKPOT!** İnanılmaz bir şans! Büyük ödülü kazandın! (+${pointsAwarded} Puan)`;
+          } else {
+            gameResult = `🎰 Jackpot denedi ama kazanamadı. Bol şans...`;
+          }
+        } else {
+          isGameCommand = false; // Tanınmayan komut
+        }
+      }
+
+      if (isGameCommand && gameResult) {
+        // Sistemi mesajı olarak Firebase'e yaz
+        content = gameResult;
+        await sendEncryptedMessage(activeSpaceId, activeChannelId, 'system', 'Sistem', content, 'system', null, currentReply);
+        
+        // Puan ekle
+        if (pointsAwarded > 0) {
+          import('../lib/firestore').then(({ updateMemberPoints }) => {
+            updateMemberPoints(activeSpaceId, identity.uid, pointsAwarded).catch(console.error);
+          });
+        }
+      } else {
+        // Normal mesaj
+        await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text', null, currentReply);
+      }
+      
       // P2P'ye de gönder (anlık iletim)
       sendP2PMessage(activeSpaceId, activeChannelId, content);
+      
     } catch (err) {
       console.error('Mesaj gönderilemedi:', err);
       addToast({ type: 'error', message: 'Mesaj gönderilemedi. Lütfen tekrar dene.' });
@@ -328,7 +477,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
       setSending(false);
       inputRef.current?.focus();
     }
-  }, [input, activeSpaceId, activeChannelId, identity, sendP2PMessage, addToast]);
+  }, [input, replyingTo, activeSpaceId, activeChannelId, identity, sendP2PMessage, addToast]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -525,13 +674,58 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
         {allMessages.length === 0 && !screenShare?.remoteScreenStream && !screenShare?.localScreenStream ? (
           <WelcomeScreen space={activeSpace} />
         ) : (
-          groups.map((group, i) => <MessageGroup key={i} group={group} />)
+          groups.map((group, i) => (
+            <MessageGroup 
+              key={i} 
+              group={group} 
+              onReply={(msg) => {
+                setReplyingTo(msg);
+                inputRef.current?.focus();
+              }}
+              onDelete={async (msgId) => {
+                try {
+                  const { deleteMessage } = await import('../lib/firestore');
+                  await deleteMessage(activeSpaceId, activeChannelId, msgId);
+                } catch (err) {
+                  addToast({ type: 'error', message: 'Silinemedi: ' + err.message });
+                }
+              }}
+              onEdit={(msg) => {
+                const newContent = prompt('Mesajı düzenle:', msg.content);
+                if (newContent && newContent.trim() !== msg.content) {
+                  import('../lib/firestore').then(({ editMessage }) => {
+                    editMessage(activeSpaceId, activeChannelId, msg.id, identity.uid, newContent.trim())
+                      .catch(err => addToast({ type: 'error', message: 'Düzenlenemedi: ' + err.message }));
+                  });
+                }
+              }}
+              onReact={(msgId, emoji) => {
+                import('../lib/firestore').then(({ toggleMessageReaction }) => {
+                  toggleMessageReaction(activeSpaceId, activeChannelId, msgId, identity.uid, emoji)
+                    .catch(console.error);
+                });
+              }}
+              identity={identity}
+            />
+          ))
         )}
         <div ref={messagesEndRef} aria-hidden="true" />
       </main>
 
       {/* Input */}
       <footer className={styles.inputArea}>
+        {replyingTo && (
+          <div className={styles.replyingToBanner}>
+            <div className={styles.replyingToInfo}>
+              <Reply size={14} />
+              <span>Yanıtlanıyor: <strong>@{replyingTo.senderUsername}</strong></span>
+            </div>
+            <button className={styles.cancelReplyBtn} onClick={() => setReplyingTo(null)}>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        
         {showEmoji && (
           <div className={styles.emojiPickerWrapper}>
             <EmojiPicker

@@ -1,54 +1,118 @@
+.container {
+  display: flex;
+  gap: 0;
+  min-height: 400px;
+  margin: calc(-1 * var(--space-6));
+  overflow: hidden;
+}
+
+/* Sidebar Nav */
+.sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid var(--border);
+  padding: var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  width: 100%;
+  text-align: left;
+  transition: all var(--transition-base);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tabBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.activeTab {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb, 255, 126, 32), 0.18), rgba(var(--accent-rgb, 255, 126, 32), 0.08)) !important;
+  color: var(--accent) !important;
+  border: 1px solid rgba(var(--accent-rgb, 255, 126, 32), 0.2);
+}
+
+/* Content */
+.content {
+  flex: 1;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+}
+
+/* Forms & Fields */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
+  height: 100%;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .formGroup label {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-secondary);
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 .inputWrapper {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
 .inputIcon {
   position: absolute;
-  left: 1rem;
-  color: var(--text-secondary);
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
 .inputWrapper input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  padding-left: 40px !important;
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
+  padding: 12px 14px;
   transition: all 0.2s ease;
 }
 
 .inputWrapper input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 255, 126, 32), 0.15);
 }
 
+/* Selectors (Radio, Type) */
 .typeSelector {
   display: flex;
-  gap: 1rem;
+  gap: var(--space-3);
 }
 
 .typeBtn {
@@ -57,121 +121,85 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
+  font-weight: 500;
 }
 
 .typeBtn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
 }
 
 .typeBtn.active {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(var(--accent-rgb, 255, 126, 32), 0.1);
   border-color: var(--accent);
   color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 255, 126, 32), 0.2);
 }
 
+/* Radio Group */
 .radioGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .radioLabel {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   cursor: pointer;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.radioLabel span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .radioLabel input[type="radio"] {
   accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Danger Zone */
+.dangerZone {
+  margin-top: auto;
+  padding: var(--space-4);
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dangerZone p {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .actions {
   display: flex;
+  gap: var(--space-3);
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-/* Channel Settings Specific */
-.container {
-  display: flex;
-  gap: 1.5rem;
-  margin: -1.5rem; /* Modal padding'i iptal et */
-  min-height: 350px;
-  max-height: 70vh;
-}
-
-.sidebar {
-  width: 180px;
-  background: var(--bg-tertiary);
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  border-right: 1px solid var(--border-color);
-}
-
-.tabBtn {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tabBtn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-}
-
-.activeTab {
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--accent);
-}
-
-.activeTab:hover {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--accent);
-}
-
-.content {
-  flex: 1;
-  padding: 1.5rem 1.5rem 1.5rem 0;
-  overflow-y: auto;
-}
-
-.dangerZone {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 8px;
-  background: rgba(239, 68, 68, 0.05);
-}
-
-.dangerZone p {
-  color: #fca5a5;
-  font-size: 0.9rem;
-  margin-top: 0;
-  margin-bottom: 1rem;
+  margin-top: auto;
+  padding-top: var(--space-4);
 }

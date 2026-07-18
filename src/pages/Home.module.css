@@ -9,6 +9,7 @@
 .sidebars {
   display: flex;
   height: 100%;
+  flex-shrink: 0;
 }
 
 .content {
@@ -16,11 +17,14 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .rightPanels {
   display: flex;
   height: 100%;
+  flex-shrink: 0;
 }
 
 .sidebarOverlay {
@@ -35,6 +39,22 @@
   flex-direction: column;
   gap: 1rem;
   color: var(--text-muted);
+  padding: 2rem;
+  text-align: center;
+}
+
+.welcomeScreen h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.welcomeScreen p {
+  font-size: 0.9rem;
+  max-width: 320px;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .mobileMenuBtnWelcome {
@@ -42,29 +62,37 @@
   background: var(--accent);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 10px 20px;
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  transition: opacity 0.2s;
 }
 
-/* Mobile: collapse panels into drawers */
-@media (max-width: 900px) {
+.mobileMenuBtnWelcome:hover {
+  opacity: 0.85;
+}
+
+/* ── Tablet: Right panel slides from right ─────────────────────────────── */
+@media (max-width: 1100px) {
   .rightPanels {
     position: absolute;
     top: 0;
     right: 0;
     bottom: 0;
     transform: translateX(100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 50;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.3);
   }
   .rightPanels.rightPanelsOpen {
     transform: translateX(0);
   }
 }
 
+/* ── Mobile: Sidebar becomes a drawer ──────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebars {
     position: absolute;
@@ -72,27 +100,47 @@
     left: 0;
     bottom: 0;
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    z-index: 50;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 60;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
   }
-  
+
   .sidebars.sidebarsOpen {
     transform: translateX(0);
   }
-  
+
   .sidebarOverlay {
     display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 40;
-    backdrop-filter: blur(2px);
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 55;
+    backdrop-filter: blur(3px);
   }
 
   .mobileMenuBtnWelcome {
     display: block;
+  }
+
+  .rightPanels {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 50;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+  }
+
+  .rightPanels.rightPanelsOpen {
+    transform: translateX(0);
+  }
+}
+
+/* ── Small mobile: Sidebar full width ──────────────────────────────────── */
+@media (max-width: 400px) {
+  .sidebars {
+    width: 100%;
   }
 }

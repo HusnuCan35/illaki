@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useUIStore, useIdentityStore, usePeerStore } from '../stores';
+import { getSpaceOnlineMembers } from '../lib/firestore';
 
 /**
  * useVoice — HD WebRTC Sesli + Görüntülü Görüşme
@@ -205,12 +206,19 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           const existing = prev[call.peer] || {};
           const videoTracks = remoteStream.getVideoTracks();
           const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
+
+          // Username: call.metadata → peers store → mevcut → 'Katılımcı'
+          const peersStore = usePeerStore.getState();
+          const peerInfo = peersStore.peers[call.peer];
+          const username = call.metadata?.username || peerInfo?.username || existing.username || 'Katılımcı';
+          const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || existing.avatarColor;
+
           return {
             ...prev,
             [call.peer]: {
               ...existing,
-              username: call.metadata?.username || existing.username || 'Katılımcı',
-              avatarColor: call.metadata?.avatarColor || existing.avatarColor,
+              username,
+              avatarColor,
               speaking: false,
               videoStream,
             },
@@ -270,6 +278,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setVoiceChannelId(channelId);
       if (broadcastVoiceStatus) broadcastVoiceStatus(channelId);
 
+      // Kendimizi ekle
       setVoiceParticipants(prev => ({
         ...prev,
         self: {
@@ -283,11 +292,31 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
       createAnalyser(audioStream, 'self');
 
-      // Mevcut bağlı kullanıcılara arama yap
-      for (const peerId of connectedPeerIds) {
-        if (callsRef.current[peerId]) continue;
+      // ── Firestore'dan diğer üyelerin peer ID'lerini al ──────────────────────
+      // Bu sayede P2P bağlantısı olmayan ama aynı space'de olan kullanıcılar da bulunur
+      const { activeSpaceId, spaces } = (await import('../stores')).useSpaceStore.getState();
+      let allPeerIds = [...connectedPeerIds]; // P2P üzerinden bilinen peerlar
 
-        // Kamera açıksa ses+video akışı, değilse sadece ses
+      if (activeSpaceId) {
+        try {
+          const { identity: ident } = useIdentityStore.getState();
+          const members = await getSpaceOnlineMembers(activeSpaceId, ident?.uid);
+          for (const member of members) {
+            // Firestore'dan gelen peer ID'leri listeye ekle (tekrarı önle)
+            if (member.peerId && !allPeerIds.includes(member.peerId)) {
+              allPeerIds.push(member.peerId);
+            }
+          }
+        } catch (err) {
+          console.warn('[Voice] Firestore üye listesi alınamadı:', err);
+        }
+      }
+
+      // Tüm peer ID'lere arama yap
+      for (const pId of allPeerIds) {
+        if (callsRef.current[pId]) continue;
+        if (pId === peer.id) continue; // kendimizi aramayız
+
         let streamToSend = audioStream;
         if (localVideoRef.current) {
           streamToSend = new MediaStream([
@@ -296,7 +325,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           ]);
         }
 
-        const call = peer.call(peerId, streamToSend, {
+        const call = peer.call(pId, streamToSend, {
           metadata: {
             username: identity?.username,
             avatarColor: identity?.avatarColor,
@@ -307,16 +336,15 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         call.on('stream', (remoteStream) => {
           const audioTracks = remoteStream.getAudioTracks();
           if (audioTracks.length > 0) {
-            attachAudio(new MediaStream(audioTracks), peerId);
+            attachAudio(new MediaStream(audioTracks), pId);
           }
-
           setVoiceParticipants(prev => {
-            const existing = prev[peerId] || {};
+            const existing = prev[pId] || {};
             const videoTracks = remoteStream.getVideoTracks();
             const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
             return {
               ...prev,
-              [peerId]: {
+              [pId]: {
                 ...existing,
                 username: existing.username || 'Katılımcı',
                 speaking: false,
@@ -327,18 +355,18 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         });
 
         call.on('close', () => {
-          const el = document.getElementById(`audio-${peerId}`);
+          const el = document.getElementById(`audio-${pId}`);
           if (el) el.remove();
-          delete analysersRef.current[peerId];
-          delete callsRef.current[peerId];
+          delete analysersRef.current[pId];
+          delete callsRef.current[pId];
           setVoiceParticipants(prev => {
             const next = { ...prev };
-            delete next[peerId];
+            delete next[pId];
             return next;
           });
         });
 
-        callsRef.current[peerId] = call;
+        callsRef.current[pId] = call;
       }
 
       addToast({ type: 'success', message: 'Ses kanalına katıldın 🎙️' });
