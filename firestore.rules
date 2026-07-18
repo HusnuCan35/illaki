@@ -69,9 +69,11 @@ service cloud.firestore {
 
       // ── Üyeler ───────────────────────────────────────────────────────────────
       match /members/{uid} {
-        // Aynı space'deki üyeler görebilir
-        allow read: if request.auth != null
-          && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+        // Aynı space'deki üyeler VEYA kişinin kendisi görebilir (katılırken kontrol için)
+        allow read: if request.auth != null && (
+          request.auth.uid == uid ||
+          exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid))
+        );
         
         // Kendi üyeliğini oluşturabilir/güncelleyebilir
         // VEYA Host yetkileri değiştirebilir
