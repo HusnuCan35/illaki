@@ -3,8 +3,9 @@ import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
   Play, X, Upload, Settings, LogOut, Volume2, Music, Menu,
-  Reply, Edit2, Trash2, Dices
+  Reply, Edit2, Trash2, Dices, Gamepad2
 } from 'lucide-react';
+import { GameZone } from './GameZone';
 import {
   useMessageStore, useSpaceStore, useIdentityStore,
   usePeerStore, useUIStore,
@@ -354,6 +355,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showGameZone, setShowGameZone] = useState(false);
   const [firebaseMessages, setFirebaseMessages] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { fileName, progress }
 
@@ -416,12 +418,14 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
     if (activeSpaceId) inputRef.current?.focus();
   }, [activeSpaceId]);
 
-  const handleSend = useCallback(async () => {
-    let content = input.trim();
+  const handleSend = useCallback(async (overrideText) => {
+    let content = (typeof overrideText === 'string' ? overrideText : input).trim();
     if (!content || !activeSpaceId || !identity) return;
 
     setSending(true);
-    setInput('');
+    if (typeof overrideText !== 'string') {
+      setInput('');
+    }
     const currentReply = replyingTo;
     setReplyingTo(null);
 
@@ -786,6 +790,20 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
           </button>
 
           <div className={styles.inputWrapper}>
+            <button
+              className={styles.iconBtn}
+              onClick={() => setShowGameZone(!showGameZone)}
+              title="Mini Oyunlar"
+            >
+              <Gamepad2 size={18} />
+            </button>
+            {showGameZone && (
+              <GameZone 
+                onClose={() => setShowGameZone(false)}
+                onGameCommand={(cmd) => handleSend(cmd)}
+              />
+            )}
+            
             <textarea
               ref={inputRef}
               id="message-input"

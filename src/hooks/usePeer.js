@@ -45,6 +45,16 @@ export function usePeer() {
   const { addMessage } = useMessageStore();
   const { addToast } = useUIStore();
   const { identity } = useIdentityStore();
+  const spaces = useSpaceStore(s => s.spaces);
+
+  // Peer ID'yi sunucularla (spaces) senkronize tut
+  useEffect(() => {
+    if (peerId && identity?.uid && spaces && spaces.length > 0) {
+      spaces.forEach(space => {
+        updateMemberPeerId(space.id, identity.uid, peerId).catch(() => {});
+      });
+    }
+  }, [peerId, identity?.uid, spaces]);
 
   useEffect(() => { identityRef.current = identity; }, [identity]);
 
@@ -250,20 +260,11 @@ export function usePeer() {
 
     peerRef.current = peer;
 
-    peer.on('open', (id) => {
-      setPeerId(id);
-      setConnectionStatus('connected');
-      console.log('[Illaki] Peer hazır, ID:', id);
-
-      // Tüm katılınan space'lere peer ID'yi yaz (ses kanalı keşfi için)
-      const { spaces } = useSpaceStore.getState();
-      const { identity: ident } = useIdentityStore.getState();
-      if (ident?.uid && spaces.length > 0) {
-        spaces.forEach(space => {
-          updateMemberPeerId(space.id, ident.uid, id).catch(() => {});
-        });
-      }
-    });
+      peer.on('open', (id) => {
+        setPeerId(id);
+        setConnectionStatus('connected');
+        console.log('[Illaki] Peer hazır, ID:', id);
+      });
 
     peer.on('connection', handleIncomingConnection);
 
