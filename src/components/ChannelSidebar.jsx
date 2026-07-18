@@ -35,6 +35,13 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState(null);
 
+  const handleChannelClick = (channelId) => {
+    setActiveChannel(channelId);
+    if (window.innerWidth <= 768) {
+      useUIStore.getState().toggleSidebar();
+    }
+  };
+
   const activeSpace = spaces.find(sp => sp.id === activeSpaceId);
   const spaceChannels = channels[activeSpaceId] || [];
 
@@ -180,7 +187,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
               <div key={channel.id} className={`${styles.channelItemWrapper} ${activeChannelId === channel.id ? styles.active : ''}`}>
                 <button
                   className={styles.channelItem}
-                  onClick={() => setActiveChannel(channel.id)}
+                  onClick={() => handleChannelClick(channel.id)}
                 >
                   <Hash size={18} className={styles.channelIcon} />
                   <span className={styles.channelName}>{channel.name}</span>

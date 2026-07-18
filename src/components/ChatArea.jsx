@@ -266,6 +266,9 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
   useEffect(() => {
     if (!activeSpaceId || !identity?.uid) return;
 
+    // Hemen ekranı temizle ki eski sunucunun mesajları görünmesin
+    setFirebaseMessages([]);
+
     // Önceki dinleyiciyi temizle
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
