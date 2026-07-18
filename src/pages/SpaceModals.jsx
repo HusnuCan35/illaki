@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Hash, Copy, Check, Link2, AlertCircle, Wifi, Lock, Users, FileText, Globe, Shield } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
