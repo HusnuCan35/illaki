@@ -67,7 +67,15 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
     };
   }, [activeSpaceId, identity?.uid]);
 
-  if (!activeSpace) return null;
+  if (!activeSpace) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <h2 className={styles.serverName}>Yükleniyor...</h2>
+        </header>
+      </div>
+    );
+  }
 
   const isHost = activeSpace.hostUid === identity?.uid;
   const isPrivileged = isHost || currentUserRole === 'admin' || currentUserRole === 'mod';
@@ -285,7 +293,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
-            <span className={styles.userStatus}>Çevrimiçi • v1.0.5</span>
+            <span className={styles.userStatus}>Çevrimiçi • v1.0.6</span>
           </div>
         </div>
         <div className={styles.userActions}>

@@ -631,6 +631,15 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
     );
   }
 
+  if (activeSpaceId && !activeSpace) {
+    return (
+      <div className={styles.noSpace}>
+        <div className={styles.noSpaceIcon}><Hash size={40} /></div>
+        <h2>Sunucu Yükleniyor...</h2>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.chatArea} style={spaceStyle}>
       {/* Header */}

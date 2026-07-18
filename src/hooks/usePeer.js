@@ -295,7 +295,7 @@ export function usePeer() {
         usePeerStore.getState().setPeerId(null);
         initPeer();
       } else if (err.type === 'peer-unavailable') {
-        addToast({ type: 'error', message: 'Karşı taraf bulunamadı. Oda kodu doğru mu? Host çevrimiçi mi?' });
+        console.warn('[Illaki] Peer bulunamadı (çevrimdışı olabilir):', err);
       } else if (err.type === 'network') {
         addToast({ type: 'error', message: 'Ağ hatası. İnternet bağlantını kontrol et.' });
       }
@@ -376,10 +376,12 @@ export function usePeer() {
       }
     }
 
-    // 2. İkincil yöntem: Kod doğrudan peerId formatındaysa ("AB3K9PQM" → "illaki-AB3K9PQM")
-    const directPeerId = peerIdFromCode(remoteCode);
-    if (directPeerId && directPeerId !== peerRef.current.id) {
-      connectToSinglePeer(directPeerId, remoteCode);
+    // 2. İkincil yöntem: Kod doğrudan "illaki-" ile başlayan tam peer ID ise bağlan
+    if (remoteCode && remoteCode.startsWith('illaki-')) {
+      const directPeerId = remoteCode;
+      if (directPeerId !== peerRef.current.id) {
+        connectToSinglePeer(directPeerId, remoteCode);
+      }
     }
   }, [connectToSinglePeer]);
 
