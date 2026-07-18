@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
-import { useUIStore, useIdentityStore, usePeerStore } from '../stores';
+import { useUIStore, useIdentityStore, usePeerStore, useSpaceStore } from '../stores';
 import { getSpaceOnlineMembers, updateMemberVoiceStatus } from '../lib/firestore';
 
 /**
@@ -285,7 +285,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setVoiceChannelId(channelId);
       if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId, isMuted, isDeafened });
 
-      const { activeSpaceId, spaces } = (await import('../stores')).useSpaceStore.getState();
+      const { activeSpaceId } = useSpaceStore.getState();
       if (activeSpaceId && identity?.uid) {
         updateMemberVoiceStatus(activeSpaceId, identity.uid, channelId);
       }
@@ -406,7 +406,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   }, [getPeer, getLocalStream, identity, attachAudio, createAnalyser, broadcastVoiceStatus, addToast]);
 
   // ── Ses Kanalından Çık ────────────────────────────────────────────────────
-  const leaveVoice = useCallback(() => {
+  const leaveVoice = useCallback(async () => {
     Object.values(callsRef.current).forEach(call => call.close());
     callsRef.current = {};
 
@@ -437,13 +437,13 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     setVoiceChannelId(null);
     if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId: null, isMuted: false, isDeafened: false });
 
-    const { activeSpaceId } = (import('../stores')).useSpaceStore.getState();
+    const { activeSpaceId } = useSpaceStore.getState();
     if (activeSpaceId && identity?.uid) {
-      updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
+      await updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
     }
 
     addToast({ type: 'info', message: 'Ses kanalından ayrıldın' });
-  }, [broadcastVoiceStatus, addToast]);
+  }, [broadcastVoiceStatus, addToast, identity]);
 
   // ── Mikrofon Sessiz/Açık ──────────────────────────────────────────────────
   const toggleMute = useCallback(() => {
@@ -484,7 +484,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
   // Cleanup and Kick handling
   useEffect(() => {
-    const handleKicked = () => leaveVoice();
+    const handleKicked = () => { leaveVoice(); };
     window.addEventListener('illaki:kicked', handleKicked);
     window.addEventListener('illaki:voice-kicked', handleKicked);
 

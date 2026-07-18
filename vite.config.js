@@ -5,10 +5,6 @@ export default defineConfig({
   plugins: [
     react(),
   ],
-  define: {
-    // Fix Gun.js global usage in browser
-    global: 'globalThis',
-  },
   optimizeDeps: {
     include: ['gun', 'gun/sea'],
     rolldownOptions: {
@@ -19,5 +15,10 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    rollupOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
   },
 })
