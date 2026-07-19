@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
+import { getSyncedTime } from './time';
 
 const getMusicStateRef = (spaceId) => doc(db, 'spaces', spaceId, 'music', 'state');
 
@@ -88,7 +89,7 @@ export async function addSongToQueue(spaceId, url, requestedBy) {
       queue: [],
       status: 'playing',
       currentTime: 0,
-      updatedAt: Date.now()
+      updatedAt: getSyncedTime()
     });
   } else {
     const data = snap.data();
@@ -97,7 +98,7 @@ export async function addSongToQueue(spaceId, url, requestedBy) {
         currentSong: song,
         status: 'playing',
         currentTime: 0,
-        updatedAt: Date.now()
+        updatedAt: getSyncedTime()
       });
     } else {
       await updateDoc(ref, {
@@ -143,7 +144,7 @@ export async function playNextSong(spaceId, expectedSongId) {
     queue: newQueue,
     status: 'playing',
     currentTime: 0,
-    updatedAt: Date.now()
+    updatedAt: getSyncedTime()
   });
 }
 
@@ -157,7 +158,7 @@ export async function updatePlaybackStatus(spaceId, status, currentTime) {
   
   const updates = {
     status,
-    updatedAt: Date.now()
+    updatedAt: getSyncedTime()
   };
   if (currentTime !== undefined) {
     updates.currentTime = currentTime;

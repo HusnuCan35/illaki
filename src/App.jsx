@@ -5,11 +5,17 @@ import { Home } from './pages/Home';
 import { ToastContainer } from './components/ui/Toast';
 import { useAuth } from './hooks/useAuth';
 import { LoadingScreen } from './components/ui/LoadingScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { syncTimeOffset } from './lib/time';
 
 export default function App() {
   const { view, setView } = useUIStore();
   const { identity } = useIdentityStore();
   const { loading } = useAuth(); // Firebase auth state'i izle
+
+  useEffect(() => {
+    syncTimeOffset();
+  }, []);
 
   useEffect(() => {
     if (identity && view === 'landing') {

@@ -51,24 +51,6 @@ function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChang
         )}
         {!isSelf && iAmHost && (
           <>
-            {/* Şık Pill Rol Seçici */}
-            <div className={styles.rolePills}>
-              {[
-                { value: 'member', label: 'Üye', icon: <UserCheck size={11} /> },
-                { value: 'mod',    label: 'Mod',  icon: <Shield size={11} /> },
-                { value: 'admin',  label: 'Admin', icon: <Crown size={11} /> },
-              ].map(r => (
-                <button
-                  key={r.value}
-                  className={`${styles.rolePill} ${(peer.role || 'member') === r.value ? styles[`rolePill_${r.value}`] : ''}`}
-                  onClick={() => onRoleChange(peer.uid, r.value)}
-                  title={r.label}
-                >
-                  {r.icon}
-                  <span>{r.label}</span>
-                </button>
-              ))}
-            </div>
             <button
               className={styles.kickBtn}
               onClick={() => onKick(peerId, peer.username)}

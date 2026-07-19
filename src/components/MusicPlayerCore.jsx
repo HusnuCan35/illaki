@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import YouTube from 'react-youtube';
 import { subscribeToMusic, playNextSong } from '../lib/music';
 import { useUIStore } from '../stores';
+import { getSyncedTime } from '../lib/time';
 
 export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
   const { musicVolume } = useUIStore();
@@ -45,7 +46,7 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
           let targetTime = musicState.currentTime;
           
           if (musicState.status === 'playing') {
-            const elapsedSeconds = (Date.now() - musicState.updatedAt) / 1000;
+            const elapsedSeconds = (getSyncedTime() - musicState.updatedAt) / 1000;
             targetTime += elapsedSeconds;
           }
 
