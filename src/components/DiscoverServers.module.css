@@ -57,19 +57,19 @@
 }
 
 .serverCard {
-  background: #1A1A1D;
+  background: #1A1A1D; /* Kalın/mat zemin */
   border: 1px solid #2a2a2d;
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 20px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .serverCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   border-color: #45A29E;
 }
 
@@ -86,12 +86,16 @@
 
 .serverInfo {
   flex: 1;
+  min-width: 0; /* flex child truncate desteği için */
 }
 
 .serverInfo h3 {
   color: #fff;
   font-size: 18px;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .serverInfo p {
@@ -99,6 +103,10 @@
   font-size: 14px;
   margin-bottom: 12px;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .serverMeta {
@@ -106,12 +114,21 @@
   gap: 16px;
   font-size: 12px;
   color: #66FCF1;
+  flex-wrap: wrap; /* Yazıların sıkışmasını engeller */
 }
 
 .memberCount {
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+}
+
+.hostBadge {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .serverAction {

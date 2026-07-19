@@ -13,14 +13,14 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
       match /friendRequests/{reqId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null && (request.auth.uid == uid || request.auth.uid == reqId);
         allow create: if request.auth != null; // Herkes bana istek atabilir
-        allow update, delete: if request.auth != null && request.auth.uid == uid; // Sadece ben silebilir/kabul edebilirim
+        allow update, delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == reqId); // Gönderen de silebilir (iptal)
       }
       match /serverInvites/{invId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null && (request.auth.uid == uid || request.auth.uid == invId);
         allow create: if request.auth != null; // Herkes davet atabilir
-        allow update, delete: if request.auth != null && request.auth.uid == uid;
+        allow update, delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == invId);
       }
     }
 

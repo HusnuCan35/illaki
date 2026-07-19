@@ -55,9 +55,14 @@ export async function upsertUserProfile(uid, { username, avatarColor, photoURL =
   }, { merge: true });
 
   if (!snap.exists()) {
+    // Rastgele 6 haneli kısa id oluştur (geçici customId)
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+    const defaultCustomId = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}${randomSuffix}`;
+
     await setDoc(userRef, {
       uid,
       username,
+      customId: defaultCustomId,
       avatarColor,
       photoURL,
       createdAt: serverTimestamp(),
@@ -71,6 +76,25 @@ export async function upsertUserProfile(uid, { username, avatarColor, photoURL =
       lastSeen: serverTimestamp(),
     });
   }
+}
+
+/**
+ * Custom ID benzersizliğini kontrol edip günceller
+ */
+export async function updateCustomId(uid, newCustomId) {
+  const customIdStr = newCustomId.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+  if (customIdStr.length < 3) throw new Error('Kullanıcı ID en az 3 karakter olmalıdır.');
+
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('customId', '==', customIdStr), limit(1));
+  const snap = await getDocs(q);
+
+  if (!snap.empty && snap.docs[0].id !== uid) {
+    throw new Error('Bu Kullanıcı ID zaten alınmış.');
+  }
+
+  await updateDoc(doc(db, 'users', uid), { customId: customIdStr });
+  return customIdStr;
 }
 
 /**
@@ -856,17 +880,34 @@ export async function getSpaceKey(spaceId, uid) {
 // Arkadaşlık Sistemi (Friends System)
 // ────────────────────────────────────────────────────────────
 
-export async function sendFriendRequest(senderUid, targetUid) {
-  if (senderUid === targetUid) {
-    throw new Error('Kendinize arkadaşlık isteği gönderemezsiniz.');
+export async function sendFriendRequest(senderUid, targetCustomIdOrUid) {
+  if (!targetCustomIdOrUid || !targetCustomIdOrUid.trim()) {
+    throw new Error('Kullanıcı ID boş olamaz.');
   }
 
-  // Hedef kullanıcının var olup olmadığını kontrol et
-  const targetDocRef = doc(db, 'users', targetUid);
-  const targetDoc = await getDoc(targetDocRef);
+  const queryId = targetCustomIdOrUid.trim();
+
+  // Hedef kullanıcının var olup olmadığını kontrol et (Önce uid olarak dene, yoksa customId olarak ara)
+  let targetUid = queryId;
+  let targetDocRef = doc(db, 'users', targetUid);
+  let targetDoc = await getDoc(targetDocRef);
   
   if (!targetDoc.exists()) {
-    throw new Error('Kullanıcı bulunamadı.');
+    // uid olarak bulunamadı, customId olarak ara
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('customId', '==', queryId), limit(1));
+    const snap = await getDocs(q);
+    
+    if (snap.empty) {
+      throw new Error('Kullanıcı bulunamadı. ID\'yi kontrol edin.');
+    }
+    
+    targetUid = snap.docs[0].id;
+    targetDoc = snap.docs[0];
+  }
+
+  if (senderUid === targetUid) {
+    throw new Error('Kendinize arkadaşlık isteği gönderemezsiniz.');
   }
 
   const senderDoc = await getDoc(doc(db, 'users', senderUid));
@@ -874,12 +915,8 @@ export async function sendFriendRequest(senderUid, targetUid) {
 
   // İsteği oluştur
   const requestRef = doc(collection(db, 'users', targetUid, 'friendRequests'), senderUid);
-  const requestSnap = await getDoc(requestRef);
-
-  if (requestSnap.exists()) {
-    throw new Error('Bu kullanıcıya zaten istek gönderdiniz.');
-  }
-
+  // Missing permissions error avoided via rule update earlier, but let's just setDoc to be safe
+  
   await setDoc(requestRef, {
     senderUid,
     senderUsername: senderData.username,
@@ -944,12 +981,8 @@ export function subscribeToFriendRequests(uid, onRequests) {
 
 export async function inviteFriendToServer(friendUid, spaceId, spaceName, senderUsername, spaceCode) {
   const inviteRef = doc(collection(db, 'users', friendUid, 'serverInvites'), spaceId);
-  const inviteSnap = await getDoc(inviteRef);
 
-  if (inviteSnap.exists()) {
-    throw new Error('Bu kullanıcıya zaten davet gönderdiniz.');
-  }
-
+  // Doğrudan daveti oluştur, böylece "missing permission" hatasını engelleriz
   await setDoc(inviteRef, {
     spaceId,
     spaceName,

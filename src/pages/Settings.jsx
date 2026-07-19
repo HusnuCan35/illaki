@@ -3,7 +3,7 @@ import { User, Mic, Info, Check, ChevronRight, Shield, Palette, Camera } from 'l
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useIdentityStore, useUIStore } from '../stores';
-import { uploadAvatar } from '../lib/firestore';
+import { uploadAvatar, updateCustomId } from '../lib/firestore';
 import styles from './Settings.module.css';
 
 const SECTIONS = [
@@ -30,6 +30,7 @@ export function SettingsModal({ isOpen, onClose }) {
 
   const [section, setSection] = useState('profile');
   const [username, setUsername] = useState(identity?.username || '');
+  const [customId, setCustomId] = useState(identity?.customId || '');
   const [accentColor, setAccentColor] = useState(
     getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7e20'
   );
@@ -47,17 +48,29 @@ export function SettingsModal({ isOpen, onClose }) {
     } catch {}
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (username.trim().length < 2) {
       addToast({ type: 'error', message: 'Kullanıcı adı en az 2 karakter olmalı' });
       return;
     }
-    setIdentity({ ...identity, username: username.trim() });
-    document.documentElement.style.setProperty('--accent', accentColor);
-    document.documentElement.style.setProperty('--accent-dark', accentColor + 'cc');
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    addToast({ type: 'success', message: 'Ayarlar kaydedildi ✨' });
+    
+    setUploading(true);
+    let finalCustomId = customId;
+    try {
+      if (customId.trim() !== identity?.customId) {
+        finalCustomId = await updateCustomId(identity.uid, customId);
+      }
+      setIdentity({ ...identity, username: username.trim(), customId: finalCustomId });
+      document.documentElement.style.setProperty('--accent', accentColor);
+      document.documentElement.style.setProperty('--accent-dark', accentColor + 'cc');
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      addToast({ type: 'success', message: 'Ayarlar kaydedildi ✨' });
+    } catch (err) {
+      addToast({ type: 'error', message: err.message });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -159,6 +172,20 @@ export function SettingsModal({ isOpen, onClose }) {
                   className={styles.input}
                 />
                 <span className={styles.hint}>{username.length}/32 karakter</span>
+              </div>
+
+              <div className={styles.field} style={{ marginTop: '16px' }}>
+                <label htmlFor="settings-custom-id" className={styles.label}>Kullanıcı ID (Benzersiz)</label>
+                <input
+                  id="settings-custom-id"
+                  type="text"
+                  value={customId}
+                  onChange={e => setCustomId(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))}
+                  maxLength={20}
+                  placeholder="Örn: husnucan123"
+                  className={styles.input}
+                />
+                <span className={styles.hint}>Sadece küçük harf, rakam ve nokta/tire/alt çizgi içerebilir. Arkadaşların seni bu ID ile ekleyebilir.</span>
               </div>
             </div>
           )}

@@ -62,11 +62,11 @@ export function FriendsPanel({ onJoinSpace }) {
           <h3 style={{ fontSize: '13px', color: '#8b929a', marginBottom: '8px', textTransform: 'uppercase' }}>Senin Kullanıcı ID'n</h3>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <code style={{ flex: 1, background: '#1c1f26', padding: '8px', borderRadius: '4px', fontSize: '14px', wordBreak: 'break-all' }}>
-              {identity?.uid}
+              {identity?.customId || identity?.uid}
             </code>
             <button 
               onClick={() => {
-                navigator.clipboard.writeText(identity?.uid);
+                navigator.clipboard.writeText(identity?.customId || identity?.uid);
                 addToast({ type: 'info', message: 'ID Kopyalandı!' });
               }}
               style={{ padding: '8px 12px', background: '#45A29E', color: '#1c1f26', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -81,7 +81,7 @@ export function FriendsPanel({ onJoinSpace }) {
           <form onSubmit={handleAddFriend} className={styles.addForm}>
             <input 
               type="text" 
-              placeholder="Kullanıcı ID (örn: abc123xyz...)" 
+              placeholder="Kullanıcı ID (örn: husnucan123)" 
               value={addInput}
               onChange={e => setAddInput(e.target.value)}
               disabled={loading}
