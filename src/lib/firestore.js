@@ -851,3 +851,148 @@ export async function getSpaceKey(spaceId, uid) {
   if (key) await cacheSpaceKey(spaceId, key);
   return key;
 }
+
+// ────────────────────────────────────────────────────────────
+// Arkadaşlık Sistemi (Friends System)
+// ────────────────────────────────────────────────────────────
+
+export async function sendFriendRequest(senderUid, targetUsername) {
+  // Hedef kullanıcıyı kullanıcı adı ile bul
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('username', '==', targetUsername), limit(1));
+  const snap = await getDocs(q);
+  
+  if (snap.empty) {
+    throw new Error('Kullanıcı bulunamadı.');
+  }
+
+  const targetDoc = snap.docs[0];
+  const targetUid = targetDoc.id;
+
+  if (senderUid === targetUid) {
+    throw new Error('Kendinize arkadaşlık isteği gönderemezsiniz.');
+  }
+
+  const senderDoc = await getDoc(doc(db, 'users', senderUid));
+  const senderData = senderDoc.data();
+
+  // İsteği oluştur
+  const requestRef = doc(collection(db, 'users', targetUid, 'friendRequests'), senderUid);
+  const requestSnap = await getDoc(requestRef);
+
+  if (requestSnap.exists()) {
+    throw new Error('Bu kullanıcıya zaten istek gönderdiniz.');
+  }
+
+  await setDoc(requestRef, {
+    senderUid,
+    senderUsername: senderData.username,
+    senderAvatarColor: senderData.avatarColor || '#66FCF1',
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function acceptFriendRequest(uid, senderUid) {
+  const requestRef = doc(db, 'users', uid, 'friendRequests', senderUid);
+  
+  // İsteği sil
+  await deleteDoc(requestRef);
+
+  // İki tarafa da arkadaşı ekle
+  await setDoc(doc(db, 'users', uid, 'friends', senderUid), {
+    friendUid: senderUid,
+    addedAt: serverTimestamp()
+  });
+
+  await setDoc(doc(db, 'users', senderUid, 'friends', uid), {
+    friendUid: uid,
+    addedAt: serverTimestamp()
+  });
+}
+
+export async function rejectFriendRequest(uid, senderUid) {
+  const requestRef = doc(db, 'users', uid, 'friendRequests', senderUid);
+  await deleteDoc(requestRef);
+}
+
+export async function removeFriend(uid, friendUid) {
+  await deleteDoc(doc(db, 'users', uid, 'friends', friendUid));
+  await deleteDoc(doc(db, 'users', friendUid, 'friends', uid));
+}
+
+export function subscribeToFriends(uid, onFriends) {
+  const q = collection(db, 'users', uid, 'friends');
+  return onSnapshot(q, async (snap) => {
+    const friendsData = [];
+    for (const d of snap.docs) {
+      const friendUid = d.id;
+      const userDoc = await getDoc(doc(db, 'users', friendUid));
+      if (userDoc.exists()) {
+        friendsData.push({ ...userDoc.data(), addedAt: d.data().addedAt });
+      }
+    }
+    onFriends(friendsData);
+  });
+}
+
+export function subscribeToFriendRequests(uid, onRequests) {
+  const q = collection(db, 'users', uid, 'friendRequests');
+  return onSnapshot(q, (snap) => {
+    onRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// Sunucu Davet Sistemi (Server Invites)
+// ────────────────────────────────────────────────────────────
+
+export async function inviteFriendToServer(friendUid, spaceId, spaceName, senderUsername, spaceCode) {
+  const inviteRef = doc(collection(db, 'users', friendUid, 'serverInvites'), spaceId);
+  const inviteSnap = await getDoc(inviteRef);
+
+  if (inviteSnap.exists()) {
+    throw new Error('Bu kullanıcıya zaten davet gönderdiniz.');
+  }
+
+  await setDoc(inviteRef, {
+    spaceId,
+    spaceName,
+    spaceCode,
+    senderUsername,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function acceptServerInvite(uid, spaceId, spaceCode, userProfile) {
+  const inviteRef = doc(db, 'users', uid, 'serverInvites', spaceId);
+  await deleteDoc(inviteRef);
+  return joinSpace(spaceCode, userProfile);
+}
+
+export async function rejectServerInvite(uid, spaceId) {
+  const inviteRef = doc(db, 'users', uid, 'serverInvites', spaceId);
+  await deleteDoc(inviteRef);
+}
+
+export function subscribeToServerInvites(uid, onInvites) {
+  const q = collection(db, 'users', uid, 'serverInvites');
+  return onSnapshot(q, (snap) => {
+    onInvites(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// Sunucu Keşfet (Server Discovery)
+// ────────────────────────────────────────────────────────────
+
+export async function getPublicSpaces() {
+  const q = query(
+    collection(db, 'spaces'),
+    where('isPrivate', '==', false),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}

@@ -4,6 +4,7 @@ import { Landing } from './pages/Landing';
 import { Home } from './pages/Home';
 import { ToastContainer } from './components/ui/Toast';
 import { useAuth } from './hooks/useAuth';
+import { LoadingScreen } from './components/ui/LoadingScreen';
 
 export default function App() {
   const { view, setView } = useUIStore();
@@ -18,7 +19,7 @@ export default function App() {
     }
   }, [identity, view, setView]);
 
-  if (loading) return null; // useAuth kendi loading ekranını gösteriyor
+  if (loading) return <LoadingScreen />;
 
   return (
     <>

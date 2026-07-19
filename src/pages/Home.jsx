@@ -6,6 +6,8 @@ import { MembersPanel } from '../components/MembersPanel';
 import { MusicBotPanel } from '../components/MusicBotPanel';
 import { VoiceChannel } from '../components/VoiceChannel';
 import { CreateSpaceModal, JoinSpaceModal, SpaceSettingsModal } from './SpaceModals';
+import { DiscoverServers } from '../components/DiscoverServers';
+import { FriendsPanel } from '../components/FriendsPanel';
 import { SettingsModal } from './Settings';
 import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
@@ -16,6 +18,7 @@ import styles from './Home.module.css';
 export function Home() {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [rightPanel, setRightPanel] = useState(window.innerWidth > 900 ? 'members' : null); // 'members' | 'music' | null
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
   const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar } = useUIStore();
@@ -68,6 +71,7 @@ export function Home() {
         <ServerSidebar
           onCreateSpace={() => setCreateOpen(true)}
           onJoinSpace={() => setJoinOpen(true)}
+          onDiscover={() => setDiscoverOpen(true)}
         />
 
         {activeSpaceId && (
@@ -108,13 +112,16 @@ export function Home() {
             onToggleSidebar={toggleSidebar}
           />
         ) : (
-          <div className={styles.welcomeScreen}>
-            {/* Mobile menu button for welcome screen */}
-            <button className={styles.mobileMenuBtnWelcome} onClick={toggleSidebar}>
-              ☰ Menü
-            </button>
-            <h2>illaki'ye Hoş Geldiniz</h2>
-            <p>Başlamak için sol menüden bir sunucu seçin veya yeni bir tane oluşturun.</p>
+          <div style={{ display: 'flex', height: '100%', width: '100%' }}>
+            <div className={styles.welcomeScreen} style={{ flex: 1 }}>
+              {/* Mobile menu button for welcome screen */}
+              <button className={styles.mobileMenuBtnWelcome} onClick={toggleSidebar}>
+                ☰ Menü
+              </button>
+              <h2>illaki'ye Hoş Geldiniz</h2>
+              <p>Başlamak için sol menüden bir sunucu seçin veya yeni bir tane oluşturun.</p>
+            </div>
+            {window.innerWidth > 768 && <FriendsPanel onJoinSpace={(code, id) => connectToPeer(code, id)} />}
           </div>
         )}
       </div>
@@ -135,6 +142,15 @@ export function Home() {
         onClose={() => setJoinOpen(false)}
         connectToPeer={connectToPeer}
       />
+
+      {discoverOpen && (
+        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setDiscoverOpen(false); }}>
+          <div className={styles.modalContent} style={{ width: '90%', maxWidth: '800px', height: '80vh', padding: 0 }}>
+             <button className={styles.closeModalBtn} onClick={() => setDiscoverOpen(false)}>×</button>
+             <DiscoverServers onClose={() => setDiscoverOpen(false)} onJoin={(code, id) => connectToPeer(code, id)} />
+          </div>
+        </div>
+      )}
 
       <SettingsModal
         isOpen={settingsOpen}

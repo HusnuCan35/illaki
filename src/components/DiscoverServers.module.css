@@ -1,0 +1,159 @@
+.discoverContainer {
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  color: #C5C6C7;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.header h2 {
+  font-size: 28px;
+  color: #66FCF1;
+  margin-bottom: 8px;
+}
+
+.header p {
+  color: #8b929a;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  background: #1A1A1D;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 32px;
+  border: 1px solid #2a2a2d;
+  transition: border-color 0.2s;
+}
+
+.searchBox:focus-within {
+  border-color: #66FCF1;
+}
+
+.searchIcon {
+  color: #8b929a;
+  margin-right: 12px;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+}
+
+.serverList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.serverCard {
+  background: #1A1A1D;
+  border: 1px solid #2a2a2d;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.serverCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-color: #45A29E;
+}
+
+.serverIconWrapper {
+  width: 64px;
+  height: 64px;
+  background: #2a2a2d;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.serverInfo {
+  flex: 1;
+}
+
+.serverInfo h3 {
+  color: #fff;
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.serverInfo p {
+  color: #8b929a;
+  font-size: 14px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.serverMeta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #66FCF1;
+}
+
+.memberCount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.serverAction {
+  margin-left: auto;
+}
+
+.joinBtn {
+  background: #66FCF1;
+  color: #0B0C10;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.joinBtn:hover {
+  background: #45A29E;
+  color: #fff;
+}
+
+.joinBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.joinedBtn {
+  background: #2a2a2d;
+  color: #8b929a;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.loading, .empty {
+  text-align: center;
+  padding: 40px;
+  color: #8b929a;
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2, UserMinus } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, usePeerStore, useUIStore } from '../stores';
-import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace } from '../lib/firestore';
+import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace, subscribeToFriends, inviteFriendToServer } from '../lib/firestore';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CreateChannelModal, ChannelSettingsModal } from './ChannelModals';
@@ -33,6 +33,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState(null);
 
   const handleChannelClick = (channelId) => {
@@ -155,32 +156,38 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
 
   return (
     <div className={styles.container}>
-      <header className={styles.header} onClick={() => isHost && setMenuOpen(!menuOpen)}>
+      <header className={styles.header} onClick={() => setMenuOpen(!menuOpen)}>
         <h2 className={styles.serverName}>{activeSpace.name}</h2>
-        {isHost && <MoreHorizontal size={18} />}
+        <MoreHorizontal size={18} />
         {menuOpen && (
           <>
             <div style={{position:'fixed', inset:0, zIndex:90}} onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
             <div className={styles.dropdownMenu}>
-              <button onClick={() => { setMenuOpen(false); onOpenSettings(); }}>Sunucu Ayarları</button>
-              <button onClick={async () => {
-                setMenuOpen(false);
-                const newName = window.prompt('Oda adını düzenle:', activeSpace.name);
-                if (newName && newName.trim()) {
-                  await updateSpaceSettings(activeSpaceId, identity.uid, { name: newName.trim() });
-                  if (onBroadcastUpdate) onBroadcastUpdate(activeSpaceId, newName.trim());
-                }
-              }}>İsmi Değiştir</button>
-              <div className={styles.divider} />
-              <button className={styles.danger} onClick={async () => {
-                setMenuOpen(false);
-                if (window.confirm(`"${activeSpace.name}" sunucusunu silmek istediğine emin misin?`)) {
-                  await deleteSpace(activeSpaceId, identity.uid);
-                  removeSpace(activeSpaceId);
-                  setActiveSpace(null);
-                  if (onBroadcastDelete) onBroadcastDelete(activeSpaceId);
-                }
-              }}>Sunucuyu Sil</button>
+              <button onClick={() => { setMenuOpen(false); setInviteModalOpen(true); }}>Arkadaşlarını Davet Et</button>
+              {isHost && (
+                <>
+                  <div className={styles.divider} />
+                  <button onClick={() => { setMenuOpen(false); onOpenSettings(); }}>Sunucu Ayarları</button>
+                  <button onClick={async () => {
+                    setMenuOpen(false);
+                    const newName = window.prompt('Oda adını düzenle:', activeSpace.name);
+                    if (newName && newName.trim()) {
+                      await updateSpaceSettings(activeSpaceId, identity.uid, { name: newName.trim() });
+                      if (onBroadcastUpdate) onBroadcastUpdate(activeSpaceId, newName.trim());
+                    }
+                  }}>İsmi Değiştir</button>
+                  <div className={styles.divider} />
+                  <button className={styles.danger} onClick={async () => {
+                    setMenuOpen(false);
+                    if (window.confirm(`"${activeSpace.name}" sunucusunu silmek istediğine emin misin?`)) {
+                      await deleteSpace(activeSpaceId, identity.uid);
+                      removeSpace(activeSpaceId);
+                      setActiveSpace(null);
+                      if (onBroadcastDelete) onBroadcastDelete(activeSpaceId);
+                    }
+                  }}>Sunucuyu Sil</button>
+                </>
+              )}
             </div>
           </>
         )}
@@ -342,6 +349,78 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
         onUpdate={handleUpdateChannelSubmit}
         onDelete={handleDeleteChannelSubmit}
       />
+
+      <InviteFriendsModal 
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        activeSpace={activeSpace}
+        identity={identity}
+      />
+    </div>
+  );
+}
+
+function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
+  const [friends, setFriends] = useState([]);
+  const [invitedIds, setInvitedIds] = useState([]);
+  
+  useEffect(() => {
+    if (!isOpen || !identity?.uid) return;
+    const unsub = subscribeToFriends(identity.uid, setFriends);
+    return () => unsub();
+  }, [isOpen, identity?.uid]);
+
+  const handleInvite = async (friendUid) => {
+    try {
+      await inviteFriendToServer(
+        friendUid, 
+        activeSpace.id, 
+        activeSpace.name, 
+        identity.username, 
+        activeSpace.code
+      );
+      setInvitedIds(prev => [...prev, friendUid]);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={styles.modalContent} style={{ width: '400px' }}>
+        <h3>Arkadaşlarını Davet Et</h3>
+        <p style={{ color: '#8b929a', fontSize: '14px', marginBottom: '16px' }}>
+          <b>{activeSpace.name}</b> sunucusuna katılmaları için arkadaşlarına davet gönder.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+          {friends.length > 0 ? friends.map(friend => {
+            const isInvited = invitedIds.includes(friend.uid);
+            return (
+              <div key={friend.uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0B0C10', padding: '12px', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: friend.avatarColor || '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>
+                    {friend.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <span style={{ color: '#fff' }}>{friend.username}</span>
+                </div>
+                <button 
+                  style={{ background: isInvited ? '#2a2a2d' : '#66FCF1', color: isInvited ? '#8b929a' : '#0B0C10', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', cursor: isInvited ? 'default' : 'pointer' }}
+                  onClick={() => !isInvited && handleInvite(friend.uid)}
+                  disabled={isInvited}
+                >
+                  {isInvited ? 'Davet Edildi' : 'Davet Et'}
+                </button>
+              </div>
+            );
+          }) : (
+            <div style={{ color: '#8b929a', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
+              Davet edebileceğin hiç arkadaşın yok.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

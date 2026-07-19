@@ -28,7 +28,7 @@ function ServerItem({ space, isActive, onClick }) {
   );
 }
 
-export function ServerSidebar({ onCreateSpace, onJoinSpace }) {
+export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
   const { spaces, activeSpaceId, setActiveSpace, clearUnread } = useSpaceStore();
 
   const handleSpaceClick = (spaceId) => {
@@ -69,6 +69,14 @@ export function ServerSidebar({ onCreateSpace, onJoinSpace }) {
         <div className={styles.serverItemWrapper}>
           <button className={styles.actionButton} onClick={onJoinSpace} title="Sunucuya Katıl">
             <LogIn size={24} />
+          </button>
+        </div>
+        
+        <div className={styles.separator} style={{ width: '32px', marginTop: '4px', marginBottom: '4px' }} />
+        
+        <div className={styles.serverItemWrapper}>
+          <button className={`${styles.actionButton} ${styles.discoverBtn}`} onClick={onDiscover} title="Açık Sunucuları Keşfet">
+            <Compass size={24} />
           </button>
         </div>
       </div>

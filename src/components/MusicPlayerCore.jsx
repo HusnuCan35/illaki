@@ -40,8 +40,21 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
           player.playVideo();
         }
 
-        // Zaman farkı senkronizasyonunu (seekTo) şimdilik kaldırıyoruz
-        // çünkü duraklatınca veya oynatınca başa sarmaya sebep oluyordu.
+        // Zaman senkronizasyonu
+        if (musicState.currentTime !== undefined && musicState.updatedAt) {
+          let targetTime = musicState.currentTime;
+          
+          // Eğer çalıyorsa, bilginin güncellendiği andan itibaren geçen süreyi ekle
+          if (musicState.status === 'playing') {
+            const elapsedSeconds = (Date.now() - musicState.updatedAt) / 1000;
+            targetTime += elapsedSeconds;
+          }
+
+          // Eğer 3 saniyeden fazla bir fark varsa videoyu sar (başa sarma bug'ını önlemek için tolerans)
+          if (Math.abs(currentTime - targetTime) > 3) {
+            player.seekTo(targetTime, true);
+          }
+        }
       } catch (err) {
         console.error("Sync error:", err);
       }
@@ -63,6 +76,7 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
 
   const onPlayerReady = (event) => {
     playerRef.current = event.target;
+    window.__illakiMusicPlayer = event.target; // Expose for external controls
     setIsPlayerReady(true);
   };
 

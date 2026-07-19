@@ -1,0 +1,166 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1A1A1D;
+  color: #C5C6C7;
+  width: 320px;
+  border-left: 1px solid #2a2a2d;
+}
+
+.header {
+  padding: 20px;
+  border-bottom: 1px solid #2a2a2d;
+}
+
+.header h2 {
+  font-size: 18px;
+  color: #66FCF1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  color: #45A29E;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+h3 {
+  font-size: 14px;
+  color: #8b929a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.addForm {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  background: #0B0C10;
+  border: 1px solid #2a2a2d;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #66FCF1;
+}
+
+.addBtn {
+  background: #45A29E;
+  color: #0B0C10;
+  border: none;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.addBtn:hover:not(:disabled) {
+  background: #66FCF1;
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background: #0B0C10;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.listItem:hover {
+  border-color: #2a2a2d;
+  background: #111215;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+}
+
+.acceptBtn, .rejectBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.acceptBtn {
+  background: rgba(102, 252, 241, 0.1);
+  color: #66FCF1;
+}
+.acceptBtn:hover {
+  background: #66FCF1;
+  color: #0B0C10;
+}
+
+.rejectBtn {
+  background: rgba(242, 104, 104, 0.1);
+  color: #f26868;
+}
+.rejectBtn:hover {
+  background: #f26868;
+  color: #fff;
+}
+
+.empty {
+  color: #8b929a;
+  font-size: 14px;
+  font-style: italic;
+  padding: 12px 0;
+}

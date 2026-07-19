@@ -34,11 +34,16 @@ export function MusicBotPanel() {
     }
   };
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!musicState?.currentSong) return;
     const newStatus = musicState.status === 'playing' ? 'paused' : 'playing';
-    // Duraklatırken süreyi sıfırlamamak için sadece status yolluyoruz
-    updatePlaybackStatus(activeSpaceId, newStatus);
+    let currentTime = 0;
+    try {
+      if (window.__illakiMusicPlayer) {
+        currentTime = await window.__illakiMusicPlayer.getCurrentTime();
+      }
+    } catch (e) {}
+    updatePlaybackStatus(activeSpaceId, newStatus, currentTime);
   };
 
   const handleStop = () => {
