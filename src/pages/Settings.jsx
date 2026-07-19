@@ -3,7 +3,7 @@ import { User, Mic, Info, Check, ChevronRight, Shield, Palette, Camera } from 'l
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useIdentityStore, useUIStore } from '../stores';
-import { uploadAvatar, updateCustomId } from '../lib/firestore';
+import { uploadAvatar, updateCustomId, updateUsername } from '../lib/firestore';
 import styles from './Settings.module.css';
 
 const SECTIONS = [
@@ -56,11 +56,15 @@ export function SettingsModal({ isOpen, onClose }) {
     
     setUploading(true);
     let finalCustomId = customId;
+    let finalUsername = username.trim();
     try {
       if (customId.trim() !== identity?.customId) {
         finalCustomId = await updateCustomId(identity.uid, customId);
       }
-      setIdentity({ ...identity, username: username.trim(), customId: finalCustomId });
+      if (finalUsername !== identity?.username) {
+        finalUsername = await updateUsername(identity.uid, finalUsername);
+      }
+      setIdentity({ ...identity, username: finalUsername, customId: finalCustomId });
       document.documentElement.style.setProperty('--accent', accentColor);
       document.documentElement.style.setProperty('--accent-dark', accentColor + 'cc');
       setSaved(true);

@@ -98,6 +98,17 @@ export async function updateCustomId(uid, newCustomId) {
 }
 
 /**
+ * Kullanıcı adını günceller
+ */
+export async function updateUsername(uid, newUsername) {
+  const usernameStr = newUsername.trim();
+  if (usernameStr.length < 2) throw new Error('Kullanıcı adı en az 2 karakter olmalıdır.');
+  
+  await updateDoc(doc(db, 'users', uid), { username: usernameStr });
+  return usernameStr;
+}
+
+/**
  * Kullanıcı profilini getir
  */
 export async function getUserProfile(uid) {
