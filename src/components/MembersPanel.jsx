@@ -121,8 +121,8 @@ export function MembersPanel({ kickPeer }) {
     return () => unsubscribe();
   }, [activeSpaceId]);
 
-  // Firebase üyeleri ile PeerJS çevrimiçi üyeleri birleştir
-  const peerEntries = Object.entries(peers);
+  // Firebase üyeleri ile PeerJS çevrimiçi üyeleri birleştir (Sadece aktif odadakiler)
+  const peerEntries = Object.entries(peers).filter(([_, p]) => p.spaceCode === space?.code);
   
   // Önce dbMembers üzerinden birleştirilmiş bir liste yap
   const mergedMembers = dbMembers.filter(m => m.uid !== identity?.uid).map(m => {
