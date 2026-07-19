@@ -26,7 +26,7 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
 
     const player = playerRef.current;
     
-    const syncWithRemote = async () => {
+    const enforceSync = async () => {
       try {
         const state = await player.getPlayerState(); // 1 = playing, 2 = paused
         const currentTime = await player.getCurrentTime();
@@ -44,15 +44,19 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
         if (musicState.currentTime !== undefined && musicState.updatedAt) {
           let targetTime = musicState.currentTime;
           
-          // Eğer çalıyorsa, bilginin güncellendiği andan itibaren geçen süreyi ekle
           if (musicState.status === 'playing') {
             const elapsedSeconds = (Date.now() - musicState.updatedAt) / 1000;
             targetTime += elapsedSeconds;
           }
 
-          // Eğer 3 saniyeden fazla bir fark varsa videoyu sar (başa sarma bug'ını önlemek için tolerans)
           if (Math.abs(currentTime - targetTime) > 3) {
             player.seekTo(targetTime, true);
+            // seekTo fonksiyonu videoyu otomatik başlatabilir, bu yüzden durumu zorluyoruz
+            if (musicState.status === 'paused') {
+              setTimeout(() => {
+                try { player.pauseVideo(); } catch(e) {}
+              }, 200);
+            }
           }
         }
       } catch (err) {
@@ -60,7 +64,11 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
       }
     };
 
-    syncWithRemote();
+    enforceSync();
+
+    // Zamanla oluşan senkron kaymasını önlemek için her 3 saniyede bir kontrol et
+    const intervalId = setInterval(enforceSync, 3000);
+    return () => clearInterval(intervalId);
   }, [musicState, isPlayerReady]);
 
   // Ses seviyesini ayarla
