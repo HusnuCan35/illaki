@@ -27,8 +27,9 @@ export function MusicBotPanel() {
     try {
       await addSongToQueue(activeSpaceId, urlInput.trim(), identity.username);
       setUrlInput('');
+      useUIStore.getState().addToast({ type: 'success', message: 'Müzik sıraya eklendi!' });
     } catch (err) {
-      alert(err.message);
+      useUIStore.getState().addToast({ type: 'error', message: err.message });
     } finally {
       setLoading(false);
     }

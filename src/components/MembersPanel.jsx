@@ -1,12 +1,12 @@
-import { Users, Wifi, WifiOff, Crown, Shield, UserCheck, UserX, X, AlertTriangle } from 'lucide-react';
+import { Users, Wifi, WifiOff, Crown, Shield, UserCheck, UserX, X, AlertTriangle, UserPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
+import { usePeerStore, useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
-import { subscribeToMembers, updateMemberRole } from '../lib/firestore';
+import { subscribeToMembers, updateMemberRole, sendFriendRequest } from '../lib/firestore';
 import styles from './MembersPanel.module.css';
 
-function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChange }) {
+function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChange, onAddFriend }) {
   const initial = (peer.username || '?').slice(0, 2).toUpperCase();
   return (
     <div className={styles.member} role="listitem">
@@ -39,35 +39,46 @@ function MemberItem({ peerId, peer, isHost, isSelf, iAmHost, onKick, onRoleChang
           )}
         </span>
       </div>
-      {!isSelf && iAmHost && (
-        <div className={styles.actions}>
-          {/* Şık Pill Rol Seçici */}
-          <div className={styles.rolePills}>
-            {[
-              { value: 'member', label: 'Üye', icon: <UserCheck size={11} /> },
-              { value: 'mod',    label: 'Mod',  icon: <Shield size={11} /> },
-              { value: 'admin',  label: 'Admin', icon: <Crown size={11} /> },
-            ].map(r => (
-              <button
-                key={r.value}
-                className={`${styles.rolePill} ${(peer.role || 'member') === r.value ? styles[`rolePill_${r.value}`] : ''}`}
-                onClick={() => onRoleChange(peer.uid, r.value)}
-                title={r.label}
-              >
-                {r.icon}
-                <span>{r.label}</span>
-              </button>
-            ))}
-          </div>
+      <div className={styles.actions}>
+        {!isSelf && (
           <button
-            className={styles.kickBtn}
-            onClick={() => onKick(peerId, peer.username)}
-            title="Sunucudan Çıkar"
+            className={styles.addFriendBtn}
+            onClick={() => onAddFriend(peer.uid)}
+            title="Arkadaş Ekle"
           >
-            <X size={14} />
+            <UserPlus size={14} />
           </button>
-        </div>
-      )}
+        )}
+        {!isSelf && iAmHost && (
+          <>
+            {/* Şık Pill Rol Seçici */}
+            <div className={styles.rolePills}>
+              {[
+                { value: 'member', label: 'Üye', icon: <UserCheck size={11} /> },
+                { value: 'mod',    label: 'Mod',  icon: <Shield size={11} /> },
+                { value: 'admin',  label: 'Admin', icon: <Crown size={11} /> },
+              ].map(r => (
+                <button
+                  key={r.value}
+                  className={`${styles.rolePill} ${(peer.role || 'member') === r.value ? styles[`rolePill_${r.value}`] : ''}`}
+                  onClick={() => onRoleChange(peer.uid, r.value)}
+                  title={r.label}
+                >
+                  {r.icon}
+                  <span>{r.label}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              className={styles.kickBtn}
+              onClick={() => onKick(peerId, peer.username)}
+              title="Sunucudan Çıkar"
+            >
+              <X size={14} />
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -76,6 +87,7 @@ export function MembersPanel({ kickPeer }) {
   const { peers } = usePeerStore();
   const { activeSpaceId, getActiveSpace } = useSpaceStore();
   const { identity } = useIdentityStore();
+  const { addToast } = useUIStore();
   const [kickTarget, setKickTarget] = useState(null);
   const [dbMembers, setDbMembers] = useState([]);
 
@@ -87,7 +99,17 @@ export function MembersPanel({ kickPeer }) {
       await updateMemberRole(activeSpaceId, identity.uid, targetUid, newRole);
     } catch (error) {
       console.error(error);
-      alert('Yetki değiştirilemedi: ' + error.message);
+      addToast({ type: 'error', message: 'Yetki değiştirilemedi: ' + error.message });
+    }
+  };
+
+  const handleAddFriend = async (targetUid) => {
+    if (!targetUid || targetUid === identity.uid) return;
+    try {
+      await sendFriendRequest(identity.uid, targetUid);
+      addToast({ type: 'success', message: 'Arkadaşlık isteği gönderildi!' });
+    } catch (err) {
+      addToast({ type: 'error', message: err.message });
     }
   };
 
@@ -167,6 +189,7 @@ export function MembersPanel({ kickPeer }) {
             iAmHost={iAmHost}
             onKick={(id, name) => setKickTarget({ id, name })}
             onRoleChange={handleRoleChange}
+            onAddFriend={handleAddFriend}
           />
         ))}
 

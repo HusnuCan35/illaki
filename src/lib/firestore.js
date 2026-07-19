@@ -856,21 +856,17 @@ export async function getSpaceKey(spaceId, uid) {
 // Arkadaşlık Sistemi (Friends System)
 // ────────────────────────────────────────────────────────────
 
-export async function sendFriendRequest(senderUid, targetUsername) {
-  // Hedef kullanıcıyı kullanıcı adı ile bul
-  const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('username', '==', targetUsername), limit(1));
-  const snap = await getDocs(q);
-  
-  if (snap.empty) {
-    throw new Error('Kullanıcı bulunamadı.');
-  }
-
-  const targetDoc = snap.docs[0];
-  const targetUid = targetDoc.id;
-
+export async function sendFriendRequest(senderUid, targetUid) {
   if (senderUid === targetUid) {
     throw new Error('Kendinize arkadaşlık isteği gönderemezsiniz.');
+  }
+
+  // Hedef kullanıcının var olup olmadığını kontrol et
+  const targetDocRef = doc(db, 'users', targetUid);
+  const targetDoc = await getDoc(targetDocRef);
+  
+  if (!targetDoc.exists()) {
+    throw new Error('Kullanıcı bulunamadı.');
   }
 
   const senderDoc = await getDoc(doc(db, 'users', senderUid));

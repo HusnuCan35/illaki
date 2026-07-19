@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Users, UserPlus, UserX, Check, X, LogIn } from 'lucide-react';
-import { useIdentityStore, useSpaceStore } from '../stores';
+import { useIdentityStore, useSpaceStore, useUIStore } from '../stores';
 import { subscribeToFriends, subscribeToFriendRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend, subscribeToServerInvites, acceptServerInvite, rejectServerInvite } from '../lib/firestore';
 import styles from './FriendsPanel.module.css';
 
 export function FriendsPanel({ onJoinSpace }) {
   const { identity } = useIdentityStore();
   const { spaces } = useSpaceStore();
+  const { addToast } = useUIStore();
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -32,9 +33,9 @@ export function FriendsPanel({ onJoinSpace }) {
     try {
       await sendFriendRequest(identity.uid, addInput.trim());
       setAddInput('');
-      alert('Arkadaşlık isteği gönderildi!');
+      addToast({ type: 'success', message: 'Arkadaşlık isteği gönderildi!' });
     } catch (err) {
-      alert(err.message);
+      addToast({ type: 'error', message: err.message });
     } finally {
       setLoading(false);
     }
@@ -44,8 +45,9 @@ export function FriendsPanel({ onJoinSpace }) {
     try {
       await acceptServerInvite(identity.uid, invite.spaceId, invite.spaceCode, identity);
       if (onJoinSpace) onJoinSpace(invite.spaceCode, invite.spaceId);
+      addToast({ type: 'success', message: 'Sunucuya katıldın!' });
     } catch (err) {
-      alert('Sunucuya katılırken hata oluştu: ' + err.message);
+      addToast({ type: 'error', message: 'Sunucuya katılırken hata oluştu: ' + err.message });
     }
   };
 
@@ -56,12 +58,30 @@ export function FriendsPanel({ onJoinSpace }) {
       </div>
 
       <div className={styles.content}>
+        <div className={styles.myIdSection} style={{ marginBottom: '16px', background: '#252932', padding: '12px', borderRadius: '8px' }}>
+          <h3 style={{ fontSize: '13px', color: '#8b929a', marginBottom: '8px', textTransform: 'uppercase' }}>Senin Kullanıcı ID'n</h3>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <code style={{ flex: 1, background: '#1c1f26', padding: '8px', borderRadius: '4px', fontSize: '14px', wordBreak: 'break-all' }}>
+              {identity?.uid}
+            </code>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(identity?.uid);
+                addToast({ type: 'info', message: 'ID Kopyalandı!' });
+              }}
+              style={{ padding: '8px 12px', background: '#45A29E', color: '#1c1f26', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Kopyala
+            </button>
+          </div>
+        </div>
+
         <div className={styles.addSection}>
           <h3>Arkadaş Ekle</h3>
           <form onSubmit={handleAddFriend} className={styles.addForm}>
             <input 
               type="text" 
-              placeholder="Kullanıcı Adı" 
+              placeholder="Kullanıcı ID (örn: abc123xyz...)" 
               value={addInput}
               onChange={e => setAddInput(e.target.value)}
               disabled={loading}

@@ -13,9 +13,23 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+let app;
+let auth;
+let db;
+let storage;
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export default app;
+if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY') {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+} else {
+  console.error("Firebase API Key eksik. Lütfen .env dosyanızı kontrol edin.");
+  // Mock fallback için boş objeler atıyoruz ki uygulama crash olmasın
+  app = {};
+  auth = null;
+  db = null;
+  storage = null;
+}
+
+export { app as default, auth, db, storage };

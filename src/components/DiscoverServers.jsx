@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getPublicSpaces, joinSpace } from '../lib/firestore';
-import { useIdentityStore, useSpaceStore } from '../stores';
+import { useIdentityStore, useSpaceStore, useUIStore } from '../stores';
 import { Search, Hash, Users, ArrowRight } from 'lucide-react';
 import styles from './DiscoverServers.module.css';
 
 export function DiscoverServers({ onJoin, onClose }) {
   const { identity } = useIdentityStore();
   const { spaces } = useSpaceStore();
+  const { addToast } = useUIStore();
   const [servers, setServers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -15,9 +16,13 @@ export function DiscoverServers({ onJoin, onClose }) {
   useEffect(() => {
     getPublicSpaces().then(data => {
       setServers(data);
+    }).catch(err => {
+      console.error(err);
+      addToast({ type: 'error', message: 'Sunucular yüklenirken hata oluştu veya indeks yükleniyor.' });
+    }).finally(() => {
       setLoading(false);
-    }).catch(console.error);
-  }, []);
+    });
+  }, [addToast]);
 
   const handleJoin = async (server) => {
     if (joiningId) return;
@@ -26,8 +31,9 @@ export function DiscoverServers({ onJoin, onClose }) {
       await joinSpace(server.code, identity);
       if (onJoin) onJoin(server.code, server.id);
       if (onClose) onClose();
+      addToast({ type: 'success', message: 'Sunucuya başarıyla katıldın!' });
     } catch (err) {
-      alert(err.message);
+      addToast({ type: 'error', message: err.message });
     } finally {
       setJoiningId(null);
     }

@@ -36,6 +36,12 @@ export function useAuth() {
 
   // Auth durumunu takip et
   useEffect(() => {
+    if (!auth) {
+      setAuthError("Firebase API Key eksik. Lütfen .env dosyanızı ayarlayın.");
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (unsubSpacesRef.current) {
         unsubSpacesRef.current();

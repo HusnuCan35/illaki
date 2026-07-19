@@ -24,11 +24,12 @@ function Avatar({ username, color, size = 36, status }) {
 export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBroadcastUpdate, onBroadcastDelete, kickFromVoice }) {
   const { spaces, channels, activeChannelId, setActiveChannel, setChannels, removeSpace, setActiveSpace } = useSpaceStore();
   const { identity, clearIdentity } = useIdentityStore();
-  const { setSettingsOpen } = useUIStore();
+  const { setSettingsOpen, addToast } = useUIStore();
   const { peers, voiceChannelId } = usePeerStore();
   const [codeCopied, setCodeCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState('member');
+  const [dbMembers, setDbMembers] = useState([]);
   
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -59,6 +60,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
       setChannels(activeSpaceId, data);
     });
     const unsubMembers = subscribeToMembers(activeSpaceId, (members) => {
+      setDbMembers(members);
       const me = members.find(m => m.uid === identity?.uid);
       if (me) setCurrentUserRole(me.role || 'member');
     });
@@ -110,7 +112,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
     try {
       await createChannel(activeSpaceId, identity.uid, { name, type, allowedRoles });
     } catch (err) {
-      alert(err.message);
+      useUIStore.getState().addToast({ type: 'error', message: err.message });
     }
   };
 
@@ -119,7 +121,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
     try {
       await updateChannel(activeSpaceId, identity.uid, editingChannel.id, { name, allowedRoles });
     } catch (err) {
-      alert(err.message);
+      useUIStore.getState().addToast({ type: 'error', message: err.message });
     }
   };
 
@@ -130,7 +132,7 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
       if (activeChannelId === editingChannel.id) setActiveChannel('general');
       setSettingsModalOpen(false);
     } catch (err) {
-      alert(err.message);
+      useUIStore.getState().addToast({ type: 'error', message: err.message });
     }
   };
 
@@ -381,7 +383,7 @@ function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
       );
       setInvitedIds(prev => [...prev, friendUid]);
     } catch (err) {
-      alert(err.message);
+      useUIStore.getState().addToast({ type: 'error', message: err.message });
     }
   };
 
