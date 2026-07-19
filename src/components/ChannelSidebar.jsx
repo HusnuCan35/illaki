@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2, UserMinus } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, usePeerStore, useUIStore } from '../stores';
-import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace, subscribeToFriends, inviteFriendToServer } from '../lib/firestore';
+import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace, subscribeToFriends, inviteFriendToServer, getFriends } from '../lib/firestore';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CreateChannelModal, ChannelSettingsModal } from './ChannelModals';
@@ -165,7 +165,20 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <>
             <div style={{position:'fixed', inset:0, zIndex:90}} onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
             <div className={styles.dropdownMenu}>
-              <button onClick={() => { setMenuOpen(false); setInviteModalOpen(true); }}>Arkadaşlarını Davet Et</button>
+              <button onClick={async () => { 
+                setMenuOpen(false);
+                const addToast = useUIStore.getState().addToast;
+                try {
+                  const userFriends = await getFriends(identity.uid);
+                  if (userFriends.length === 0) {
+                    addToast({ type: 'error', message: 'Davet edebileceğin hiç arkadaşın yok.' });
+                  } else {
+                    setInviteModalOpen(true);
+                  }
+                } catch (err) {
+                  addToast({ type: 'error', message: 'Arkadaş listesi alınamadı.' });
+                }
+              }}>Arkadaşlarını Davet Et</button>
               {isHost && (
                 <>
                   <div className={styles.divider} />
@@ -397,7 +410,7 @@ function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
           <b>{activeSpace.name}</b> sunucusuna katılmaları için arkadaşlarına davet gönder.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-          {friends.length > 0 ? friends.map(friend => {
+          {friends.map(friend => {
             const isInvited = invitedIds.includes(friend.uid);
             return (
               <div key={friend.uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0B0C10', padding: '12px', borderRadius: '8px' }}>
@@ -416,11 +429,7 @@ function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
                 </button>
               </div>
             );
-          }) : (
-            <div style={{ color: '#8b929a', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
-              Davet edebileceğin hiç arkadaşın yok.
-            </div>
-          )}
+          })}
         </div>
       </div>
     </div>

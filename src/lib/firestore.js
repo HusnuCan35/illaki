@@ -953,6 +953,19 @@ export async function removeFriend(uid, friendUid) {
   await deleteDoc(doc(db, 'users', friendUid, 'friends', uid));
 }
 
+export async function getFriends(uid) {
+  const snap = await getDocs(collection(db, 'users', uid, 'friends'));
+  const friendsData = [];
+  for (const d of snap.docs) {
+    const friendUid = d.id;
+    const userDoc = await getDoc(doc(db, 'users', friendUid));
+    if (userDoc.exists()) {
+      friendsData.push({ ...userDoc.data(), addedAt: d.data().addedAt });
+    }
+  }
+  return friendsData;
+}
+
 export function subscribeToFriends(uid, onFriends) {
   const q = collection(db, 'users', uid, 'friends');
   return onSnapshot(q, async (snap) => {
