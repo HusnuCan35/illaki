@@ -225,10 +225,10 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || existing.avatarColor;
 
           if (!isGenericName(username)) {
-            peersStore.updatePeer(call.peer, {
+            usePeerStore.getState().updatePeer(call.peer, {
               username,
               avatarColor,
-              voiceChannelId: peersStore.voiceChannelId,
+              voiceChannelId: usePeerStore.getState().voiceChannelId,
             });
           }
 
@@ -390,7 +390,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
             const avatarColor = peerInfo?.avatarColor || existing.avatarColor;
 
             if (!isGenericName(username)) {
-              peersStore.updatePeer(pId, {
+              usePeerStore.getState().updatePeer(pId, {
                 username,
                 avatarColor,
                 voiceChannelId: channelId,
