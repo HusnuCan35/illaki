@@ -18,6 +18,8 @@
   background: var(--bg-surface);
   flex-shrink: 0;
   gap: var(--space-4);
+  position: relative;
+  z-index: 10;
 }
 
 .headerLeft {
