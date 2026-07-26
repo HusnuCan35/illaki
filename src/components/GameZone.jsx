@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { X, Dices, HandMetal, Gem, ChevronRight, Users, Bot } from 'lucide-react';
+import { X, Dices, HandMetal, Gem, Users, Bot } from 'lucide-react';
 import styles from './GameZone.module.css';
 
 export function GameZone({ onClose, onGameCommand, onOpenBotDuel, onOpenFriendDuel }) {
-  const [showRpsOptions, setShowRpsOptions] = useState(false);
-
   return (
     <div className={styles.gameZoneWrapper}>
       <div className={styles.gameZoneHeader}>
@@ -27,51 +25,8 @@ export function GameZone({ onClose, onGameCommand, onOpenBotDuel, onOpenFriendDu
           }}
         >
           <Dices size={20} className={styles.gameIcon} />
-          <span className={styles.gameName}>Zar At (3D Animasyonlu)</span>
+          <span className={styles.gameName}>Zar At</span>
         </button>
-
-        {/* Taş / Kağıt / Makas - Tek Sütun Alanı */}
-        <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '4px' }}>
-          <button
-            className={styles.gameBtn}
-            onClick={() => setShowRpsOptions(!showRpsOptions)}
-            style={{ justifyContent: 'space-between' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <HandMetal size={20} className={styles.gameIcon} />
-              <span className={styles.gameName}>Taş / Kağıt / Makas</span>
-            </div>
-            <ChevronRight size={16} style={{ transform: showRpsOptions ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-          </button>
-
-          {showRpsOptions && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '12px', marginTop: '4px' }}>
-              <button
-                className={styles.gameBtn}
-                style={{ background: 'rgba(255, 126, 32, 0.15)', border: '1px solid rgba(255, 126, 32, 0.3)', color: '#FF7E20' }}
-                onClick={() => {
-                  if (onOpenFriendDuel) onOpenFriendDuel();
-                  onClose();
-                }}
-              >
-                <Users size={18} />
-                <span className={styles.gameName} style={{ fontWeight: 'bold' }}>👥 Arkadaşınla Oyna (1v1)</span>
-              </button>
-
-              <button
-                className={styles.gameBtn}
-                style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#60A5FA' }}
-                onClick={() => {
-                  if (onOpenBotDuel) onOpenBotDuel();
-                  onClose();
-                }}
-              >
-                <Bot size={18} />
-                <span className={styles.gameName} style={{ fontWeight: 'bold' }}>🤖 Bot ile Oyna</span>
-              </button>
-            </div>
-          )}
-        </div>
 
         {/* Jackpot */}
         <button
@@ -82,8 +37,39 @@ export function GameZone({ onClose, onGameCommand, onOpenBotDuel, onOpenFriendDu
           }}
         >
           <Gem size={20} className={styles.gameIcon} />
-          <span className={styles.gameName}>Jackpot Şans Çarkı</span>
+          <span className={styles.gameName}>Jackpot</span>
         </button>
+      </div>
+
+      {/* Taş / Kağıt / Makas Bölümü */}
+      <div className={styles.rpsSection}>
+        <div className={styles.rpsHeader}>
+          <HandMetal size={16} className={styles.gameIcon} />
+          <span>Taş - Kağıt - Makas</span>
+        </div>
+        <div className={styles.rpsButtons}>
+          <button
+            className={styles.rpsBtnFriend}
+            onClick={() => {
+              if (onOpenFriendDuel) onOpenFriendDuel();
+              onClose();
+            }}
+          >
+            <Users size={16} />
+            <span>Arkadaşınla</span>
+          </button>
+
+          <button
+            className={styles.rpsBtnBot}
+            onClick={() => {
+              if (onOpenBotDuel) onOpenBotDuel();
+              onClose();
+            }}
+          >
+            <Bot size={16} />
+            <span>Bot ile</span>
+          </button>
+        </div>
       </div>
     </div>
   );

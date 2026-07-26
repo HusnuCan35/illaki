@@ -496,12 +496,21 @@ export function ChatArea({
     if (!activeSpaceId || !identity?.uid) return;
     const unsub = subscribeToDuels(activeSpaceId, (dList) => {
       setDuels(dList);
-      const relevantDuel = dList.find(d => 
-        (d.opponentUid === identity.uid && d.status === 'pending') ||
-        ((d.challengerUid === identity.uid || d.opponentUid === identity.uid) && (d.status === 'accepted' || d.status === 'completed'))
-      );
-      if (relevantDuel) {
-        setActiveDuel(relevantDuel);
+      // En yeni aktif (pending / accepted) veya canlı takip edilen düelloyu seç
+      const myDuels = dList
+        .filter(d => (d.challengerUid === identity.uid || d.opponentUid === identity.uid))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      const newestDuel = myDuels[0];
+      if (newestDuel) {
+        if (newestDuel.status === 'pending' || newestDuel.status === 'accepted') {
+          setActiveDuel(newestDuel);
+        } else if (newestDuel.status === 'completed') {
+          // Tamamlanan düelloyu yalnızca açık olan pencerede canlı güncelle
+          setActiveDuel(prev => (prev?.id === newestDuel.id ? newestDuel : null));
+        } else {
+          setActiveDuel(null);
+        }
       }
     });
     return () => unsub();
