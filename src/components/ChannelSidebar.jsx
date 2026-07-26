@@ -319,14 +319,13 @@ export function ChannelSidebar({
                 });
               }
 
-              // 2. Real-time Firestore üyelerini ekle (ses kanalında olan her üyeyi göster)
+              // Real-time Firestore üyelerini ekle (ses kanalında olan her üyeyi göster)
               (dbMembers || []).forEach(m => {
                 const isMe = m.uid === identity?.uid;
-                // Kendimiz için yerel store ses kanalını kontrol et — eğer yerel olarak seste değilsek seste gösterme
                 if (isMe) {
                   if (voiceChannelId !== channel.id) return;
                 } else {
-                  if (m.voiceChannelId !== channel.id) return;
+                  if (m.voiceChannelId !== channel.id || m.online === false) return;
                 }
 
                 const peerMatch = Object.values(peers).find(p => p.uid === m.uid || p.username === m.username);
@@ -343,31 +342,6 @@ export function ChannelSidebar({
                     isSelf: isMe,
                     status: 'online',
                   });
-                }
-              });
-
-              // 3. P2P peers store'daki aktif ses katılımcılarını kontrol et ve eksikse ekle
-              Object.entries(peers).forEach(([pId, p]) => {
-                if (p.voiceChannelId === channel.id) {
-                  const key = p.uid || pId;
-                  const dbMatch = dbMembers.find(m => m.uid === p.uid || m.username === p.username);
-                  const rawName = dbMatch?.username || p.username;
-                  const isGeneric = !rawName || rawName === 'Katılımcı' || rawName === 'Anonim' || rawName === 'Kullanıcı' || rawName === 'Bağlanıyor...' || rawName === 'Üye';
-                  
-                  if (!participantsMap.has(key)) {
-                    const isMe = p.uid === identity?.uid;
-                    if (isMe && voiceChannelId !== channel.id) return;
-
-                    const nameToShow = isGeneric ? 'Kullanıcı' : rawName;
-                    participantsMap.set(key, {
-                      id: pId,
-                      uid: p.uid || pId,
-                      username: isMe ? `${identity?.username || nameToShow} (Sen)` : nameToShow,
-                      avatarColor: p.avatarColor || dbMatch?.avatarColor || 'var(--accent)',
-                      isSelf: isMe,
-                      status: 'online',
-                    });
-                  }
                 }
               });
 

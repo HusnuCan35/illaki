@@ -248,6 +248,21 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
       call.answer(combinedStream);
 
+      // Video transceiver ekleyelim ki kendi kamerası kapalı olsa dahi karşı tarafın videosunu alabilsin
+      if (call.peerConnection) {
+        try {
+          const transceivers = call.peerConnection.getTransceivers();
+          const videoTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'video' || t.kind === 'video');
+          if (!videoTransceiver) {
+            call.peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+          } else {
+            videoTransceiver.direction = 'sendrecv';
+          }
+        } catch (e) {
+          console.warn('[Voice] Video transceiver ekleme uyarısı:', e);
+        }
+      }
+
       call.on('stream', (remoteStream) => {
         // Ses track'lerini audio elementine yönlendir
         const audioTracks = remoteStream.getAudioTracks();
@@ -447,6 +462,20 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           },
           sdpTransform: (sdp) => preferOpusHD(sdp),
         });
+
+        if (call.peerConnection) {
+          try {
+            const transceivers = call.peerConnection.getTransceivers();
+            const videoTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'video' || t.kind === 'video');
+            if (!videoTransceiver) {
+              call.peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+            } else {
+              videoTransceiver.direction = 'sendrecv';
+            }
+          } catch (e) {
+            console.warn('[Voice] Outgoing video transceiver uyarısı:', e);
+          }
+        }
 
         call.on('stream', (remoteStream) => {
           const audioTracks = remoteStream.getAudioTracks();
