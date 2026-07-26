@@ -21,7 +21,16 @@ function Avatar({ username, color, size = 36, status }) {
   );
 }
 
-export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBroadcastUpdate, onBroadcastDelete, kickFromVoice }) {
+export function ChannelSidebar({ 
+  activeSpaceId, 
+  onOpenSettings, 
+  voiceSlot, 
+  onBroadcastUpdate, 
+  onBroadcastDelete, 
+  kickFromVoice,
+  screenShare,
+  onOpenStreamStage
+}) {
   const { spaces, channels, activeChannelId, setActiveChannel, setChannels, removeSpace, setActiveSpace } = useSpaceStore();
   const { identity, clearIdentity } = useIdentityStore();
   const { setSettingsOpen, addToast } = useUIStore();
@@ -46,6 +55,8 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
 
   const activeSpace = spaces.find(sp => sp.id === activeSpaceId);
   const spaceChannels = channels[activeSpaceId] || [];
+  const myDbMember = dbMembers.find(m => m.uid === identity?.uid);
+  const myPoints = myDbMember?.points || 0;
 
   // Geçmişe yönelik uyumluluk
   const hasText = spaceChannels.some(c => c.type === 'text');
@@ -97,8 +108,10 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
 
   const visibleChannels = displayChannels.filter(canViewChannel);
 
+  const hasActiveStream = screenShare?.remoteScreenStream || screenShare?.localScreenStream;
+  const sharerName = screenShare?.remoteScreenStream ? (screenShare.remoteSharer || 'Biri') : (screenShare?.localScreenStream ? 'Sen' : null);
+
   const handleCreateChannelOpen = (type) => {
-    // Sadece host/yetkililer açabilir, role kontrolü eklenecek
     setCreateModalOpen(true);
   };
 
@@ -207,6 +220,36 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           </>
         )}
       </header>
+
+      {/* Aktif Canlı Yayın Bannerı */}
+      {hasActiveStream && (
+        <div 
+          onClick={onOpenStreamStage}
+          style={{
+            margin: '8px 12px 0',
+            padding: '10px 12px',
+            background: 'linear-gradient(135deg, rgba(255, 77, 77, 0.25), rgba(250, 166, 26, 0.2))',
+            border: '1px solid rgba(255, 77, 77, 0.5)',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'space-between',
+            boxShadow: '0 4px 12px rgba(255, 77, 77, 0.15)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF4D4D', boxShadow: '0 0 8px #FF4D4D' }} />
+            <span style={{ fontSize: '12px', fontWeight: '700', color: '#FFF' }}>
+              🔴 CANLI YAYIN: {sharerName}
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: '#66FCF1', background: 'rgba(102, 252, 241, 0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+            İzle ➔
+          </span>
+        </div>
+      )}
 
       <div className={styles.content}>
         <div className={styles.section}>
@@ -329,7 +372,6 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
         </div>
       </div>
 
-      {/* Oda kodu (peer ID) kaldırıldı */}
       {/* Voice Connection Panel (Bottom) */}
       {voiceSlot}
 
@@ -338,7 +380,9 @@ export function ChannelSidebar({ activeSpaceId, onOpenSettings, voiceSlot, onBro
           <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
-            <span className={styles.userStatus}>Çevrimiçi • v1.0.9</span>
+            <span className={styles.userStatus} style={{ color: '#FAA61A', fontWeight: '600' }}>
+              ⭐ {myPoints} Puan
+            </span>
           </div>
         </div>
         <div className={styles.userActions}>

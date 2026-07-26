@@ -271,6 +271,20 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   // ── Ses Kanalına Katıl ────────────────────────────────────────────────────
   const joinVoice = useCallback(async (channelId, connectedPeerIds = []) => {
     try {
+      const { activeSpaceId } = useSpaceStore.getState();
+      if (activeSpaceId && identity?.uid) {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        const mSnap = await getDoc(doc(db, 'spaces', activeSpaceId, 'members', identity.uid));
+        if (mSnap.exists()) {
+          const mData = mSnap.data();
+          if (mData.timeoutUntil && mData.timeoutUntil > Date.now()) {
+            addToast({ type: 'error', message: 'Susturuldunuz (Timeout). Ses kanalına katılamazsınız.' });
+            return;
+          }
+        }
+      }
+
       const audioStream = await getLocalStream();
       const peer = getPeer();
 
@@ -285,7 +299,6 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setVoiceChannelId(channelId);
       if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId, isMuted, isDeafened });
 
-      const { activeSpaceId } = useSpaceStore.getState();
       if (activeSpaceId && identity?.uid) {
         updateMemberVoiceStatus(activeSpaceId, identity.uid, channelId);
       }

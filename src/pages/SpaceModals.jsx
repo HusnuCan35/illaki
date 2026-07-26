@@ -325,8 +325,9 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
   const { addToast } = useUIStore();
   const space = getActiveSpace();
 
-  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'roles'
+  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'roles' | 'bans'
   const [members, setMembers] = useState([]);
+  const [bans, setBans] = useState([]);
   const [name, setName] = useState(space?.name || '');
   const [description, setDescription] = useState(space?.description || '');
   const [icon, setIcon] = useState(space?.icon || '💬');
@@ -338,10 +339,21 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (!space?.id || !isOpen) return;
-    const unsub = subscribeToMembers(space.id, (mList) => {
+    const unsubMembers = subscribeToMembers(space.id, (mList) => {
       setMembers(mList);
     });
-    return () => unsub();
+    
+    let unsubBans = () => {};
+    import('../lib/firestore').then(({ subscribeToBans }) => {
+      unsubBans = subscribeToBans(space.id, (bList) => {
+        setBans(bList);
+      });
+    });
+
+    return () => {
+      unsubMembers();
+      unsubBans();
+    };
   }, [space?.id, isOpen]);
 
   const ICONS = ['💬', '🎮', '🎵', '📚', '💼', '🎨', '🏆', '🚀', '🌍', '🔥'];
@@ -427,6 +439,27 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
     }
   };
 
+  const handleUnban = async (targetUid, targetName) => {
+    try {
+      const { unbanMember } = await import('../lib/firestore');
+      await unbanMember(space.id, identity.uid, targetUid);
+      addToast({ type: 'success', message: `${targetName} yasağı kaldırıldı.` });
+    } catch (err) {
+      addToast({ type: 'error', message: 'Yasak kaldırılamadı: ' + err.message });
+    }
+  };
+
+  const handleKickUser = async (targetUid, targetName) => {
+    if (!window.confirm(`${targetName} adlı kullanıcıyı sunucudan tekmelemek istediğinize emin misiniz?`)) return;
+    try {
+      const { kickMember } = await import('../lib/firestore');
+      await kickMember(space.id, identity.uid, targetUid);
+      addToast({ type: 'info', message: `${targetName} sunucudan atıldı.` });
+    } catch (err) {
+      addToast({ type: 'error', message: err.message });
+    }
+  };
+
   return (
     <Modal 
       isOpen={isOpen} 
@@ -458,6 +491,17 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
               }}
             >
               Roller & Üyeler ({members.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('bans')}
+              style={{
+                padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                background: activeTab === 'bans' ? '#FF4D4D' : 'transparent',
+                color: activeTab === 'bans' ? '#fff' : 'var(--text-secondary)'
+              }}
+            >
+              Yasaklılar ({bans.length})
             </button>
           </div>
 
@@ -559,10 +603,13 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                 <div key={m.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-modifier-hover)', borderRadius: '8px' }}>
                   <div>
                     <span style={{ fontWeight: 600, display: 'block' }}>{m.username} {m.uid === identity?.uid && '(Sen)'}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{m.role === 'host' ? 'Kurucu' : m.role === 'mod' ? 'Moderatör' : m.role === 'admin' ? 'Yönetici' : 'Üye'}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {m.role === 'host' ? 'Kurucu' : m.role === 'mod' ? 'Moderatör' : m.role === 'admin' ? 'Yönetici' : 'Üye'} 
+                      {m.points > 0 && ` • ⭐ ${m.points} Puan`}
+                    </span>
                   </div>
                   {m.uid !== identity?.uid && (
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                       {[
                         { val: 'member', label: 'Üye' },
                         { val: 'mod', label: 'Mod' },
@@ -588,10 +635,53 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                           {r.label}
                         </button>
                       ))}
+
+                      <button
+                        type="button"
+                        onClick={() => handleKickUser(m.uid, m.username)}
+                        style={{
+                          padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.4)',
+                          background: 'rgba(239,68,68,0.15)', color: '#FF4D4D', cursor: 'pointer', fontSize: '12px', fontWeight: 600
+                        }}
+                        title="Tekmele"
+                      >
+                        At
+                      </button>
                     </div>
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === 'bans' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+              {bans.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#94A3B8', fontSize: '13px' }}>
+                  Henüz yasaklanmış kullanıcı yok.
+                </div>
+              ) : (
+                bans.map(b => (
+                  <div key={b.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255, 77, 77, 0.08)', border: '1px solid rgba(255, 77, 77, 0.2)', borderRadius: '8px' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#FFF', fontSize: '14px' }}>{b.username}</div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                        Türü: <strong>{b.banType === 'temporary' ? 'Süreli' : 'Süresiz (Kalıcı)'}</strong> | Sebep: <em>"{b.reason}"</em>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleUnban(b.uid, b.username)}
+                      style={{
+                        padding: '6px 12px', borderRadius: '6px', border: '1px solid #10B981',
+                        background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', cursor: 'pointer', fontSize: '12px', fontWeight: '700'
+                      }}
+                    >
+                      Yasağı Kaldır
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

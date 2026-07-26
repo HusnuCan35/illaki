@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { ServerSidebar } from '../components/ServerSidebar';
 import { ChannelSidebar } from '../components/ChannelSidebar';
 import { ChatArea } from '../components/ChatArea';
 import { MembersPanel } from '../components/MembersPanel';
 import { MusicBotPanel } from '../components/MusicBotPanel';
 import { VoiceChannel } from '../components/VoiceChannel';
+import { StreamStageModal } from '../components/StreamStageModal';
+import { BanScreenModal } from '../components/BanScreenModal';
 import { CreateSpaceModal, JoinSpaceModal, SpaceSettingsModal } from './SpaceModals';
 import { DiscoverServers } from '../components/DiscoverServers';
 import { FriendsPanel } from '../components/FriendsPanel';
@@ -12,7 +14,8 @@ import { SettingsModal } from './Settings';
 import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
-import { useUIStore, usePeerStore, useSpaceStore } from '../stores';
+import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
+import { subscribeToUserBanStatus, subscribeToMembers } from '../lib/firestore';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -21,13 +24,19 @@ export function Home() {
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [rightPanel, setRightPanel] = useState(window.innerWidth > 900 ? 'members' : null); // 'members' | 'music' | null
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
-  const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar } = useUIStore();
+  const [streamStageOpen, setStreamStageOpen] = useState(false);
+  const [bannedInfo, setBannedInfo] = useState(null);
+
+  const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar, addToast } = useUIStore();
+  const { identity } = useIdentityStore();
+  const { activeSpaceId, spaces, setActiveSpace, removeSpace } = useSpaceStore();
 
   const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, kickFromVoice, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
   const voice = useVoice(getPeer, broadcastVoiceStatus);
   const screenShare = useScreenShare(getPeer);
   const { peers } = usePeerStore();
-  const { activeSpaceId } = useSpaceStore();
+
+  const activeSpace = spaces.find(s => s.id === activeSpaceId);
 
   // Home sayfasındayken body scroll'u kilitle (Landing'de açık olsun)
   useEffect(() => {
@@ -39,17 +48,54 @@ export function Home() {
     initPeer().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-connect to space P2P network when activeSpaceId changes (e.g. on load or switch)
+  // Auto-connect to space P2P network when activeSpaceId changes
   useEffect(() => {
     if (activeSpaceId) {
       const space = useSpaceStore.getState().spaces.find(s => s.id === activeSpaceId);
       if (space && space.code) {
-        connectToPeer(space.code, activeSpaceId).catch(() => {
-          // Ignore errors, likely already connected or we are the host
-        });
+        connectToPeer(space.code, activeSpaceId).catch(() => {});
       }
     }
   }, [activeSpaceId, connectToPeer]);
+
+  // Real-time Ban & Membership check for current user in activeSpace
+  useEffect(() => {
+    if (!activeSpaceId || !identity?.uid) {
+      setBannedInfo(null);
+      return;
+    }
+
+    // 1. Dinle: Ban durumu
+    const unsubBan = subscribeToUserBanStatus(activeSpaceId, identity.uid, (banData) => {
+      if (banData) {
+        setBannedInfo(banData);
+        voice.leaveVoice();
+        screenShare.stopScreenShare();
+      } else {
+        setBannedInfo(null);
+      }
+    });
+
+    // 2. Dinle: Üyelik silinme (Kick) durumu
+    const unsubMembers = subscribeToMembers(activeSpaceId, (members) => {
+      const isMember = members.some(m => m.uid === identity.uid);
+      const isHost = activeSpace?.hostUid === identity.uid;
+      
+      // Eğer üye listede yoksa ve host değilse kick yemiştir
+      if (!isMember && !isHost && members.length > 0) {
+        addToast({ type: 'warning', message: `${activeSpace?.name || 'Sunucu'} sunucusundan atıldınız.` });
+        voice.leaveVoice();
+        screenShare.stopScreenShare();
+        removeSpace(activeSpaceId);
+        setActiveSpace(null);
+      }
+    });
+
+    return () => {
+      unsubBan();
+      unsubMembers();
+    };
+  }, [activeSpaceId, identity?.uid, activeSpace?.hostUid]);
 
   const connectedPeerIds = Object.keys(peers);
 
@@ -61,6 +107,9 @@ export function Home() {
     window.addEventListener('illaki:join-voice', handleJoinVoice);
     return () => window.removeEventListener('illaki:join-voice', handleJoinVoice);
   }, [voice.joinVoice, connectedPeerIds]);
+
+  const activeStream = screenShare.remoteScreenStream || screenShare.localScreenStream;
+  const sharerName = screenShare.remoteScreenStream ? (screenShare.remoteSharer || 'Biri') : 'Sen';
 
   return (
     <div className={styles.root}>
@@ -81,6 +130,8 @@ export function Home() {
             onBroadcastUpdate={broadcastSpaceUpdate}
             onBroadcastDelete={broadcastSpaceDelete}
             kickFromVoice={kickFromVoice}
+            screenShare={screenShare}
+            onOpenStreamStage={() => setStreamStageOpen(true)}
             voiceSlot={
               <VoiceChannel
                 {...voice}
@@ -110,11 +161,11 @@ export function Home() {
             screenShare={screenShare}
             onOpenSettings={() => setSpaceSettingsOpen(true)}
             onToggleSidebar={toggleSidebar}
+            onOpenStreamStage={() => setStreamStageOpen(true)}
           />
         ) : (
           <div style={{ display: 'flex', height: '100%', width: '100%' }}>
             <div className={styles.welcomeScreen} style={{ flex: 1 }}>
-              {/* Mobile menu button for welcome screen */}
               <button className={styles.mobileMenuBtnWelcome} onClick={toggleSidebar}>
                 ☰ Menü
               </button>
@@ -131,7 +182,29 @@ export function Home() {
         {activeSpaceId && rightPanel === 'music' && <MusicBotPanel />}
       </div>
 
-      {/* CreateSpaceModal artık initPeerWithCode almıyor — peerId zaten var */}
+      {/* Stream Viewer Modal / Fullscreen Stage */}
+      <StreamStageModal
+        isOpen={streamStageOpen}
+        onClose={() => setStreamStageOpen(false)}
+        stream={activeStream}
+        sharerName={sharerName}
+        isSelf={!screenShare.remoteScreenStream}
+        onStopShare={() => screenShare.stopScreenShare()}
+      />
+
+      {/* Ban Screen Overlay Modal */}
+      {bannedInfo && (
+        <BanScreenModal
+          banInfo={bannedInfo}
+          spaceName={activeSpace?.name}
+          onLeave={() => {
+            removeSpace(activeSpaceId);
+            setActiveSpace(null);
+            setBannedInfo(null);
+          }}
+        />
+      )}
+
       <CreateSpaceModal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}

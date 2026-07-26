@@ -322,15 +322,191 @@ export async function updateSpaceSettings(spaceId, hostUid, updates) {
 /**
  * Üyeyi at (kick)
  */
-export async function kickMember(spaceId, hostUid, targetUid) {
+export async function kickMember(spaceId, requesterUid, targetUid) {
   const spaceRef = doc(db, 'spaces', spaceId);
   const snap = await getDoc(spaceRef);
-  if (!snap.exists() || snap.data().hostUid !== hostUid) {
-    throw new Error('Bu işlem için yetkin yok.');
+  if (!snap.exists()) throw new Error('Oda bulunamadı.');
+
+  const spaceData = snap.data();
+  const isHost = spaceData.hostUid === requesterUid;
+  
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (!memberSnap.exists() || (memberSnap.data().role !== 'admin' && memberSnap.data().role !== 'mod')) {
+      throw new Error('Bu işlem için yetkin yok.');
+    }
   }
+
   const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
   await deleteDoc(memberRef);
-  await updateDoc(spaceRef, { memberCount: Math.max(0, (snap.data().memberCount || 1) - 1) });
+  
+  // Kullanıcının katıldığı odalardan kaldır
+  await updateDoc(doc(db, 'users', targetUid), {
+    joinedSpaces: arrayRemove(spaceId)
+  }).catch(() => {});
+
+  await updateDoc(spaceRef, { memberCount: Math.max(0, (spaceData.memberCount || 1) - 1) });
+}
+
+/**
+ * Üyeye zaman aşımı (Timeout / Susturma) ver
+ */
+export async function applyMemberTimeout(spaceId, requesterUid, targetUid, durationMinutes, reason = '') {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  if (!snap.exists()) throw new Error('Oda bulunamadı.');
+
+  const spaceData = snap.data();
+  const isHost = spaceData.hostUid === requesterUid;
+  
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (!memberSnap.exists() || (memberSnap.data().role !== 'admin' && memberSnap.data().role !== 'mod')) {
+      throw new Error('Bu işlem için yetkin yok.');
+    }
+  }
+
+  const requesterDoc = await getDoc(doc(db, 'users', requesterUid));
+  const requesterName = requesterDoc.exists() ? requesterDoc.data().username : 'Yönetici';
+
+  const timeoutUntil = Date.now() + (durationMinutes * 60 * 1000);
+  const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
+
+  await updateDoc(memberRef, {
+    timeoutUntil,
+    timeoutReason: reason.trim(),
+    timeoutBy: requesterName,
+    timeoutAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Üyenin zaman aşımını (Timeout) kaldır
+ */
+export async function removeMemberTimeout(spaceId, requesterUid, targetUid) {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  if (!snap.exists()) throw new Error('Oda bulunamadı.');
+
+  const spaceData = snap.data();
+  const isHost = spaceData.hostUid === requesterUid;
+
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (!memberSnap.exists() || (memberSnap.data().role !== 'admin' && memberSnap.data().role !== 'mod')) {
+      throw new Error('Bu işlem için yetkin yok.');
+    }
+  }
+
+  const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
+  await updateDoc(memberRef, {
+    timeoutUntil: null,
+    timeoutReason: null,
+    timeoutBy: null,
+  });
+}
+
+/**
+ * Kullanıcıyı sunucudan banla (Süreli ya da Süresiz)
+ */
+export async function banMember(spaceId, requesterUid, targetUid, { banType = 'permanent', durationDays = 1, reason = '' }) {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  if (!snap.exists()) throw new Error('Oda bulunamadı.');
+
+  const spaceData = snap.data();
+  const isHost = spaceData.hostUid === requesterUid;
+  
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (!memberSnap.exists() || (memberSnap.data().role !== 'admin' && memberSnap.data().role !== 'mod')) {
+      throw new Error('Bu işlem için yetkin yok.');
+    }
+  }
+
+  const requesterDoc = await getDoc(doc(db, 'users', requesterUid));
+  const requesterName = requesterDoc.exists() ? requesterDoc.data().username : 'Yönetici';
+
+  const targetDoc = await getDoc(doc(db, 'users', targetUid));
+  const targetName = targetDoc.exists() ? targetDoc.data().username : 'Kullanıcı';
+
+  const expiresAt = banType === 'temporary' ? Date.now() + (durationDays * 24 * 60 * 60 * 1000) : null;
+
+  // Bans koleksiyonuna yaz
+  const banRef = doc(db, 'spaces', spaceId, 'bans', targetUid);
+  await setDoc(banRef, {
+    uid: targetUid,
+    username: targetName,
+    bannedBy: requesterName,
+    reason: reason.trim() || 'Açıklama belirtilmedi.',
+    banType,
+    expiresAt,
+    bannedAt: serverTimestamp(),
+  });
+
+  // Üyeyi sil
+  const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
+  await deleteDoc(memberRef).catch(() => {});
+
+  // Kullanıcının katıldığı odalardan çıkar
+  await updateDoc(doc(db, 'users', targetUid), {
+    joinedSpaces: arrayRemove(spaceId)
+  }).catch(() => {});
+
+  await updateDoc(spaceRef, { memberCount: Math.max(0, (spaceData.memberCount || 1) - 1) });
+}
+
+/**
+ * Kullanıcının banını kaldır
+ */
+export async function unbanMember(spaceId, requesterUid, targetUid) {
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const snap = await getDoc(spaceRef);
+  if (!snap.exists()) throw new Error('Oda bulunamadı.');
+
+  const isHost = snap.data().hostUid === requesterUid;
+  if (!isHost) {
+    const memberSnap = await getDoc(doc(db, 'spaces', spaceId, 'members', requesterUid));
+    if (!memberSnap.exists() || (memberSnap.data().role !== 'admin' && memberSnap.data().role !== 'mod')) {
+      throw new Error('Bu işlem için yetkin yok.');
+    }
+  }
+
+  const banRef = doc(db, 'spaces', spaceId, 'bans', targetUid);
+  await deleteDoc(banRef);
+}
+
+/**
+ * Space banlarını dinle
+ */
+export function subscribeToBans(spaceId, onBans) {
+  const q = collection(db, 'spaces', spaceId, 'bans');
+  return onSnapshot(q, (snap) => {
+    const bans = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    onBans(bans);
+  });
+}
+
+/**
+ * Bir kullanıcının bu space'de ban durumunu kontrol et / dinle
+ */
+export function subscribeToUserBanStatus(spaceId, uid, onBanStatus) {
+  if (!spaceId || !uid) return () => {};
+  const banRef = doc(db, 'spaces', spaceId, 'bans', uid);
+  return onSnapshot(banRef, (snap) => {
+    if (snap.exists()) {
+      const banData = snap.data();
+      // Eğer süreli ban ise ve süresi dolmuşsa banı otomatik kaldır
+      if (banData.banType === 'temporary' && banData.expiresAt && Date.now() > banData.expiresAt) {
+        deleteDoc(banRef).catch(() => {});
+        onBanStatus(null);
+      } else {
+        onBanStatus(banData);
+      }
+    } else {
+      onBanStatus(null);
+    }
+  });
 }
 
 /**

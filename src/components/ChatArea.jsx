@@ -327,7 +327,7 @@ function UploadIndicator({ progress, fileName }) {
   );
 }
 
-function ScreenViewer({ stream, label, onStop }) {
+function ScreenViewer({ stream, label, onStop, onOpenStage }) {
   const videoRef = useRef(null);
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
@@ -336,15 +336,31 @@ function ScreenViewer({ stream, label, onStop }) {
   return (
     <div className={styles.screenViewer}>
       <div className={styles.screenLabel}>
-        {label} Ekran Paylaşıyor
-        {onStop && <button className={styles.stopScreenBtn} onClick={onStop}>Durdur</button>}
+        <span>🔴 {label} Ekran Paylaşıyor</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {onOpenStage && (
+            <button className={styles.stopScreenBtn} style={{ background: '#66FCF1', color: '#000', fontWeight: 'bold' }} onClick={onOpenStage}>
+              Ayrı Ekranda İzle (Tam Ekran)
+            </button>
+          )}
+          {onStop && <button className={styles.stopScreenBtn} onClick={onStop}>Durdur</button>}
+        </div>
       </div>
-      <video ref={videoRef} autoPlay playsInline className={styles.screenVideo} />
+      <video ref={videoRef} autoPlay playsInline className={styles.screenVideo} onClick={onOpenStage} style={{ cursor: 'pointer' }} />
     </div>
   );
 }
 
-export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggleMusic, rightPanel, screenShare, onOpenSettings, onToggleSidebar }) {
+export function ChatArea({ 
+  sendMessage: sendP2PMessage, 
+  onToggleMembers, 
+  onToggleMusic, 
+  rightPanel, 
+  screenShare, 
+  onOpenSettings, 
+  onToggleSidebar,
+  onOpenStreamStage
+}) {
   const { addMessage, getMessages } = useMessageStore();
   const { activeSpaceId, getActiveSpace, activeChannelId, channels } = useSpaceStore();
   const { identity } = useIdentityStore();
@@ -358,6 +374,7 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
   const [showGameZone, setShowGameZone] = useState(false);
   const [firebaseMessages, setFirebaseMessages] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { fileName, progress }
+  const [myTimeoutInfo, setMyTimeoutInfo] = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -370,6 +387,28 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
   const onlinePeers = Object.keys(peers).length;
 
   const [replyingTo, setReplyingTo] = useState(null);
+
+  // Dinle: Kendi timeout durumumuz
+  useEffect(() => {
+    if (!activeSpaceId || !identity?.uid) return;
+    import('../lib/firestore').then(({ subscribeToMembers }) => {
+      const unsub = subscribeToMembers(activeSpaceId, (members) => {
+        const me = members.find(m => m.uid === identity.uid);
+        if (me?.timeoutUntil && me.timeoutUntil > Date.now()) {
+          const remainingSec = Math.ceil((me.timeoutUntil - Date.now()) / 1000);
+          setMyTimeoutInfo({
+            until: me.timeoutUntil,
+            reason: me.timeoutReason || 'Sebep belirtilmedi.',
+            by: me.timeoutBy || 'Yönetici',
+            remainingMinutes: Math.ceil(remainingSec / 60)
+          });
+        } else {
+          setMyTimeoutInfo(null);
+        }
+      });
+      return () => unsub();
+    });
+  }, [activeSpaceId, identity?.uid]);
 
   // Firebase real-time mesaj dinleyicisi
   useEffect(() => {
@@ -708,13 +747,18 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
 
       {/* Screen Share (Pinned to Top) */}
       {screenShare?.remoteScreenStream && (
-        <ScreenViewer stream={screenShare.remoteScreenStream} label={screenShare.remoteSharer} />
+        <ScreenViewer 
+          stream={screenShare.remoteScreenStream} 
+          label={screenShare.remoteSharer} 
+          onOpenStage={onOpenStreamStage}
+        />
       )}
       {screenShare?.localScreenStream && !screenShare?.remoteScreenStream && (
         <ScreenViewer
           stream={screenShare.localScreenStream}
           label="Sen"
           onStop={() => screenShare.stopScreenShare()}
+          onOpenStage={onOpenStreamStage}
         />
       )}
 
@@ -763,72 +807,98 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
 
       {/* Input */}
       <footer className={styles.inputArea}>
-        {replyingTo && (
-          <div className={styles.replyingToBanner}>
-            <div className={styles.replyingToInfo}>
-              <Reply size={14} />
-              <span>Yanıtlanıyor: <strong>@{replyingTo.senderUsername}</strong></span>
+        {myTimeoutInfo ? (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            color: '#F59E0B',
+            fontSize: '13px',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
+          }}>
+            <span style={{ fontSize: '20px' }}>⛔</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '14px', color: '#FFF' }}>
+                Susturuldunuz (Zaman Aşımı) — Kalan Süre: ~{myTimeoutInfo.remainingMinutes} dk
+              </div>
+              <div style={{ fontSize: '12px', color: '#CBD5E1', marginTop: '2px' }}>
+                Yönetici: <strong>{myTimeoutInfo.by}</strong> | Sebep: <em>"{myTimeoutInfo.reason}"</em>
+              </div>
             </div>
-            <button className={styles.cancelReplyBtn} onClick={() => setReplyingTo(null)}>
-              <X size={14} />
-            </button>
           </div>
-        )}
-        
-        {showEmoji && (
-          <div className={styles.emojiPickerWrapper}>
-            <EmojiPicker
-              theme="dark"
-              onEmojiClick={(emojiData) => setInput(prev => prev + emojiData.emoji)}
-            />
-          </div>
-        )}
-        <div className={styles.inputContainer}>
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            onChange={handleFileSelect}
-            accept="image/*,video/*,.pdf,.doc,.docx,.zip,.txt"
-          />
+        ) : (
+          <>
+            {replyingTo && (
+              <div className={styles.replyingToBanner}>
+                <div className={styles.replyingToInfo}>
+                  <Reply size={14} />
+                  <span>Yanıtlanıyor: <strong>@{replyingTo.senderUsername}</strong></span>
+                </div>
+                <button className={styles.cancelReplyBtn} onClick={() => setReplyingTo(null)}>
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            
+            {showEmoji && (
+              <div className={styles.emojiPickerWrapper}>
+                <EmojiPicker
+                  theme="dark"
+                  onEmojiClick={(emojiData) => setInput(prev => prev + emojiData.emoji)}
+                />
+              </div>
+            )}
+            <div className={styles.inputContainer}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+                accept="image/*,video/*,.pdf,.doc,.docx,.zip,.txt"
+              />
 
-          <button
-            className={styles.inputAction}
-            onClick={() => setShowGameZone(!showGameZone)}
-            title="Mini Oyunlar"
-          >
-            <Gamepad2 size={18} />
-          </button>
-          {showGameZone && (
-            <GameZone 
-              onClose={() => setShowGameZone(false)}
-              onGameCommand={(cmd) => handleSend(cmd)}
-            />
-          )}
+              <button
+                className={styles.inputAction}
+                onClick={() => setShowGameZone(!showGameZone)}
+                title="Mini Oyunlar"
+              >
+                <Gamepad2 size={18} />
+              </button>
+              {showGameZone && (
+                <GameZone 
+                  onClose={() => setShowGameZone(false)}
+                  onGameCommand={(cmd) => handleSend(cmd)}
+                />
+              )}
 
-          <button
-            className={styles.inputAction}
-            title="Dosya ekle"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={sending}
-          >
-            <Paperclip size={18} />
-          </button>
+              <button
+                className={styles.inputAction}
+                title="Dosya ekle"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending}
+              >
+                <Paperclip size={18} />
+              </button>
 
-          <div className={styles.inputWrapper}>
-            <textarea
-              ref={inputRef}
-              id="message-input"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`#${activeChannel?.name || 'genel'} kanalına yaz...`}
-              rows={1}
-              maxLength={2000}
-              className={styles.textarea}
-              aria-label="Mesaj yaz"
-              disabled={sending}
-            />
+              <div className={styles.inputWrapper}>
+                <textarea
+                  ref={inputRef}
+                  id="message-input"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`#${activeChannel?.name || 'genel'} kanalına yaz...`}
+                  rows={1}
+                  maxLength={2000}
+                  className={styles.textarea}
+                  aria-label="Mesaj yaz"
+                  disabled={sending}
+                />
           </div>
 
           <button
@@ -849,8 +919,10 @@ export function ChatArea({ sendMessage: sendP2PMessage, onToggleMembers, onToggl
             <Send size={16} />
           </button>
         </div>
-      </footer>
-    </div>
+      </>
+    )}
+  </footer>
+</div>
   );
 }
 
