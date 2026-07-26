@@ -241,7 +241,7 @@ export function Landing() {
                     type="text"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="Görünür adın"
+                    placeholder="kullanıcı adı"
                     maxLength={32}
                     autoComplete="username"
                     className={styles.input}

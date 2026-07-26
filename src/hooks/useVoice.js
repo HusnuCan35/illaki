@@ -502,8 +502,6 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     window.addEventListener('illaki:voice-kicked', handleKicked);
 
     return () => {
-      leaveVoice();
-      audioContextRef.current?.close();
       window.removeEventListener('illaki:kicked', handleKicked);
       window.removeEventListener('illaki:voice-kicked', handleKicked);
     };

@@ -13,6 +13,7 @@ import {
 import { sendEncryptedMessage, subscribeToMessages, uploadMedia } from '../lib/firestore';
 import { processMediaFile, formatFileSize } from '../lib/mediaProcessor';
 import EmojiPicker from 'emoji-picker-react';
+import { UserProfileModal } from './UserProfileModal';
 import styles from './ChatArea.module.css';
 
 // Format timestamp
@@ -161,12 +162,26 @@ function formatDuration(s) {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity }) {
+function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity, onOpenProfile }) {
+  const senderInfo = {
+    uid: group.senderUid || group.messages?.[0]?.senderUid || group.sender,
+    username: group.sender,
+    avatarColor: group.messages?.[0]?.avatarColor,
+  };
+
   return (
     <div className={`${styles.msgGroup} ${group.own ? styles.own : ''}`}>
-      {!group.own && group.type !== 'system' && <AvatarMini username={group.sender} />}
+      {!group.own && group.type !== 'system' && (
+        <div style={{ cursor: 'pointer' }} onClick={() => onOpenProfile && onOpenProfile(senderInfo)}>
+          <AvatarMini username={group.sender} color={group.messages?.[0]?.avatarColor} />
+        </div>
+      )}
       <div className={styles.msgContent}>
-        {!group.own && group.type !== 'system' && <div className={styles.msgSender}>{group.sender}</div>}
+        {!group.own && group.type !== 'system' && (
+          <div className={styles.msgSender} style={{ cursor: 'pointer' }} onClick={() => onOpenProfile && onOpenProfile(senderInfo)}>
+            {group.sender}
+          </div>
+        )}
         <div className={styles.msgBubbles}>
           {group.messages.map((msg) => (
             <MessageBubble 
@@ -182,7 +197,11 @@ function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity }) {
           ))}
         </div>
       </div>
-      {group.own && group.type !== 'system' && <AvatarMini username={group.sender} own />}
+      {group.own && group.type !== 'system' && (
+        <div style={{ cursor: 'pointer' }} onClick={() => onOpenProfile && onOpenProfile({ uid: identity?.uid, username: identity?.username, avatarColor: identity?.avatarColor })}>
+          <AvatarMini username={group.sender} own />
+        </div>
+      )}
     </div>
   );
 }
@@ -375,6 +394,7 @@ export function ChatArea({
   const [firebaseMessages, setFirebaseMessages] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { fileName, progress }
   const [myTimeoutInfo, setMyTimeoutInfo] = useState(null);
+  const [profileModalUser, setProfileModalUser] = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -762,6 +782,14 @@ export function ChatArea({
         />
       )}
 
+      {profileModalUser && (
+        <UserProfileModal
+          isOpen={!!profileModalUser}
+          user={profileModalUser}
+          onClose={() => setProfileModalUser(null)}
+        />
+      )}
+
       {/* Messages */}
       <main className={styles.messages} style={messagesStyle} role="log" aria-live="polite" aria-label="Mesajlar">
         {allMessages.length === 0 && !screenShare?.remoteScreenStream && !screenShare?.localScreenStream ? (
@@ -792,13 +820,16 @@ export function ChatArea({
                   });
                 }
               }}
-              onReact={(msgId, emoji) => {
-                import('../lib/firestore').then(({ toggleMessageReaction }) => {
-                  toggleMessageReaction(activeSpaceId, activeChannelId, msgId, identity.uid, emoji)
-                    .catch(console.error);
-                });
+              onReact={async (msgId, emoji) => {
+                try {
+                  const { toggleReaction } = await import('../lib/firestore');
+                  await toggleReaction(activeSpaceId, activeChannelId, msgId, identity.uid, emoji);
+                } catch (err) {
+                  console.error('Tepki eklenemedi:', err);
+                }
               }}
               identity={identity}
+              onOpenProfile={(u) => setProfileModalUser(u)}
             />
           ))
         )}

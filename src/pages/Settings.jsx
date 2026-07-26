@@ -172,7 +172,7 @@ export function SettingsModal({ isOpen, onClose }) {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   maxLength={32}
-                  placeholder="Kullanıcı adın"
+                  placeholder="kullanıcı adı"
                   className={styles.input}
                 />
                 <span className={styles.hint}>{username.length}/32 karakter</span>
@@ -186,7 +186,7 @@ export function SettingsModal({ isOpen, onClose }) {
                   value={customId}
                   onChange={e => setCustomId(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))}
                   maxLength={20}
-                  placeholder="Örn: husnucan123"
+                  placeholder="kullanıcı adı"
                   className={styles.input}
                 />
                 <span className={styles.hint}>Sadece küçük harf, rakam ve nokta/tire/alt çizgi içerebilir. Arkadaşların seni bu ID ile ekleyebilir.</span>

@@ -50,13 +50,27 @@ export function useAuth() {
 
       if (user) {
         const avatarColor = hashColor(user.displayName || user.email || user.uid);
+        
+        // Önce Firestore'daki kayıttan profil bilgilerini çek
+        let savedProfile = null;
+        try {
+          const { getUserProfile } = await import('../lib/firestore');
+          savedProfile = await getUserProfile(user.uid);
+        } catch (err) {
+          console.warn('Firestore profil alınamadı:', err);
+        }
+
+        const username = savedProfile?.username || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
+        const customId = savedProfile?.customId || null;
+
         const identity = {
           id: user.uid,
           uid: user.uid,
-          username: user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
-          avatarColor,
+          username,
+          customId,
+          avatarColor: savedProfile?.avatarColor || avatarColor,
           email: user.email,
-          photoURL: user.photoURL,
+          photoURL: savedProfile?.photoURL || user.photoURL,
           isFirebaseUser: true,
         };
         setIdentity(identity);
@@ -65,8 +79,8 @@ export function useAuth() {
         try {
           await upsertUserProfile(user.uid, {
             username: identity.username,
-            avatarColor,
-            photoURL: user.photoURL,
+            avatarColor: identity.avatarColor,
+            photoURL: identity.photoURL,
           });
           
           // İlk yükleme

@@ -69,10 +69,11 @@ export async function upsertUserProfile(uid, { username, avatarColor, photoURL =
       lastSeen: serverTimestamp(),
     });
   } else {
+    const existingData = snap.data();
     await updateDoc(userRef, {
-      username,
-      avatarColor,
-      photoURL,
+      username: existingData.username || username,
+      avatarColor: avatarColor || existingData.avatarColor,
+      photoURL: photoURL !== undefined ? photoURL : existingData.photoURL,
       lastSeen: serverTimestamp(),
     });
   }

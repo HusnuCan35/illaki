@@ -300,16 +300,16 @@ export function ChannelSidebar({
                 .filter(([_, p]) => p.voiceChannelId === channel.id)
                 .map(([id, p]) => ({ id, ...p }));
 
-              // Firestore'daki üyeleri de dahil et (anlık senkronizasyon için)
+              // Firestore'daki yalnızca ÇEVRİMİÇİ (aktif) üyeleri dahil et
               (dbMembers || []).forEach(m => {
-                if (m.uid !== identity?.uid && m.voiceChannelId === channel.id) {
+                if (m.uid !== identity?.uid && m.voiceChannelId === channel.id && m.online) {
                   if (!othersInChannel.some(p => p.id === m.peerId || p.username === m.username || p.uid === m.uid)) {
                     othersInChannel.push({
                       id: m.peerId || m.uid,
                       uid: m.uid,
                       username: m.username,
                       avatarColor: m.avatarColor,
-                      status: m.online ? 'online' : 'offline',
+                      status: 'online',
                     });
                   }
                 }
