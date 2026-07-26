@@ -126,8 +126,11 @@ export function VoiceChannel({
   const [resolvedNames, setResolvedNames] = useState({});
 
   const { channels, activeSpaceId } = useSpaceStore();
-  const { voiceChannelId } = usePeerStore();
+  const { voiceChannelId, peers: peerStoreData } = usePeerStore();
   const { identity } = useIdentityStore();
+
+  // Yardımcı: isim jenerik mi?
+  const isGeneric = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
 
   // Firestore sunucu üyelerini takip et
   useEffect(() => {
@@ -139,11 +142,10 @@ export function VoiceChannel({
   // Kullanıcı adı eksik olan üyeler için Firestore users koleksiyonundan gerçek adı çek
   useEffect(() => {
     if (!isInVoice) return;
-    const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
     
     const uidsToResolve = new Set();
     spaceMembers.forEach(m => {
-      if (m.uid && m.uid !== identity?.uid && isGenericName(m.username)) {
+      if (m.uid && m.uid !== identity?.uid && isGeneric(m.username)) {
         uidsToResolve.add(m.uid);
       }
     });
@@ -159,7 +161,7 @@ export function VoiceChannel({
           if (snap.exists()) {
             const data = snap.data();
             const name = data.username || data.displayName;
-            if (name && !isGenericName(name)) {
+            if (name && !isGeneric(name)) {
               return { uid, name };
             }
           }
@@ -181,7 +183,6 @@ export function VoiceChannel({
 
 
   const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
-  const { peers: peerStoreData } = usePeerStore();
 
   // Bu ses kanalında olan AKTİF üyeleri belirle (online olmayan ve kanaldan ayrılanları filtrele)
   const inChannelMembers = spaceMembers.filter(m => {
@@ -192,9 +193,6 @@ export function VoiceChannel({
 
   // Katılımcı haritası oluştur (Firestore üyeleri + WebRTC yayınları)
   const participantMap = new Map();
-
-  // Yardımcı: isim jenerik mi?
-  const isGeneric = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
 
   // 1. Önce kendimizi ekle
   participantMap.set('self', {
