@@ -28,11 +28,19 @@ export const useSpaceStore = create(
         if (s.spaces.some(sp => sp.id === space.id)) return s;
         return { spaces: [...s.spaces, space] };
       }),
-      setSpaces: (spaces) => set((s) => {
-        const spaceExists = spaces.some(sp => sp.id === s.activeSpaceId);
+      setSpaces: (incomingSpaces) => set((s) => {
+        const merged = [...(incomingSpaces || [])];
+        if (s.spaces && s.spaces.length > 0) {
+          for (const existing of s.spaces) {
+            if (!merged.some(m => m.id === existing.id)) {
+              merged.push(existing);
+            }
+          }
+        }
+        const spaceExists = merged.some(sp => sp.id === s.activeSpaceId);
         return {
-          spaces,
-          activeSpaceId: spaceExists ? s.activeSpaceId : (spaces[0]?.id || null),
+          spaces: merged,
+          activeSpaceId: spaceExists ? s.activeSpaceId : (merged[0]?.id || null),
         };
       }),
       removeSpace: (id) => set((s) => ({ spaces: s.spaces.filter(sp => sp.id !== id) })),

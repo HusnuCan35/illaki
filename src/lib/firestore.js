@@ -699,45 +699,71 @@ export async function getUserSpaces(uid) {
   const spaceIds = new Set();
   
   // Host olduğu odalar
-  const hostQuery = query(
-    collection(db, 'spaces'),
-    where('hostUid', '==', uid)
-  );
-  const hostSnap = await getDocs(hostQuery);
-  hostSnap.docs.forEach(d => {
-    results.push({ id: d.id, ...d.data(), isHost: true });
-    spaceIds.add(d.id);
-  });
+  try {
+    const hostQuery = query(
+      collection(db, 'spaces'),
+      where('hostUid', '==', uid)
+    );
+    const hostSnap = await getDocs(hostQuery);
+    hostSnap.docs.forEach(d => {
+      results.push({ id: d.id, ...d.data(), isHost: true });
+      spaceIds.add(d.id);
+    });
+  } catch (e) {
+    console.warn('[getUserSpaces] Host odaları alma uyarısı:', e);
+  }
   
   // Katıldığı odalar (user document'tan)
-  const userDoc = await getDoc(doc(db, 'users', uid));
-  if (userDoc.exists()) {
-    const joined = userDoc.data().joinedSpaces || [];
-    for (const spaceId of joined) {
-      if (!spaceIds.has(spaceId)) {
-        try {
-          const [banSnap, spaceSnap] = await Promise.all([
-            getDoc(doc(db, 'spaces', spaceId, 'bans', uid)),
-            getDoc(doc(db, 'spaces', spaceId)),
-          ]);
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      const joined = userDoc.data().joinedSpaces || [];
+      for (const spaceId of joined) {
+        if (!spaceIds.has(spaceId)) {
+          let spaceData = null;
+          let isBanned = false;
 
-          const isBanned = banSnap.exists();
+          try {
+            const banSnap = await getDoc(doc(db, 'spaces', spaceId, 'bans', uid));
+            isBanned = banSnap.exists();
+          } catch (e) {}
 
-          if (isBanned || !spaceSnap.exists()) {
-            // Yasaklanmış veya sunucu silinmiş — kullanıcının listesinden temizle
+          if (isBanned) {
             await updateDoc(doc(db, 'users', uid), {
               joinedSpaces: arrayRemove(spaceId)
             }).catch(() => {});
             continue;
           }
 
-          results.push({ id: spaceSnap.id, ...spaceSnap.data(), isHost: false });
+          try {
+            const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
+            if (spaceSnap.exists()) {
+              spaceData = { id: spaceSnap.id, ...spaceSnap.data(), isHost: false };
+            }
+          } catch (e) {
+            console.warn('[getUserSpaces] Oda dökümanı okuma uyarısı:', spaceId, e);
+          }
+
+          // Fallback: getDoc ağ/izin gecikmesi yaşasa dahi joinedSpaces içinde olduğu için odayı göster
+          if (!spaceData) {
+            const cleanCode = spaceId.replace(/^space_/, '');
+            spaceData = {
+              id: spaceId,
+              name: `Sunucu (${cleanCode})`,
+              code: cleanCode,
+              icon: '💬',
+              description: '',
+              isHost: false,
+            };
+          }
+
+          results.push(spaceData);
           spaceIds.add(spaceId);
-        } catch (e) {
-          console.warn('[getUserSpaces] Oda doğrulama hatası:', spaceId, e);
         }
       }
     }
+  } catch (e) {
+    console.warn('[getUserSpaces] Kullanıcı odaları alma uyarısı:', e);
   }
   
   return results;
