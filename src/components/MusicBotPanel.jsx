@@ -55,11 +55,6 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
     const query = customSong ? customSong.videoId : urlInput.trim();
     if (!query) return;
 
-    if (!isVoiceConnected) {
-      useUIStore.getState().addToast({ type: 'warning', message: 'Müzik botunu kullanabilmek için önce bir ses kanalına girmelisin!' });
-      return;
-    }
-
     setLoading(true);
     setSearchResults([]);
     try {
@@ -80,6 +75,10 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
   // Instant responsive optimistic toggle
   const togglePlay = () => {
     if (!musicState?.currentSong) return;
+    if (!isVoiceConnected) {
+      useUIStore.getState().addToast({ type: 'warning', message: 'Müzik başlatmak için önce bir ses kanalına katılmalısın!' });
+      return;
+    }
     const newStatus = musicState.status === 'playing' ? 'paused' : 'playing';
     setMusicState(prev => prev ? { ...prev, status: newStatus } : prev);
     let currentTime = 0;

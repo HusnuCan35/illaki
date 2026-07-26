@@ -1,7 +1,7 @@
 .gameZoneWrapper {
   position: absolute;
-  bottom: 70px;
-  left: 20px;
+  bottom: 50px;
+  left: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

@@ -715,10 +715,28 @@ export async function getUserSpaces(uid) {
     const joined = userDoc.data().joinedSpaces || [];
     for (const spaceId of joined) {
       if (!spaceIds.has(spaceId)) {
-        const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
-        if (spaceSnap.exists()) {
+        try {
+          const [memberSnap, banSnap, spaceSnap] = await Promise.all([
+            getDoc(doc(db, 'spaces', spaceId, 'members', uid)),
+            getDoc(doc(db, 'spaces', spaceId, 'bans', uid)),
+            getDoc(doc(db, 'spaces', spaceId)),
+          ]);
+
+          const isBanned = banSnap.exists();
+          const isMember = memberSnap.exists();
+
+          if (isBanned || !isMember || !spaceSnap.exists()) {
+            // Üye değil, yasaklanmış veya sunucu silinmiş — kullanıcının listesinden temizle
+            await updateDoc(doc(db, 'users', uid), {
+              joinedSpaces: arrayRemove(spaceId)
+            }).catch(() => {});
+            continue;
+          }
+
           results.push({ id: spaceSnap.id, ...spaceSnap.data(), isHost: false });
           spaceIds.add(spaceId);
+        } catch (e) {
+          console.warn('[getUserSpaces] Oda doğrulama hatası:', spaceId, e);
         }
       }
     }

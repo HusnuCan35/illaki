@@ -151,62 +151,62 @@ export function VoiceChannel({
           </div>
         </div>
 
-        {/* Kontroller */}
-        <div className={styles.controls}>
-          <button
-            className={`${styles.controlBtn} ${isMuted ? styles.controlActive : ''}`}
-            onClick={onToggleMute}
-            aria-label={isMuted ? 'Mikrofonu aç' : 'Mikrofonu kapat'}
-            aria-pressed={isMuted}
-            title={isMuted ? 'Mikrofonu Aç' : 'Sessiz'}
-          >
-            {isMuted ? <MicOff size={15} /> : <Mic size={15} />}
-          </button>
+        <button
+          className={`${styles.controlBtn} ${styles.leaveBtn}`}
+          onClick={onLeave}
+          title="Ses Kanalından Ayrıl"
+        >
+          <PhoneOff size={15} />
+        </button>
+      </div>
 
-          <button
-            className={`${styles.controlBtn} ${isDeafened ? styles.controlActive : ''}`}
-            onClick={onToggleDeafen}
-            aria-label={isDeafened ? 'Sesi aç' : 'Sesi kapat'}
-            aria-pressed={isDeafened}
-            title={isDeafened ? 'Sesi Aç' : 'Sağır Modu'}
-          >
-            {isDeafened ? <VolumeX size={15} /> : <Volume2 size={15} />}
-          </button>
+      {/* Kontrol Butonları Satırı */}
+      <div className={styles.controlsRow}>
+        <button
+          className={`${styles.controlBtn} ${isMuted ? styles.controlActive : ''}`}
+          onClick={onToggleMute}
+          aria-label={isMuted ? 'Mikrofonu aç' : 'Mikrofonu kapat'}
+          aria-pressed={isMuted}
+          title={isMuted ? 'Mikrofonu Aç' : 'Sessiz'}
+        >
+          {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+        </button>
 
-          <button
-            className={`${styles.controlBtn} ${isCameraOn ? styles.controlCameraOn : ''}`}
-            onClick={onToggleCamera}
-            aria-label={isCameraOn ? 'Kamerayı kapat' : 'Kamerayı aç'}
-            aria-pressed={isCameraOn}
-            title={isCameraOn ? 'Kamerayı Kapat' : 'Kamera Aç'}
-          >
-            {isCameraOn ? <Camera size={15} /> : <CameraOff size={15} />}
-          </button>
+        <button
+          className={`${styles.controlBtn} ${isDeafened ? styles.controlActive : ''}`}
+          onClick={onToggleDeafen}
+          aria-label={isDeafened ? 'Sesi aç' : 'Sesi kapat'}
+          aria-pressed={isDeafened}
+          title={isDeafened ? 'Sesi Aç' : 'Sağır Modu'}
+        >
+          {isDeafened ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
 
-          <button
-            className={`${styles.controlBtn} ${screenShare?.isSharing ? styles.controlActive : ''}`}
-            onClick={() => {
-              if (screenShare?.isSharing) {
-                screenShare.stopScreenShare();
-                setShowQualityMenu(false);
-              } else {
-                setShowQualityMenu(true);
-              }
-            }}
-            aria-label={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
-            title={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
-          >
-            {screenShare?.isSharing ? <MonitorOff size={15} /> : <MonitorUp size={15} />}
-          </button>
+        <button
+          className={`${styles.controlBtn} ${isCameraOn ? styles.controlCameraOn : ''}`}
+          onClick={onToggleCamera}
+          aria-label={isCameraOn ? 'Kamerayı kapat' : 'Kamerayı aç'}
+          aria-pressed={isCameraOn}
+          title={isCameraOn ? 'Kamerayı Kapat' : 'Kamera Aç'}
+        >
+          {isCameraOn ? <Camera size={16} /> : <CameraOff size={16} />}
+        </button>
 
-          <button
-            className={`${styles.controlBtn} ${styles.leaveBtn}`}
-            onClick={onLeave}
-            title="Ayrıl"
-          >
-            <PhoneOff size={15} />
-          </button>
-        </div>
+        <button
+          className={`${styles.controlBtn} ${screenShare?.isSharing ? styles.controlActive : ''}`}
+          onClick={() => {
+            if (screenShare?.isSharing) {
+              screenShare.stopScreenShare();
+              setShowQualityMenu(false);
+            } else {
+              setShowQualityMenu(true);
+            }
+          }}
+          aria-label={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
+          title={screenShare?.isSharing ? 'Ekran Paylaşımını Durdur' : 'Ekran Paylaş'}
+        >
+          {screenShare?.isSharing ? <MonitorOff size={16} /> : <MonitorUp size={16} />}
+        </button>
       </div>
 
       {/* Video Grid — Sadece kamera/video aktifse gösterilir */}

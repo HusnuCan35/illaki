@@ -1045,19 +1045,21 @@ export function ChatArea({
                 accept="image/*,video/*,.pdf,.doc,.docx,.zip,.txt"
               />
 
-              <button
-                className={styles.inputAction}
-                onClick={() => setShowGameZone(!showGameZone)}
-                title="Mini Oyunlar"
-              >
-                <Gamepad2 size={18} />
-              </button>
-              {showGameZone && (
-                <GameZone 
-                  onClose={() => setShowGameZone(false)}
-                  onGameCommand={(cmd) => handleSend(cmd)}
-                />
-              )}
+              <div style={{ position: 'relative', display: 'inline-flex' }}>
+                <button
+                  className={styles.inputAction}
+                  onClick={() => setShowGameZone(!showGameZone)}
+                  title="Mini Oyunlar / Eğlence Merkezi"
+                >
+                  <Gamepad2 size={18} />
+                </button>
+                {showGameZone && (
+                  <GameZone 
+                    onClose={() => setShowGameZone(false)}
+                    onGameCommand={(cmd) => handleSend(cmd)}
+                  />
+                )}
+              </div>
 
               <button
                 className={styles.inputAction}

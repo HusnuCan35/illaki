@@ -235,7 +235,7 @@ export function Home() {
           <MembersPanel kickPeer={kickPeer} onClose={() => setRightPanel(null)} />
         )}
         {activeSpaceId && rightPanel === 'music' && (
-          <MusicBotPanel onClose={() => setRightPanel(null)} isVoiceConnected={!!voice.voiceChannelId} />
+          <MusicBotPanel onClose={() => setRightPanel(null)} isVoiceConnected={voice.isInVoice} />
         )}
       </div>
 
