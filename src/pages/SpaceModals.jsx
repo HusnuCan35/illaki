@@ -264,7 +264,17 @@ export function JoinSpaceModal({ isOpen, onClose, connectToPeer }) {
 
       addSpace(space);
       setActiveSpace(spaceId);
-      addToast({ type: 'success', message: `${space.name} space'ine katıldın!` });
+
+      // Sunucu listesini anında doğrula ve yenile
+      try {
+        const { getUserSpaces } = await import('../lib/firestore');
+        const userSpaces = await getUserSpaces(identity.uid);
+        if (userSpaces && userSpaces.length > 0) {
+          useSpaceStore.getState().setSpaces(userSpaces);
+        }
+      } catch (e) {}
+
+      addToast({ type: 'success', message: `${space.name} sunucusuna katıldın!` });
       setCode('');
       onClose();
     } catch (err) {

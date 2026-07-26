@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { Plus, Compass, Hash, LogIn } from 'lucide-react';
-import { useSpaceStore } from '../stores';
+import { Plus, Compass, Hash, LogIn, LogOut } from 'lucide-react';
+import { useSpaceStore, useIdentityStore, useUIStore } from '../stores';
+import { signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { LogoutModal } from './LogoutModal';
 import styles from './ServerSidebar.module.css';
 
 function ServerItem({ space, isActive, onClick }) {
@@ -30,10 +33,23 @@ function ServerItem({ space, isActive, onClick }) {
 
 export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
   const { spaces, activeSpaceId, setActiveSpace, clearUnread } = useSpaceStore();
+  const { identity, setIdentity } = useIdentityStore();
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const handleSpaceClick = (spaceId) => {
     setActiveSpace(spaceId);
     clearUnread(spaceId);
+  };
+
+  const handleConfirmLogout = async () => {
+    try {
+      await signOut(auth);
+      setIdentity(null);
+      useSpaceStore.getState().setSpaces([]);
+      useSpaceStore.getState().setActiveSpace(null);
+    } catch (err) {
+      console.error('Çıkış hatası:', err);
+    }
   };
 
   return (
@@ -104,6 +120,27 @@ export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
           </button>
         </div>
       </div>
+
+      {/* Profil & Çıkış Yap Butonu (Sunucu olmasa dahi görünür) */}
+      <div style={{ marginTop: 'auto', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+        <div className={styles.separator} style={{ width: '32px' }} />
+        <div className={styles.serverItemWrapper}>
+          <button
+            className={styles.actionButton}
+            style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+            onClick={() => setLogoutOpen(true)}
+            title={`Çıkış Yap (${identity?.username || 'Kullanıcı'})`}
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
+      </div>
+
+      <LogoutModal
+        isOpen={logoutOpen}
+        onClose={() => setLogoutOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </nav>
   );
 }
