@@ -236,32 +236,16 @@ export async function joinSpace(code, { uid, username }) {
   const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
   const memberSnap = await getDoc(memberRef);
   
-  if (memberSnap.exists()) {
-    // Zaten üye — sadece online yap ve key'i yükle
-    await updateDoc(memberRef, { online: true, lastSeen: serverTimestamp() });
-    const spaceKey = await getAndDecryptSpaceKey(spaceId, uid, spaceData);
-    if (spaceKey) await cacheSpaceKey(spaceId, spaceKey);
-    return { spaceId, spaceData };
+  // Mevcut veya yeni üye için space key'i çöz ve önbelleğe al
+  const spaceKey = await getAndDecryptSpaceKey(spaceId, uid, spaceData);
+  if (spaceKey) {
+    await cacheSpaceKey(spaceId, spaceKey);
   }
 
-  // Yeni üye — Host'tan space key alıp kendi anahtarımızla şifrele
-  // Not: Bu işlem için host'un genel anahtarını kullanarak space key'i deşifreleriz
-  // Sonra kendi genel anahtarımızla yeniden şifreleriz
-  // Tam E2E için: space'e katılma isteği → host onayı akışı eklenebilir
-  // Şimdilik: Firestore'daki şifreli key'i host public key ile çözüp yeniden şifrele
-  
-  const userKeyPair = await loadUserKeyPair(uid);
-  if (!userKeyPair) throw new Error('Şifreleme anahtarı bulunamadı');
-
-  // Host'un public key'ini al ve shared key türet
-  const hostPublicKey = await getUserPublicKey(spaceData.hostUid);
-  if (hostPublicKey) {
-    try {
-      // Host'un şifreli key'ini çöz (bu yöntem host'un private key'ini gerektirdiği için 
-      // gerçek E2E'de PeerJS ile doğrudan aktarım yapılır)
-      // Şimdilik: spaceKeyB64'ü PeerJS üzerinden al veya host'a sor
-      // Fallback: Host'un key entry'sini sadece host çözebilir
-    } catch {}
+  if (memberSnap.exists()) {
+    // Zaten üye — sadece online yap
+    await updateDoc(memberRef, { online: true, lastSeen: serverTimestamp() });
+    return { spaceId, spaceData };
   }
 
   // Üyeyi kaydet
@@ -748,7 +732,15 @@ export function subscribeToUserSpaces(uid, onSpaces) {
 export async function sendEncryptedMessage(spaceId, channelId, uid, username, content, type = 'text', mediaData = null, replyTo = null) {
   let spaceKey = await getSpaceKey(spaceId, uid);
   if (!spaceKey) {
-    throw new Error('Space anahtarı bulunamadı. Lütfen odayı yeniden açın.');
+    const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
+    if (spaceSnap.exists() && spaceSnap.data()?.fallbackKey) {
+      try {
+        spaceKey = await importSpaceKey(spaceSnap.data().fallbackKey);
+      } catch {}
+    }
+  }
+  if (!spaceKey) {
+    throw new Error('Space anahtarı bulunamadı. Lütfen sunucuya tekrar katılın.');
   }
 
   const { ciphertext, iv } = await encryptMessage(spaceKey, content);
@@ -1045,25 +1037,33 @@ function generateSpaceCode() {
  * Space anahtarını Firestore'dan al ve çöz
  */
 async function getAndDecryptSpaceKey(spaceId, uid, spaceData) {
+  if (!spaceData) return null;
+
   try {
     const encryptedKey = spaceData.encryptedKeys?.[uid];
-    
-    if (!encryptedKey) {
-      if (spaceData.fallbackKey) {
-        return await importSpaceKey(spaceData.fallbackKey);
+    if (encryptedKey) {
+      const userKeyPair = await loadUserKeyPair(uid);
+      if (userKeyPair) {
+        const myPublicKey = await getUserPublicKey(uid);
+        const sharedKey = await deriveSharedKey(userKeyPair.privateKey, myPublicKey || userKeyPair.publicKey);
+        const decrypted = await decryptSpaceKey(encryptedKey, sharedKey);
+        if (decrypted) return decrypted;
       }
-      return null;
     }
-
-    const userKeyPair = await loadUserKeyPair(uid);
-    if (!userKeyPair) return null;
-
-    const myPublicKey = await getUserPublicKey(uid);
-    const sharedKey = await deriveSharedKey(userKeyPair.privateKey, myPublicKey || userKeyPair.publicKey);
-    return await decryptSpaceKey(encryptedKey, sharedKey);
-  } catch {
-    return null;
+  } catch (err) {
+    console.warn('[Illaki] Anahtar deşifreleme uyarısı:', err);
   }
+
+  // Fallback key (farklı cihazlar, tarayıcı sıfırlamaları ve yeni üyeler için)
+  if (spaceData.fallbackKey) {
+    try {
+      return await importSpaceKey(spaceData.fallbackKey);
+    } catch (err) {
+      console.error('[Illaki] Fallback anahtar alma hatası:', err);
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -1096,7 +1096,15 @@ export async function getSpaceKey(spaceId, uid) {
   const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
   if (!spaceSnap.exists()) return null;
 
-  const key = await getAndDecryptSpaceKey(spaceId, uid, spaceSnap.data());
+  const spaceData = spaceSnap.data();
+  let key = await getAndDecryptSpaceKey(spaceId, uid, spaceData);
+
+  if (!key && spaceData.fallbackKey) {
+    try {
+      key = await importSpaceKey(spaceData.fallbackKey);
+    } catch {}
+  }
+
   if (key) await cacheSpaceKey(spaceId, key);
   return key;
 }

@@ -102,9 +102,15 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     audio.id = `audio-${peerId}`;
     audio.srcObject = stream;
     audio.autoplay = true;
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
     audio.volume = 1;
     audio.style.display = 'none';
     document.body.appendChild(audio);
+
+    audio.play().catch(err => {
+      console.warn('[Voice] Otomatik ses oynatma engellendi:', err);
+    });
 
     createAnalyser(stream, peerId);
   }, [createAnalyser]);
