@@ -778,7 +778,10 @@ export function ChatArea({
         <div className={styles.headerLeft}>
           <button 
             className={styles.mobileMenuBtn} 
-            onClick={onToggleSidebar}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSidebar();
+            }}
             title="Menüyü Aç"
             aria-label="Menü"
           >

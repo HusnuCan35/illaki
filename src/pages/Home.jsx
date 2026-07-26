@@ -194,14 +194,7 @@ export function Home() {
         )}
       </div>
 
-      <div 
-        className={styles.content}
-        onClick={() => {
-          if (sidebarOpen && window.innerWidth <= 768) {
-            toggleSidebar();
-          }
-        }}
-      >
+      <div className={styles.content}>
         {activeSpaceId ? (
           <ChatArea
             sendMessage={sendMessage}
@@ -217,7 +210,13 @@ export function Home() {
         ) : (
           <div style={{ display: 'flex', height: '100%', width: '100%' }}>
             <div className={styles.welcomeScreen} style={{ flex: 1 }}>
-              <button className={styles.mobileMenuBtnWelcome} onClick={toggleSidebar}>
+              <button
+                className={styles.mobileMenuBtnWelcome}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSidebar();
+                }}
+              >
                 ☰ Menü
               </button>
               <h2>illaki'ye Hoş Geldiniz</h2>
