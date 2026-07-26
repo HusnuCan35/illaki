@@ -13,28 +13,7 @@ import { updateMemberPeerId, getSpaceOnlineMembers, kickMemberFromVoice } from '
  *
  * Peer yeniden başlatılmaz — oda kodu ZATEN peer ID.
  */
-export const generateReadablePeerId = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ambiguous chars excluded
-  let code = '';
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return 'illaki-' + code;
-};
-
-/** Peer ID → oda kodu */
-export const codeFromPeerId = (peerId) =>
-  peerId ? peerId.replace(/^illaki-/, '') : '';
-
-/** Oda kodu → peer ID */
-export const peerIdFromCode = (code) =>
-  code ? 'illaki-' + code.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
-
-// Legacy compat export
-export const generateRoomCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let c = '';
-  for (let i = 0; i < 8; i++) c += chars[Math.floor(Math.random() * chars.length)];
-  return c;
-};
+export { generateReadablePeerId, codeFromPeerId, peerIdFromCode, generateRoomCode } from '../lib/peerUtils';
 
 export function usePeer() {
   const peerRef       = useRef(null);

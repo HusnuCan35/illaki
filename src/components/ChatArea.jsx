@@ -389,6 +389,7 @@ export function ChatArea({
   onToggleMusic, 
   rightPanel, 
   screenShare, 
+  voice,
   onOpenSettings, 
   onToggleSidebar,
   onOpenStreamStage
@@ -398,6 +399,11 @@ export function ChatArea({
   const { identity } = useIdentityStore();
   const { peers } = usePeerStore();
   const { addToast } = useUIStore();
+
+  const activeSpace = getActiveSpace();
+  const spaceChannels = activeSpaceId ? channels[activeSpaceId] || [] : [];
+  const activeChannel = spaceChannels.find(c => c.id === activeChannelId);
+  const onlinePeers = Object.keys(peers).length;
 
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -410,6 +416,13 @@ export function ChatArea({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMsgIds, setSelectedMsgIds] = useState(new Set());
   const [dbMembers, setDbMembers] = useState([]);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [myTimeoutInfo, setMyTimeoutInfo] = useState(null);
+
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const unsubscribeRef = useRef(null);
 
   useEffect(() => {
     if (!activeSpaceId) return;
@@ -459,18 +472,6 @@ export function ChatArea({
       addToast({ type: 'error', message: 'Kanal temizlenemedi: ' + err.message });
     }
   };
-
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const unsubscribeRef = useRef(null);
-
-  const activeSpace = getActiveSpace();
-  const spaceChannels = activeSpaceId ? channels[activeSpaceId] || [] : [];
-  const activeChannel = spaceChannels.find(c => c.id === activeChannelId);
-  const onlinePeers = Object.keys(peers).length;
-
-  const [replyingTo, setReplyingTo] = useState(null);
 
   // Dinle: Kendi timeout durumumuz
   useEffect(() => {

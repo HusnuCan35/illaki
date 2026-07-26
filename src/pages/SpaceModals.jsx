@@ -3,7 +3,7 @@ import { Hash, Copy, Check, Link2, AlertCircle, Wifi, Lock, Users, FileText, Glo
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useSpaceStore, useIdentityStore, useUIStore, usePeerStore } from '../stores';
-import { codeFromPeerId, peerIdFromCode } from '../hooks/usePeer';
+import { codeFromPeerId, peerIdFromCode } from '../lib/peerUtils';
 import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace, uploadSpaceWallpaper, subscribeToMembers, updateMemberRole } from '../lib/firestore';
 import { cacheSpaceKey } from '../lib/crypto';
 import styles from './SpaceModals.module.css';
