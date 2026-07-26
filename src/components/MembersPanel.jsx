@@ -124,13 +124,31 @@ export function MembersPanel() {
   // Firebase üyeleri ile PeerJS çevrimiçi üyeleri birleştir
   const peerEntries = Object.entries(peers).filter(([_, p]) => p.spaceCode === space?.code);
   
+  const nowMs = Date.now();
   const mergedMembers = dbMembers.filter(m => m.uid !== identity?.uid).map(m => {
+    const isPeerConnected = peerEntries.some(([pId, p]) => 
+      pId === m.uid || 
+      pId === m.peerId || 
+      p.uid === m.uid || 
+      (p.username && p.username === m.username)
+    );
+
+    let lastSeenTime = 0;
+    if (m.lastSeen) {
+      if (typeof m.lastSeen.toMillis === 'function') lastSeenTime = m.lastSeen.toMillis();
+      else if (typeof m.lastSeen.seconds === 'number') lastSeenTime = m.lastSeen.seconds * 1000;
+      else if (typeof m.lastSeen === 'number') lastSeenTime = m.lastSeen;
+    }
+
+    const isRecent = lastSeenTime > 0 ? (nowMs - lastSeenTime < 60000) : false;
+    const isTrulyOnline = isPeerConnected || (m.online === true && isRecent);
+
     return {
       uid: m.uid,
       peerId: m.uid,
       username: m.username,
       avatarColor: m.avatarColor,
-      status: m.online ? 'online' : 'offline',
+      status: isTrulyOnline ? 'online' : 'offline',
       isHost: m.role === 'host',
       role: m.role || 'member',
       points: m.points || 0,

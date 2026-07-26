@@ -783,10 +783,6 @@ export function ChatArea({
           <div>
             <div className={styles.headerName}>{activeChannel?.name || 'genel'}</div>
             <div className={styles.headerMeta}>
-              <span className={styles.onlineCount}>
-                <span className={styles.onlineDot} aria-hidden="true" />
-                {onlinePeers} bağlı
-              </span>
               <span className={styles.e2eBadge}>
                 <Lock size={10} /> E2E
               </span>

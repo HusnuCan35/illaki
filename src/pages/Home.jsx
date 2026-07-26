@@ -15,7 +15,7 @@ import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
 import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
-import { subscribeToUserBanStatus, subscribeToMembers } from '../lib/firestore';
+import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus } from '../lib/firestore';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -57,6 +57,29 @@ export function Home() {
       }
     }
   }, [activeSpaceId, connectToPeer]);
+
+  // Heartbeat & Online status tracking for activeSpace
+  useEffect(() => {
+    if (!activeSpaceId || !identity?.uid) return;
+
+    updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
+
+    const interval = setInterval(() => {
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
+    }, 30000);
+
+    const handleUnload = () => {
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false);
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false).catch(() => {});
+    };
+  }, [activeSpaceId, identity?.uid]);
 
   // Real-time Ban & Membership check for current user in activeSpace
   useEffect(() => {

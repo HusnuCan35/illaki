@@ -541,6 +541,20 @@ export async function updateMemberPeerId(spaceId, uid, peerId) {
 }
 
 /**
+ * Üyenin online/offline durumunu güncelle
+ */
+export async function updateMemberOnlineStatus(spaceId, uid, isOnline) {
+  if (!spaceId || !uid) return;
+  try {
+    const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
+    await updateDoc(memberRef, { 
+      online: isOnline, 
+      lastSeen: serverTimestamp() 
+    });
+  } catch {}
+}
+
+/**
  * Üyenin ses kanalı durumunu Firestore'da güncelle (anlık ses kanalı görünürlüğü için)
  */
 export async function updateMemberVoiceStatus(spaceId, uid, voiceChannelId) {
