@@ -10,13 +10,14 @@ import {
   useMessageStore, useSpaceStore, useIdentityStore,
   usePeerStore, useUIStore,
 } from '../stores';
-import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel } from '../lib/firestore';
+import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel, subscribeToMembers } from '../lib/firestore';
 import { processMediaFile, formatFileSize } from '../lib/mediaProcessor';
 import EmojiPicker from 'emoji-picker-react';
 import { UserProfileModal } from './UserProfileModal';
 import { CameraGrid } from './CameraGrid';
 import { DiceRoller } from './DiceRoller';
 import { DuelModal } from './DuelModal';
+import { BotDuelModal } from './BotDuelModal';
 import styles from './ChatArea.module.css';
 
 // Format timestamp
@@ -486,19 +487,31 @@ export function ChatArea({
   const [diceValue, setDiceValue] = useState(6);
   const [duels, setDuels] = useState([]);
   const [activeDuel, setActiveDuel] = useState(null);
+  const [showBotDuel, setShowBotDuel] = useState(false);
+  const [showMemberSelectDuel, setShowMemberSelectDuel] = useState(false);
+  const [spaceMembers, setSpaceMembers] = useState([]);
 
   // Duels dinleyicisi
   useEffect(() => {
     if (!activeSpaceId || !identity?.uid) return;
     const unsub = subscribeToDuels(activeSpaceId, (dList) => {
       setDuels(dList);
-      const pendingOrAccepted = dList.find(d => 
+      const relevantDuel = dList.find(d => 
         (d.opponentUid === identity.uid && d.status === 'pending') ||
-        ((d.challengerUid === identity.uid || d.opponentUid === identity.uid) && d.status === 'accepted' && !(identity.uid === d.challengerUid ? d.challengerChoice : d.opponentChoice))
+        ((d.challengerUid === identity.uid || d.opponentUid === identity.uid) && (d.status === 'accepted' || d.status === 'completed'))
       );
-      if (pendingOrAccepted) {
-        setActiveDuel(pendingOrAccepted);
+      if (relevantDuel) {
+        setActiveDuel(relevantDuel);
       }
+    });
+    return () => unsub();
+  }, [activeSpaceId, identity?.uid]);
+
+  // Sunucu üyeleri dinleyicisi
+  useEffect(() => {
+    if (!activeSpaceId) return;
+    const unsub = subscribeToMembers(activeSpaceId, (mList) => {
+      setSpaceMembers(mList.filter(m => m.uid !== identity?.uid));
     });
     return () => unsub();
   }, [activeSpaceId, identity?.uid]);
@@ -939,6 +952,64 @@ export function ChatArea({
         onClose={() => setActiveDuel(null)}
       />
 
+      <BotDuelModal
+        isOpen={showBotDuel}
+        onClose={() => setShowBotDuel(false)}
+      />
+
+      {showMemberSelectDuel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ width: '100%', maxWidth: '420px', background: '#0E1017', border: '1px solid rgba(255, 126, 32, 0.3)', borderRadius: '20px', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+              <h3 style={{ margin: 0, color: '#FFF', fontSize: '16px', fontWeight: 'bold' }}>👥 1v1 Düello İsteği Gönder</h3>
+              <button onClick={() => setShowMemberSelectDuel(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: '13px', color: '#A1A1AA', marginBottom: '14px' }}>Düello etmek istediğin sunucu üyesini seç:</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflowY: 'auto' }}>
+              {spaceMembers.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#71717A', padding: '20px', fontSize: '13px' }}>
+                  Sunucuda düello edebileceğin başka üye bulunamadı.
+                </div>
+              ) : (
+                spaceMembers.map(m => (
+                  <button
+                    key={m.uid}
+                    onClick={async () => {
+                      try {
+                        await createDuel(activeSpaceId, identity, { uid: m.uid, username: m.username });
+                        addToast({ type: 'success', message: `${m.username} kullanıcısına 1v1 düello teklifi gönderildi!` });
+                        setShowMemberSelectDuel(false);
+                      } catch (err) {
+                        addToast({ type: 'error', message: 'Düello daveti gönderilemedi.' });
+                      }
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', cursor: 'pointer',
+                      fontSize: '14px', fontWeight: '600'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: m.avatarColor || '#FF7E20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+                        {m.username?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                      <span>{m.username}</span>
+                    </div>
+                    <span style={{ fontSize: '12px', background: 'rgba(255, 126, 32, 0.2)', color: '#FF7E20', padding: '4px 10px', borderRadius: '8px', fontWeight: 'bold' }}>
+                      ⚔️ Düelloya Çağır
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <main className={styles.messages} style={messagesStyle} role="log" aria-live="polite" aria-label="Mesajlar">
         {allMessages.length === 0 && !screenShare?.remoteScreenStream && !screenShare?.localScreenStream ? (
@@ -1057,6 +1128,8 @@ export function ChatArea({
                   <GameZone 
                     onClose={() => setShowGameZone(false)}
                     onGameCommand={(cmd) => handleSend(cmd)}
+                    onOpenBotDuel={() => setShowBotDuel(true)}
+                    onOpenFriendDuel={() => setShowMemberSelectDuel(true)}
                   />
                 )}
               </div>
