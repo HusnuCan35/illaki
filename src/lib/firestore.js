@@ -79,6 +79,11 @@ export async function upsertUserProfile(uid, { username, avatarColor, photoURL =
   }
 }
 
+export async function updateUserProfileDetails(uid, updates = {}) {
+  const userRef = doc(db, 'users', uid);
+  await updateDoc(userRef, updates);
+}
+
 /**
  * Custom ID benzersizliğini kontrol edip günceller
  */

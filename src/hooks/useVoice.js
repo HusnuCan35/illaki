@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useUIStore, useIdentityStore, usePeerStore, useSpaceStore } from '../stores';
 import { getSpaceOnlineMembers, updateMemberVoiceStatus } from '../lib/firestore';
+import { playSelfJoinVoice, playUserJoinVoice, playUserLeaveVoice, playCamOn, playCamOff } from '../lib/soundEffects';
 
 /**
  * useVoice — HD WebRTC Sesli + Görüntülü Görüşme
@@ -135,6 +136,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         self: { ...prev.self, videoStream: null },
       }));
 
+      playCamOff();
       addToast({ type: 'info', message: 'Kamera kapatıldı' });
     } else {
       // Kamerayı aç
@@ -166,6 +168,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           } catch {}
         }
 
+        playCamOn();
         addToast({ type: 'success', message: 'Kamera açıldı 📷' });
       } catch (err) {
         if (err.name === 'NotAllowedError') {
@@ -232,6 +235,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           };
         });
 
+        playUserJoinVoice();
         addToast({ type: 'info', message: 'Sesli görüşme bağlandı' });
       });
 
@@ -240,6 +244,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         if (el) el.remove();
         delete analysersRef.current[call.peer];
         delete callsRef.current[call.peer];
+        playUserLeaveVoice();
         setVoiceParticipants(prev => {
           const next = { ...prev };
           delete next[call.peer];
@@ -294,6 +299,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       }
 
       setIsInVoice(true);
+      playSelfJoinVoice();
 
       const { setVoiceChannelId } = usePeerStore.getState();
       setVoiceChannelId(channelId);

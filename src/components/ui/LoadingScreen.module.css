@@ -1,208 +1,96 @@
-.container {
+.overlay {
   position: fixed;
   inset: 0;
-  background: #090D16;
+  background: rgba(9, 13, 22, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 99999;
-  overflow: hidden;
   font-family: inherit;
+  animation: fadeIn 0.3s ease-out;
 }
 
-/* Ambient Glowing Background Orbs */
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.45;
-  pointer-events: none;
-  animation: floatOrb 8s ease-in-out infinite alternate;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.orb1 {
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, #66FCF1 0%, rgba(102, 252, 241, 0) 70%);
-  top: -100px;
-  left: -100px;
-}
-
-.orb2 {
-  width: 450px;
-  height: 450px;
-  background: radial-gradient(circle, #45A29E 0%, rgba(69, 162, 158, 0) 70%);
-  bottom: -120px;
-  right: -100px;
-  animation-delay: -3s;
-}
-
-.orb3 {
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, #8B5CF6 0%, rgba(139, 92, 246, 0) 70%);
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-delay: -5s;
-}
-
-@keyframes floatOrb {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(30px, -40px) scale(1.1); }
-  100% { transform: translate(-20px, 20px) scale(0.95); }
-}
-
-/* Glassmorphism Central Card */
-.glassCard {
-  position: relative;
-  width: 90%;
-  max-width: 420px;
-  padding: 44px 36px;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+.loaderBox {
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  z-index: 2;
-  animation: cardFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes cardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Logo & Pulse Ring */
-.iconContainer {
-  position: relative;
-  width: 96px;
-  height: 96px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-
-.pulseRing {
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  border: 2px solid rgba(102, 252, 241, 0.4);
-  animation: ringPulse 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
-}
-
-@keyframes ringPulse {
-  0% {
-    transform: scale(0.85);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
-}
-
-.logoBadge {
-  width: 80px;
-  height: 80px;
+  padding: 32px 48px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 126, 32, 0.25);
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(102, 252, 241, 0.2), rgba(69, 162, 158, 0.4));
-  border: 1px solid rgba(102, 252, 241, 0.5);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 126, 32, 0.15);
+}
+
+.spinnerWrapper {
+  position: relative;
+  width: 72px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12px 30px rgba(102, 252, 241, 0.25);
-  z-index: 2;
-}
-
-.logoIcon {
-  color: #66FCF1;
-  filter: drop-shadow(0 0 10px rgba(102, 252, 241, 0.8));
-  animation: logoGlow 3s ease-in-out infinite alternate;
-}
-
-@keyframes logoGlow {
-  0% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(102, 252, 241, 0.6)); }
-  100% { transform: scale(1.08); filter: drop-shadow(0 0 16px rgba(102, 252, 241, 1)); }
-}
-
-/* Typography */
-.brandTitle {
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: 4px;
-  margin: 0 0 6px 0;
-  background: linear-gradient(135deg, #FFFFFF 0%, #66FCF1 60%, #45A29E 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.tagline {
-  font-size: 13px;
-  color: #94A3B8;
-  margin: 0 0 32px 0;
-  font-weight: 500;
-}
-
-/* Animated Progress Bar */
-.progressBarWrapper {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 99px;
-  overflow: hidden;
-  position: relative;
   margin-bottom: 16px;
 }
 
-.progressBarFill {
+.spinner {
   position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 40%;
-  background: linear-gradient(90deg, #66FCF1, #8B5CF6, #66FCF1);
+  inset: 0;
+  border: 3px solid rgba(255, 126, 32, 0.15);
+  border-top-color: #FF7E20;
+  border-radius: 50%;
+  animation: spin 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  box-shadow: 0 0 16px rgba(255, 126, 32, 0.4);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.logoBadge {
+  font-size: 28px;
+  font-weight: 900;
+  color: #FF7E20;
+  text-shadow: 0 0 12px rgba(255, 126, 32, 0.8);
+  user-select: none;
+}
+
+.brandName {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #FFFFFF;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.loadingBarTrack {
+  width: 140px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 99px;
-  box-shadow: 0 0 12px #66FCF1;
-  animation: loadingSlide 1.8s ease-in-out infinite;
+  overflow: hidden;
+  position: relative;
 }
 
-@keyframes loadingSlide {
-  0% {
-    left: -40%;
-    width: 30%;
-  }
-  50% {
-    width: 60%;
-  }
-  100% {
-    left: 110%;
-    width: 30%;
-  }
+.loadingBarProgress {
+  position: absolute;
+  height: 100%;
+  width: 45%;
+  background: linear-gradient(90deg, #FF7E20, #FFA866, #FF7E20);
+  border-radius: 99px;
+  box-shadow: 0 0 10px #FF7E20;
+  animation: slideProgress 1.4s ease-in-out infinite;
 }
 
-.statusText {
-  font-size: 12px;
-  font-weight: 600;
-  color: #CBD5E1;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  animation: textPulse 1.8s ease-in-out infinite;
-}
-
-@keyframes textPulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+@keyframes slideProgress {
+  0% { left: -45%; }
+  100% { left: 100%; }
 }

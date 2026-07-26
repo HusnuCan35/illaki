@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useUIStore, useIdentityStore } from '../stores';
+import { playStreamStart, playStreamStop } from '../lib/soundEffects';
 
 export function useScreenShare(getPeer) {
   const [isSharing, setIsSharing] = useState(false);
@@ -22,6 +23,7 @@ export function useScreenShare(getPeer) {
     screenCallsRef.current = {};
     setIsSharing(false);
     setLocalScreenStream(null);
+    playStreamStop();
   }, []);
 
   const startScreenShare = useCallback(async (connectedPeerIds = [], resolution = { w: 1920, h: 1080, fps: 30 }) => {
@@ -70,6 +72,7 @@ export function useScreenShare(getPeer) {
         screenCallsRef.current[peerId] = call;
       }
       
+      playStreamStart();
       addToast({ type: 'info', message: 'Ekran paylaşımı başlatıldı.' });
     } catch (err) {
       console.error('[ScreenShare] Error:', err);
@@ -85,11 +88,13 @@ export function useScreenShare(getPeer) {
     call.on('stream', (remoteStream) => {
       setRemoteScreenStream(remoteStream);
       setRemoteSharer(call.metadata?.username || 'Kullanıcı');
+      playStreamStart();
       addToast({ type: 'info', message: `${call.metadata?.username || 'Biri'} ekran paylaşıyor.` });
     });
     call.on('close', () => {
       setRemoteScreenStream(null);
       setRemoteSharer(null);
+      playStreamStop();
     });
   }, [addToast]);
 

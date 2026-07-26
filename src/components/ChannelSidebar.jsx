@@ -5,6 +5,7 @@ import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, 
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CreateChannelModal, ChannelSettingsModal } from './ChannelModals';
+import { LogoutModal } from './LogoutModal';
 import styles from './ChannelSidebar.module.css';
 
 // Avatar Component
@@ -157,15 +158,20 @@ export function ChannelSidebar({
     setTimeout(() => setCodeCopied(false), 2000);
   };
 
-  const handleLogout = async () => {
-    if (window.confirm('Çıkış yapmak istediğine emin misin?')) {
-      try {
-        await signOut(auth);
-        sessionStorage.clear();
-      } catch (err) {
-        clearIdentity();
-        window.location.reload();
-      }
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+
+  const handleLogout = () => {
+    setLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setLogoutModalOpen(false);
+    try {
+      await signOut(auth);
+      sessionStorage.clear();
+    } catch (err) {
+      clearIdentity();
+      window.location.reload();
     }
   };
 
@@ -416,6 +422,12 @@ export function ChannelSidebar({
         onClose={() => setInviteModalOpen(false)}
         activeSpace={activeSpace}
         identity={identity}
+      />
+
+      <LogoutModal
+        isOpen={logoutModalOpen}
+        onClose={() => setLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
       />
     </div>
   );

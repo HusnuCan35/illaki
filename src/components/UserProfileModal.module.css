@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   z-index: 1500;
   display: flex;
   align-items: center;
@@ -13,26 +13,55 @@
 
 .card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   background: #0E1017;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.85);
   position: relative;
 }
 
 .banner {
-  height: 90px;
+  height: 105px;
   position: relative;
-  opacity: 0.85;
+  transition: all 0.3s ease;
+}
+
+.trBadge {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #FFF;
+  letter-spacing: 1.5px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px 8px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.ataturkBadge {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #D4AF37;
+  letter-spacing: 1.5px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  backdrop-filter: blur(4px);
 }
 
 .closeBtn {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
   border: none;
   color: #FFF;
   width: 32px;
@@ -43,10 +72,12 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  z-index: 2;
 }
 
 .closeBtn:hover {
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
 }
 
 .avatarWrapper {
@@ -68,6 +99,7 @@
   font-size: 26px;
   font-weight: 800;
   color: #FFF;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 .statusBadge {
@@ -87,13 +119,16 @@
   padding: 16px 24px 24px;
 }
 
-.nameSection {
+.nameHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 12px;
 }
 
 .username {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
   color: #FFF;
   margin: 0;
 }
@@ -105,11 +140,32 @@
   margin-top: 2px;
 }
 
+.editBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #FFF;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.editBtn:hover {
+  background: rgba(255, 126, 32, 0.2);
+  border-color: #FF7E20;
+  color: #FF7E20;
+}
+
 .badgesRow {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .badge {
@@ -150,6 +206,123 @@
   background: rgba(245, 158, 11, 0.15);
   color: #F59E0B;
   border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Bio Section */
+.bioSection {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.bioContent {
+  font-size: 13px;
+  color: #CBD5E1;
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Edit Mode Form */
+.editForm {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 126, 32, 0.2);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.inputGroup {
+  margin-bottom: 14px;
+}
+
+.inputGroup label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94A3B8;
+  margin-bottom: 6px;
+}
+
+.textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px;
+  color: #FFF;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+}
+
+.textarea:focus {
+  border-color: #FF7E20;
+}
+
+.bannerGrid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.bannerPill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #CBD5E1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bannerPill:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.activeBannerPill {
+  background: rgba(255, 126, 32, 0.2) !important;
+  border-color: #FF7E20 !important;
+  color: #FF7E20 !important;
+  font-weight: 700;
+}
+
+.urlInput {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #FFF;
+  font-size: 12px;
+  outline: none;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.cancelBtn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .actions {
