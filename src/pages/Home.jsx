@@ -174,7 +174,14 @@ export function Home() {
         )}
       </div>
 
-      <div className={styles.content}>
+      <div 
+        className={styles.content}
+        onClick={() => {
+          if (sidebarOpen && window.innerWidth <= 768) {
+            toggleSidebar();
+          }
+        }}
+      >
         {activeSpaceId ? (
           <ChatArea
             sendMessage={sendMessage}
@@ -241,8 +248,8 @@ export function Home() {
       />
 
       {discoverOpen && (
-        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setDiscoverOpen(false); }}>
-          <div className={styles.modalContent} style={{ width: '90%', maxWidth: '800px', height: '80vh', padding: 0 }}>
+        <div className={styles.modalOverlay} style={{ zIndex: 9999 }} onClick={(e) => { if (e.target === e.currentTarget) setDiscoverOpen(false); }}>
+          <div className={styles.modalContent} style={{ width: '92%', maxWidth: '800px', height: '85vh', padding: 0 }}>
              <button className={styles.closeModalBtn} onClick={() => setDiscoverOpen(false)}>×</button>
              <DiscoverServers onClose={() => setDiscoverOpen(false)} onJoin={(code, id) => connectToPeer(code, id)} />
           </div>

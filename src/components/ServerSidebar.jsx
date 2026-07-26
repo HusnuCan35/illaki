@@ -42,10 +42,13 @@ export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
         <div className={`${styles.pill} ${!activeSpaceId ? styles.pillActive : ''}`} />
         <button 
           className={`${styles.homeButton} ${!activeSpaceId ? styles.serverActive : ''}`}
-          onClick={() => setActiveSpace(null)}
+          onClick={() => {
+            setActiveSpace(null);
+            if (window.innerWidth <= 768) useUIStore.getState().setSidebarOpen(false);
+          }}
           title="Ana Sayfa"
         >
-          <img src="/logo.png" alt="illaki" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+          <Hash size={24} />
         </button>
       </div>
 
@@ -62,12 +65,26 @@ export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
         ))}
 
         <div className={styles.serverItemWrapper}>
-          <button className={styles.actionButton} onClick={onCreateSpace} title="Sunucu Oluştur">
+          <button 
+            className={styles.actionButton} 
+            onClick={() => {
+              onCreateSpace();
+              if (window.innerWidth <= 768) useUIStore.getState().setSidebarOpen(false);
+            }} 
+            title="Sunucu Oluştur"
+          >
             <Plus size={24} />
           </button>
         </div>
         <div className={styles.serverItemWrapper}>
-          <button className={styles.actionButton} onClick={onJoinSpace} title="Sunucuya Katıl">
+          <button 
+            className={styles.actionButton} 
+            onClick={() => {
+              onJoinSpace();
+              if (window.innerWidth <= 768) useUIStore.getState().setSidebarOpen(false);
+            }} 
+            title="Sunucuya Katıl"
+          >
             <LogIn size={24} />
           </button>
         </div>
@@ -75,7 +92,14 @@ export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
         <div className={styles.separator} style={{ width: '32px', marginTop: '4px', marginBottom: '4px' }} />
         
         <div className={styles.serverItemWrapper}>
-          <button className={`${styles.actionButton} ${styles.discoverBtn}`} onClick={onDiscover} title="Açık Sunucuları Keşfet">
+          <button 
+            className={`${styles.actionButton} ${styles.discoverBtn}`} 
+            onClick={() => {
+              onDiscover();
+              if (window.innerWidth <= 768) useUIStore.getState().setSidebarOpen(false);
+            }} 
+            title="Açık Sunucuları Keşfet"
+          >
             <Compass size={24} />
           </button>
         </div>
