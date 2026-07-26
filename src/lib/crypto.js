@@ -65,6 +65,7 @@ export async function encryptMessage(key, plaintext) {
  * Şifreli mesajı çözer
  */
 export async function decryptMessage(key, ciphertext, iv) {
+  if (!key || !ciphertext || !iv) return ciphertext || '';
   try {
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: base64ToBuf(iv) },
@@ -73,7 +74,8 @@ export async function decryptMessage(key, ciphertext, iv) {
     );
     return new TextDecoder().decode(decrypted);
   } catch {
-    return '[Şifreli mesaj çözülemedi]';
+    // Şifre çözülemezse ciphertext plain metin olabilir, olduğu gibi döndür
+    return ciphertext;
   }
 }
 
@@ -251,14 +253,36 @@ export async function loadUserKeyPair(uid) {
 /**
  * Space AES anahtarını localStorage'a kaydet (çözülmüş halde cache)
  */
+/**
+ * Space AES anahtarını sessionStorage'dan veya room ID hash'inden yükle (Multi-device uyumluluğu)
+ */
+export async function getSpaceKey(spaceId, spaceCode = '') {
+  let key = await getCachedSpaceKey(spaceId);
+  if (key) return key;
+
+  try {
+    const seed = `${spaceId}_${spaceCode || 'illaki_master_room_key_v1'}`;
+    const enc = new TextEncoder().encode(seed);
+    const hash = await crypto.subtle.digest('SHA-256', enc);
+    key = await crypto.subtle.importKey(
+      'raw', hash,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+    await cacheSpaceKey(spaceId, key);
+    return key;
+  } catch (err) {
+    console.error('Space key türetilemedi:', err);
+    return null;
+  }
+}
+
 export async function cacheSpaceKey(spaceId, key) {
   const exported = await exportKey(key);
   sessionStorage.setItem(`${KEY_STORE_PREFIX}space_${spaceId}`, exported);
 }
 
-/**
- * Space AES anahtarını sessionStorage'dan yükle
- */
 export async function getCachedSpaceKey(spaceId) {
   const keyB64 = sessionStorage.getItem(`${KEY_STORE_PREFIX}space_${spaceId}`);
   if (!keyB64) return null;

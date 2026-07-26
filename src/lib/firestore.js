@@ -809,6 +809,24 @@ export async function deleteMessage(spaceId, channelId, messageId) {
   await deleteDoc(msgRef);
 }
 
+export async function deleteMultipleMessages(spaceId, channelId, messageIds = []) {
+  if (!messageIds || messageIds.length === 0) return;
+  const batch = writeBatch(db);
+  messageIds.forEach(id => {
+    const msgRef = doc(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages', id);
+    batch.delete(msgRef);
+  });
+  await batch.commit();
+}
+
+export async function clearChannelMessages(spaceId, channelId) {
+  const msgsRef = collection(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages');
+  const snap = await getDocs(query(msgsRef, limit(500)));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+}
+
 export async function toggleMessageReaction(spaceId, channelId, messageId, uid, emoji) {
   const msgRef = doc(db, 'spaces', spaceId, 'channels', channelId || 'general', 'messages', messageId);
   

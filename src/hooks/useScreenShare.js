@@ -32,7 +32,12 @@ export function useScreenShare(getPeer) {
           height: { ideal: resolution.h, max: resolution.h },
           frameRate: { ideal: resolution.fps, max: resolution.fps }
         },
-        audio: false
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          suppressLocalAudioPlayback: false
+        }
       });
 
       // Stop sharing if user clicks "Stop sharing" on the browser bar

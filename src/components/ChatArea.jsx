@@ -3,7 +3,7 @@ import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
   Play, X, Upload, Settings, LogOut, Volume2, Music, Menu,
-  Reply, Edit2, Trash2, Dices, Gamepad2
+  Reply, Edit2, Trash2, Dices, Gamepad2, CheckSquare
 } from 'lucide-react';
 import { GameZone } from './GameZone';
 import {
@@ -14,6 +14,7 @@ import { sendEncryptedMessage, subscribeToMessages, uploadMedia } from '../lib/f
 import { processMediaFile, formatFileSize } from '../lib/mediaProcessor';
 import EmojiPicker from 'emoji-picker-react';
 import { UserProfileModal } from './UserProfileModal';
+import { CameraGrid } from './CameraGrid';
 import styles from './ChatArea.module.css';
 
 // Format timestamp
@@ -162,7 +163,7 @@ function formatDuration(s) {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity, onOpenProfile }) {
+function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity, onOpenProfile, isSelectMode, selectedMsgIds, onToggleSelectMsg }) {
   const senderInfo = {
     uid: group.senderUid || group.messages?.[0]?.senderUid || group.sender,
     username: group.sender,
@@ -193,6 +194,9 @@ function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity, onO
               onEdit={onEdit} 
               onReact={onReact} 
               identity={identity}
+              isSelectMode={isSelectMode}
+              isSelected={selectedMsgIds?.has(msg.id)}
+              onToggleSelect={() => onToggleSelectMsg && onToggleSelectMsg(msg.id)}
             />
           ))}
         </div>
@@ -206,7 +210,7 @@ function MessageGroup({ group, onReply, onDelete, onEdit, onReact, identity, onO
   );
 }
 
-function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identity }) {
+function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identity, isSelectMode, isSelected, onToggleSelect }) {
   const [showActions, setShowActions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(msg.content);
@@ -238,7 +242,16 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
       className={styles.msgBubbleWrapper}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
+      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
     >
+      {isSelectMode && (
+        <input
+          type="checkbox"
+          checked={!!isSelected}
+          onChange={onToggleSelect}
+          style={{ cursor: 'pointer', accentColor: 'var(--accent)', width: 16, height: 16, flexShrink: 0 }}
+        />
+      )}
       {msg.replyTo && (
         <div className={styles.replyContext}>
           <div className={styles.replyBar} />
@@ -393,8 +406,59 @@ export function ChatArea({
   const [showGameZone, setShowGameZone] = useState(false);
   const [firebaseMessages, setFirebaseMessages] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { fileName, progress }
-  const [myTimeoutInfo, setMyTimeoutInfo] = useState(null);
   const [profileModalUser, setProfileModalUser] = useState(null);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMsgIds, setSelectedMsgIds] = useState(new Set());
+  const [dbMembers, setDbMembers] = useState([]);
+
+  useEffect(() => {
+    if (!activeSpaceId) return;
+    import('../lib/firestore').then(({ subscribeToMembers }) => {
+      const unsub = subscribeToMembers(activeSpaceId, (members) => {
+        setDbMembers(members);
+      });
+      return () => unsub();
+    });
+  }, [activeSpaceId]);
+
+  const myMember = dbMembers.find(m => m.uid === identity?.uid);
+  const isPrivileged = activeSpace?.isHost || myMember?.role === 'admin' || myMember?.role === 'mod';
+
+  const handleToggleSelectMsg = (msgId) => {
+    setSelectedMsgIds(prev => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId);
+      else next.add(msgId);
+      return next;
+    });
+  };
+
+  const handleBulkDeleteSelected = async () => {
+    if (selectedMsgIds.size === 0) return;
+    if (!window.confirm(`Seçilen ${selectedMsgIds.size} mesajı silmek istediğinize emin misiniz?`)) return;
+    try {
+      const { deleteMultipleMessages } = await import('../lib/firestore');
+      await deleteMultipleMessages(activeSpaceId, activeChannelId, Array.from(selectedMsgIds));
+      addToast({ type: 'success', message: `${selectedMsgIds.size} mesaj silindi.` });
+      setSelectedMsgIds(new Set());
+      setIsSelectMode(false);
+    } catch (err) {
+      addToast({ type: 'error', message: 'Silinemedi: ' + err.message });
+    }
+  };
+
+  const handleClearChannel = async () => {
+    if (!window.confirm('Bu kanaldaki TÜM mesajları silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) return;
+    try {
+      const { clearChannelMessages } = await import('../lib/firestore');
+      await clearChannelMessages(activeSpaceId, activeChannelId);
+      addToast({ type: 'info', message: 'Kanal temizlendi.' });
+      setSelectedMsgIds(new Set());
+      setIsSelectMode(false);
+    } catch (err) {
+      addToast({ type: 'error', message: 'Kanal temizlenemedi: ' + err.message });
+    }
+  };
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -730,6 +794,18 @@ export function ChatArea({
         </div>
 
         <div className={styles.headerActions}>
+          {isPrivileged && (
+            <button
+              className={`${styles.headerBtn} ${isSelectMode ? styles.headerBtnActive : ''}`}
+              onClick={() => {
+                setIsSelectMode(prev => !prev);
+                setSelectedMsgIds(new Set());
+              }}
+              title="Toplu Mesaj Sil (Seçim Modu)"
+            >
+              <CheckSquare size={16} />
+            </button>
+          )}
           <button
             className={`${styles.headerBtn} ${rightPanel === 'music' ? styles.headerBtnActive : ''}`}
             onClick={onToggleMusic}
@@ -760,11 +836,57 @@ export function ChatArea({
         </div>
       </header>
 
+      {/* Bulk Delete Toolbar */}
+      {isSelectMode && (
+        <div style={{
+          background: 'rgba(15, 23, 42, 0.95)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 10
+        }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF' }}>
+            {selectedMsgIds.size} mesaj seçildi
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => {
+                const allIds = new Set(allMessages.map(m => m.id));
+                setSelectedMsgIds(allIds);
+              }}
+              style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: '#FFF', fontSize: '12px', cursor: 'pointer' }}
+            >
+              Tümünü Seç
+            </button>
+            <button
+              disabled={selectedMsgIds.size === 0}
+              onClick={handleBulkDeleteSelected}
+              style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', background: selectedMsgIds.size > 0 ? '#EF4444' : '#64748B', color: '#FFF', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+            >
+              Seçilenleri Sil ({selectedMsgIds.size})
+            </button>
+            <button
+              onClick={handleClearChannel}
+              style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #EF4444', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+            >
+              Tüm Kanalı Temizle
+            </button>
+            <button
+              onClick={() => { setIsSelectMode(false); setSelectedMsgIds(new Set()); }}
+              style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: 'transparent', color: '#94A3B8', fontSize: '12px', cursor: 'pointer' }}
+            >
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Upload indicator */}
       {uploadProgress && (
         <UploadIndicator progress={uploadProgress.progress} fileName={uploadProgress.fileName} />
       )}
-
       {/* Screen Share (Pinned to Top) */}
       {screenShare?.remoteScreenStream && (
         <ScreenViewer 
@@ -780,6 +902,11 @@ export function ChatArea({
           onStop={() => screenShare.stopScreenShare()}
           onOpenStage={onOpenStreamStage}
         />
+      )}
+
+      {/* Camera Video Grid */}
+      {voice?.voiceParticipants && (
+        <CameraGrid participants={voice.voiceParticipants} />
       )}
 
       {profileModalUser && (
@@ -830,6 +957,9 @@ export function ChatArea({
               }}
               identity={identity}
               onOpenProfile={(u) => setProfileModalUser(u)}
+              isSelectMode={isSelectMode}
+              selectedMsgIds={selectedMsgIds}
+              onToggleSelectMsg={handleToggleSelectMsg}
             />
           ))
         )}

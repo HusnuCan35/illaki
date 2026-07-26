@@ -159,6 +159,7 @@ export function Home() {
             onToggleMusic={() => setRightPanel(p => p === 'music' ? null : 'music')}
             rightPanel={rightPanel}
             screenShare={screenShare}
+            voice={voice}
             onOpenSettings={() => setSpaceSettingsOpen(true)}
             onToggleSidebar={toggleSidebar}
             onOpenStreamStage={() => setStreamStageOpen(true)}

@@ -102,9 +102,21 @@ export function Landing() {
       <div className={styles.root}>
         <div className={styles.orb1} aria-hidden="true" />
         <div className={styles.orb2} aria-hidden="true" />
-        <div className={styles.loadingScreen}>
-          <div className={styles.logoIcon}><Hash size={28} strokeWidth={2.5} /></div>
-          <Loader size={20} className={styles.spinner} />
+        <div className={styles.grid} aria-hidden="true" />
+        <div className={styles.glassLoaderContainer}>
+          <div className={styles.glassLoaderCard}>
+            <div className={styles.loaderLogoWrapper}>
+              <div className={styles.loaderLogoIcon}>
+                <Hash size={36} strokeWidth={2.5} />
+              </div>
+              <div className={styles.pulseRing} />
+            </div>
+            <h2 className={styles.loaderBrand}>illaki</h2>
+            <p className={styles.loaderTagline}>Uçtan Uca Şifreli Mesajlaşma Yükleniyor...</p>
+            <div className={styles.glassBar}>
+              <div className={styles.glassBarProgress} />
+            </div>
+          </div>
         </div>
       </div>
     );
