@@ -300,29 +300,63 @@ export function ChannelSidebar({
           </div>
           <div className={styles.channelList}>
             {visibleChannels.filter(c => c.type === 'voice').map(channel => {
-              // Bu odadaki kullanıcılar (kendimiz + peers + dbMembers)
               const meInChannel = voiceChannelId === channel.id;
-              const othersInChannel = Object.entries(peers)
-                .filter(([_, p]) => p.voiceChannelId === channel.id)
-                .map(([id, p]) => ({ id, ...p }));
 
-              // Yalnızca anlık P2P ses odasında AKTİF olarak bağlı kullanıcıları göster
+              // Kanaldaki tüm kullanıcıları topla (dbMembers + peers + kendimiz)
+              const participantsMap = new Map();
+
+              // 1. Kendimiz bu kanaldaysak ekle
+              if (meInChannel && identity) {
+                participantsMap.set(identity.uid, {
+                  id: identity.uid,
+                  uid: identity.uid,
+                  username: `${identity.username} (Sen)`,
+                  avatarColor: identity.avatarColor,
+                  isSelf: true,
+                  status: 'online',
+                });
+              }
+
+              // 2. Real-time Firestore üyelerini ekle (kullanıcı daha sese girmeden sestedekileri anlık görsün)
               (dbMembers || []).forEach(m => {
-                if (m.uid !== identity?.uid && m.voiceChannelId === channel.id && m.online) {
-                  // Yalnızca P2P tarafında gerçekten bu ses kanalında olan bir peer varsa veya aktif ses işareti varsa ekle
-                  const pMatch = Object.entries(peers).find(([id, p]) => (p.uid === m.uid || id === m.peerId) && p.voiceChannelId === channel.id);
-                  if (pMatch && !othersInChannel.some(p => p.id === m.peerId || p.username === m.username || p.uid === m.uid)) {
-                    othersInChannel.push({
+                if (m.voiceChannelId === channel.id && (m.online || (Date.now() - (m.lastSeen?.toMillis?.() || 0) < 60000))) {
+                  const peerMatch = Object.values(peers).find(p => p.uid === m.uid || p.username === m.username);
+                  const isMe = m.uid === identity?.uid;
+                  
+                  if (!participantsMap.has(m.uid)) {
+                    participantsMap.set(m.uid, {
                       id: m.peerId || m.uid,
                       uid: m.uid,
-                      username: m.username,
-                      avatarColor: m.avatarColor,
+                      username: isMe ? `${m.username} (Sen)` : (m.username || peerMatch?.username || 'Üye'),
+                      avatarColor: m.avatarColor || peerMatch?.avatarColor,
+                      isSelf: isMe,
                       status: 'online',
                     });
                   }
                 }
               });
-              
+
+              // 3. P2P peers store'daki aktif ses katılımcılarını kontrol et ve eksikse ekle
+              Object.entries(peers).forEach(([pId, p]) => {
+                if (p.voiceChannelId === channel.id) {
+                  const key = p.uid || pId;
+                  if (!participantsMap.has(key)) {
+                    const isMe = p.uid === identity?.uid;
+                    const nameToShow = (p.username && p.username !== 'Katılımcı' && p.username !== 'Anonim') ? p.username : 'Üye';
+                    participantsMap.set(key, {
+                      id: pId,
+                      uid: p.uid || pId,
+                      username: isMe ? `${nameToShow} (Sen)` : nameToShow,
+                      avatarColor: p.avatarColor,
+                      isSelf: isMe,
+                      status: 'online',
+                    });
+                  }
+                }
+              });
+
+              const participantsList = Array.from(participantsMap.values());
+
               return (
                 <div key={channel.id}>
                   <div className={`${styles.channelItemWrapper} ${meInChannel ? styles.activeVoice : ''}`}>
@@ -344,33 +378,24 @@ export function ChannelSidebar({
                     )}
                   </div>
                   
-                  {/* Katılımcılar (Discord gibi kanalın altında liste) */}
-                  {(meInChannel || othersInChannel.length > 0) && (
+                  {/* Katılımcılar (Discord gibi ses kanalının altında anlık liste) */}
+                  {participantsList.length > 0 && (
                     <div className={styles.voiceParticipantsList}>
-                      {meInChannel && (
-                        <div className={styles.voiceParticipantRow}>
-                          <Avatar username={identity.username} color={identity.avatarColor} size={24} status="online" />
-                          <span className={styles.voiceParticipantName}>{identity.username} (Sen)</span>
+                      {participantsList.map((p) => (
+                        <div key={p.id} className={styles.voiceParticipantRow}>
+                          <Avatar username={p.username.replace(' (Sen)', '')} color={p.avatarColor} size={24} status={p.status || 'online'} />
+                          <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{p.username}</span>
+                          {isPrivileged && kickFromVoice && !p.isSelf && (
+                            <button 
+                              className={styles.kickVoiceBtn}
+                              onClick={() => kickFromVoice(p.id, activeSpaceId, p.uid || p.id)}
+                              title="Kullanıcıyı sesten at"
+                            >
+                              <UserMinus size={14} />
+                            </button>
+                          )}
                         </div>
-                      )}
-                      {othersInChannel.map((p) => {
-                        const nameToShow = (p.username && p.username !== 'Katılımcı' && p.username !== 'Anonim') ? p.username : 'Üye';
-                        return (
-                          <div key={p.id} className={styles.voiceParticipantRow}>
-                            <Avatar username={nameToShow} color={p.avatarColor} size={24} status={p.status || 'online'} />
-                            <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{nameToShow}</span>
-                            {isPrivileged && kickFromVoice && (
-                              <button 
-                                className={styles.kickVoiceBtn}
-                                onClick={() => kickFromVoice(p.id, activeSpaceId, p.uid || p.id)}
-                                title="Kullanıcıyı sesten at"
-                              >
-                                <UserMinus size={14} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
+                      ))}
                     </div>
                   )}
                 </div>

@@ -15,7 +15,7 @@ import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
 import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
-import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus } from '../lib/firestore';
+import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus } from '../lib/firestore';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -70,6 +70,9 @@ export function Home() {
 
     const handleUnload = () => {
       updateMemberOnlineStatus(activeSpaceId, identity.uid, false);
+      if (usePeerStore.getState().voiceChannelId) {
+        updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
+      }
     };
 
     window.addEventListener('beforeunload', handleUnload);
@@ -78,6 +81,9 @@ export function Home() {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
       updateMemberOnlineStatus(activeSpaceId, identity.uid, false).catch(() => {});
+      if (usePeerStore.getState().voiceChannelId) {
+        updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
+      }
     };
   }, [activeSpaceId, identity?.uid]);
 
