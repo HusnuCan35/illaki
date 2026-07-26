@@ -171,16 +171,49 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           self: { ...prev.self, videoStream },
         }));
 
-        // Mevcut call'lara video track ekle (sender.replaceTrack ile anında ilet)
+        // Mevcut call'lara video track ekle + PeerJS üzerinden taze akış gönder
         const videoTrack = videoStream.getVideoTracks()[0];
-        for (const call of Object.values(callsRef.current)) {
+        const audioStream = localStreamRef.current;
+
+        for (const [pId, call] of Object.entries(callsRef.current)) {
           try {
-            const senders = call.peerConnection?.getSenders?.() || [];
-            const videoSender = senders.find(s => s.track?.kind === 'video' || s.kind === 'video');
-            if (videoSender) {
-              await videoSender.replaceTrack(videoTrack);
-            } else if (call.peerConnection?.addTrack) {
-              call.peerConnection.addTrack(videoTrack, videoStream);
+            const pc = call?.peerConnection;
+            if (pc) {
+              const senders = pc.getSenders() || [];
+              const videoSender = senders.find(s => s.track?.kind === 'video');
+              if (videoSender) {
+                await videoSender.replaceTrack(videoTrack);
+              } else {
+                pc.addTrack(videoTrack, videoStream);
+              }
+            }
+            if (peerRef.current && audioStream) {
+              const combinedStream = new MediaStream([
+                ...audioStream.getAudioTracks(),
+                videoTrack,
+              ]);
+              const newCall = peerRef.current.call(pId, combinedStream, {
+                metadata: {
+                  username: identity?.username,
+                  avatarColor: identity?.avatarColor,
+                  hasVideo: true,
+                },
+              });
+              callsRef.current[pId] = newCall;
+
+              newCall.on('stream', (remoteStream) => {
+                const audioTracks = remoteStream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                  attachAudio(new MediaStream(audioTracks), pId);
+                }
+                setVoiceParticipants(prev => ({
+                  ...prev,
+                  [pId]: {
+                    ...(prev[pId] || {}),
+                    videoStream: remoteStream.getVideoTracks().length > 0 ? new MediaStream(remoteStream.getVideoTracks()) : null,
+                  }
+                }));
+              });
             }
           } catch (e) {
             console.warn('[Voice] Video kanalı aktarım uyarısı:', e);

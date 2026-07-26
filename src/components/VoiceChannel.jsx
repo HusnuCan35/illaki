@@ -140,8 +140,12 @@ export function VoiceChannel({
 
   const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
 
-  // Bu ses kanalında olan tüm kullanıcıları belirle
-  const inChannelMembers = spaceMembers.filter(m => m.voiceChannelId === voiceChannelId || m.uid === identity?.uid);
+  // Bu ses kanalında olan GERÇEKTEN AKTİF üyeleri belirle
+  const inChannelMembers = spaceMembers.filter(m => {
+    if (m.voiceChannelId !== voiceChannelId) return false;
+    if (m.online === false) return false;
+    return true;
+  });
 
   // Katılımcı haritası oluştur (Firestore üyeleri + WebRTC yayınları)
   const participantMap = new Map();
@@ -155,14 +159,18 @@ export function VoiceChannel({
     peerId: 'self',
   });
 
-  // 2. Firestore'da bu ses kanalında olan diğer üyeleri ekle
+  // 2. Firestore'da bu ses kanalında olan diğer aktif üyeleri ekle
   inChannelMembers.forEach(m => {
     if (m.uid !== identity?.uid) {
       const pId = m.peerId || m.uid;
       const webRTC = voiceParticipants[pId] || voiceParticipants[m.uid] || {};
+      const realName = m.username || m.displayName || webRTC.username;
+      const isGeneric = !realName || realName === 'Katılımcı' || realName === 'Anonim' || realName === 'Kullanıcı' || realName === 'Üye';
+      const finalName = isGeneric ? 'Kullanıcı' : realName;
+
       participantMap.set(pId, {
         isSelf: false,
-        username: m.username || webRTC.username || 'Kullanıcı',
+        username: finalName,
         avatarColor: m.avatarColor || webRTC.avatarColor || '#3B82F6',
         videoStream: webRTC.videoStream || null,
         peerId: pId,
@@ -170,12 +178,16 @@ export function VoiceChannel({
     }
   });
 
-  // 3. WebRTC üzerinden ekstra gelen peer varsa ekle
+  // 3. WebRTC üzerinden ekstra gelen aktör varsa ekle
   Object.entries(voiceParticipants).forEach(([pId, p]) => {
     if (pId !== 'self' && !participantMap.has(pId)) {
+      const realName = p.username;
+      const isGeneric = !realName || realName === 'Katılımcı' || realName === 'Anonim' || realName === 'Kullanıcı' || realName === 'Üye';
+      const finalName = isGeneric ? 'Kullanıcı' : realName;
+
       participantMap.set(pId, {
         isSelf: false,
-        username: p.username || 'Kullanıcı',
+        username: finalName,
         avatarColor: p.avatarColor || '#3B82F6',
         videoStream: p.videoStream || null,
         peerId: pId,

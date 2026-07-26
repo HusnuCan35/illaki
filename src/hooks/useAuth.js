@@ -152,6 +152,17 @@ export function useAuth() {
 
   // Çıkış
   const signOut = useCallback(async () => {
+    try {
+      const user = auth.currentUser;
+      const { activeSpaceId } = useSpaceStore.getState();
+      if (user && activeSpaceId) {
+        const { updateMemberVoiceStatus, updateMemberOnlineStatus } = await import('../lib/firestore');
+        await updateMemberVoiceStatus(activeSpaceId, user.uid, null);
+        await updateMemberOnlineStatus(activeSpaceId, user.uid, false);
+      }
+    } catch (e) {
+      console.warn('Çıkış yaparken durum temizlenemedi:', e);
+    }
     await firebaseSignOut(auth);
   }, []);
 
