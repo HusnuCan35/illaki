@@ -189,15 +189,34 @@
 }
 
 @media (max-width: 768px) {
+  .overlay {
+    padding: 8px;
+  }
+  .stageContainer {
+    height: 90vh;
+    max-height: 90vh;
+    border-radius: 12px;
+  }
+  .stageHeader {
+    padding: 0 12px;
+    height: 46px;
+  }
+  .streamerName {
+    font-size: 13px;
+  }
   .controlBar {
     padding: 0 10px;
-    overflow-x: auto;
+    height: 52px;
+    gap: 8px;
   }
   .controlBtn {
-    padding: 6px 10px;
-    font-size: 12px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  .streamInfo {
+    display: none;
   }
   .leftControls, .rightControls {
-    gap: 8px;
+    gap: 6px;
   }
 }

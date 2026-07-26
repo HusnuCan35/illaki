@@ -10,11 +10,13 @@ import {
   useMessageStore, useSpaceStore, useIdentityStore,
   usePeerStore, useUIStore,
 } from '../stores';
-import { sendEncryptedMessage, subscribeToMessages, uploadMedia } from '../lib/firestore';
+import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel } from '../lib/firestore';
 import { processMediaFile, formatFileSize } from '../lib/mediaProcessor';
 import EmojiPicker from 'emoji-picker-react';
 import { UserProfileModal } from './UserProfileModal';
 import { CameraGrid } from './CameraGrid';
+import { DiceRoller } from './DiceRoller';
+import { DuelModal } from './DuelModal';
 import styles from './ChatArea.module.css';
 
 // Format timestamp
@@ -480,26 +482,25 @@ export function ChatArea({
     }
   };
 
-  // Dinle: Kendi timeout durumumuz
+  const [showDiceRoller, setShowDiceRoller] = useState(false);
+  const [diceValue, setDiceValue] = useState(6);
+  const [duels, setDuels] = useState([]);
+  const [activeDuel, setActiveDuel] = useState(null);
+
+  // Duels dinleyicisi
   useEffect(() => {
     if (!activeSpaceId || !identity?.uid) return;
-    import('../lib/firestore').then(({ subscribeToMembers }) => {
-      const unsub = subscribeToMembers(activeSpaceId, (members) => {
-        const me = members.find(m => m.uid === identity.uid);
-        if (me?.timeoutUntil && me.timeoutUntil > Date.now()) {
-          const remainingSec = Math.ceil((me.timeoutUntil - Date.now()) / 1000);
-          setMyTimeoutInfo({
-            until: me.timeoutUntil,
-            reason: me.timeoutReason || 'Sebep belirtilmedi.',
-            by: me.timeoutBy || 'Yönetici',
-            remainingMinutes: Math.ceil(remainingSec / 60)
-          });
-        } else {
-          setMyTimeoutInfo(null);
-        }
-      });
-      return () => unsub();
+    const unsub = subscribeToDuels(activeSpaceId, (dList) => {
+      setDuels(dList);
+      const pendingOrAccepted = dList.find(d => 
+        (d.opponentUid === identity.uid && d.status === 'pending') ||
+        ((d.challengerUid === identity.uid || d.opponentUid === identity.uid) && d.status === 'accepted' && !(identity.uid === d.challengerUid ? d.challengerChoice : d.opponentChoice))
+      );
+      if (pendingOrAccepted) {
+        setActiveDuel(pendingOrAccepted);
+      }
     });
+    return () => unsub();
   }, [activeSpaceId, identity?.uid]);
 
   // Firebase real-time mesaj dinleyicisi
@@ -574,6 +575,8 @@ export function ChatArea({
           const roll = Math.floor(Math.random() * 6) + 1;
           pointsAwarded = roll * 10;
           gameResult = `🎲 Zar attı ve **${roll}** geldi! (+${pointsAwarded} Puan)`;
+          setDiceValue(roll);
+          setShowDiceRoller(true);
         } else if (['/tas', '/kagit', '/makas'].includes(cmd)) {
           const choices = ['tas', 'kagit', 'makas'];
           const botChoice = choices[Math.floor(Math.random() * 3)];
@@ -923,6 +926,18 @@ export function ChatArea({
           onClose={() => setProfileModalUser(null)}
         />
       )}
+
+      <DiceRoller
+        isOpen={showDiceRoller}
+        value={diceValue}
+        onComplete={() => setShowDiceRoller(false)}
+      />
+
+      <DuelModal
+        isOpen={!!activeDuel}
+        duel={activeDuel}
+        onClose={() => setActiveDuel(null)}
+      />
 
       {/* Messages */}
       <main className={styles.messages} style={messagesStyle} role="log" aria-live="polite" aria-label="Mesajlar">

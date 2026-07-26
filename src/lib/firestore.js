@@ -1309,3 +1309,125 @@ export async function getPublicSpaces() {
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+
+// ────────────────────────────────────────────────────────────
+// Özel Rol & İzin Yönetimi (Custom Roles & Permissions)
+// ────────────────────────────────────────────────────────────
+
+export async function createCustomRole(spaceId, requesterUid, { name, color = '#FF7E20', permissions = {} }) {
+  const roleRef = doc(collection(db, 'spaces', spaceId, 'roles'));
+  await setDoc(roleRef, {
+    id: roleRef.id,
+    name: name.trim(),
+    color,
+    permissions: {
+      read_messages: permissions.read_messages ?? true,
+      send_messages: permissions.send_messages ?? true,
+      connect_voice: permissions.connect_voice ?? true,
+      manage_channels: permissions.manage_channels ?? false,
+      manage_roles: permissions.manage_roles ?? false,
+      kick_members: permissions.kick_members ?? false,
+      ban_members: permissions.ban_members ?? false,
+    },
+    createdAt: serverTimestamp(),
+  });
+  return roleRef.id;
+}
+
+export async function deleteCustomRole(spaceId, requesterUid, roleId) {
+  const roleRef = doc(db, 'spaces', spaceId, 'roles', roleId);
+  await deleteDoc(roleRef);
+}
+
+export async function updateCustomRole(spaceId, requesterUid, roleId, updates) {
+  const roleRef = doc(db, 'spaces', spaceId, 'roles', roleId);
+  await updateDoc(roleRef, updates);
+}
+
+export function subscribeToRoles(spaceId, onRoles) {
+  if (!spaceId) return () => {};
+  const q = collection(db, 'spaces', spaceId, 'roles');
+  return onSnapshot(q, (snap) => {
+    onRoles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// PvP Taş Kağıt Makas Düellosu (RPS Duels)
+// ────────────────────────────────────────────────────────────
+
+export async function createDuel(spaceId, challenger, opponent) {
+  const duelRef = doc(collection(db, 'spaces', spaceId, 'duels'));
+  const duelData = {
+    id: duelRef.id,
+    spaceId,
+    challengerUid: challenger.uid,
+    challengerName: challenger.username,
+    opponentUid: opponent.uid,
+    opponentName: opponent.username,
+    challengerChoice: null,
+    opponentChoice: null,
+    status: 'pending', // 'pending' | 'accepted' | 'declined' | 'completed'
+    winnerUid: null,
+    createdAt: Date.now(),
+  };
+  await setDoc(duelRef, duelData);
+  return duelRef.id;
+}
+
+export async function respondDuel(spaceId, duelId, accept) {
+  const duelRef = doc(db, 'spaces', spaceId, 'duels', duelId);
+  await updateDoc(duelRef, {
+    status: accept ? 'accepted' : 'declined',
+  });
+}
+
+export async function submitDuelChoice(spaceId, duelId, uid, choice) {
+  const duelRef = doc(db, 'spaces', spaceId, 'duels', duelId);
+  const snap = await getDoc(duelRef);
+  if (!snap.exists()) return;
+  const d = snap.data();
+
+  const isChallenger = uid === d.challengerUid;
+  const isOpponent = uid === d.opponentUid;
+
+  if (!isChallenger && !isOpponent) return;
+
+  const updates = {};
+  if (isChallenger) updates.challengerChoice = choice;
+  if (isOpponent) updates.opponentChoice = choice;
+
+  const nextChallengerChoice = isChallenger ? choice : d.challengerChoice;
+  const nextOpponentChoice = isOpponent ? choice : d.opponentChoice;
+
+  // İki oyuncu da seçim yaptıysa kazananı hesapla
+  if (nextChallengerChoice && nextOpponentChoice) {
+    updates.status = 'completed';
+    const c1 = nextChallengerChoice;
+    const c2 = nextOpponentChoice;
+    if (c1 === c2) {
+      updates.winnerUid = 'tie';
+    } else if (
+      (c1 === 'rock' && c2 === 'scissors') ||
+      (c1 === 'paper' && c2 === 'rock') ||
+      (c1 === 'scissors' && c2 === 'paper')
+    ) {
+      updates.winnerUid = d.challengerUid;
+    } else {
+      updates.winnerUid = d.opponentUid;
+    }
+  }
+
+  await updateDoc(duelRef, updates);
+}
+
+export function subscribeToDuels(spaceId, onDuels) {
+  if (!spaceId) return () => {};
+  const q = query(
+    collection(db, 'spaces', spaceId, 'duels'),
+    where('createdAt', '>=', Date.now() - 1000 * 60 * 10) // Son 10 dakika
+  );
+  return onSnapshot(q, (snap) => {
+    onDuels(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}

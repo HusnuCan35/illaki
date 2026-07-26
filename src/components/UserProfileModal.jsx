@@ -266,7 +266,32 @@ export function UserProfileModal({ isOpen, onClose, user }) {
 
           {/* Action buttons */}
           {!isEditing && (
-            <div className={styles.actions}>
+            <div className={styles.actions} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {!isSelf && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const { createDuel } = await import('../lib/firestore');
+                      const { activeSpaceId } = useSpaceStore.getState();
+                      if (!activeSpaceId) return;
+                      await createDuel(activeSpaceId, identity, { uid: targetUid, username: user.username });
+                      addToast({ type: 'success', message: `${user.username} kullanıcısına düello teklifi gönderildi!` });
+                      onClose();
+                    } catch (err) {
+                      addToast({ type: 'error', message: 'Düello daveti gönderilemedi.' });
+                    }
+                  }}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid rgba(255, 126, 32, 0.4)',
+                    background: 'rgba(255, 126, 32, 0.15)', color: '#FF7E20', fontWeight: '700', fontSize: '13px',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                  }}
+                >
+                  ⚔️ Taş-Kağıt-Makas Düellosu Daveti Et
+                </button>
+              )}
+
               {isSelf ? (
                 <span className={styles.selfLabel}>Bu Senin Profilin</span>
               ) : isFriend ? (

@@ -35,47 +35,67 @@ export function subscribeToMusic(spaceId, callback) {
 }
 
 /**
- * YouTube Linkinden Video ID'sini çıkarır
+ * Şarkı ismi ile arama yapar (YouTube / Invidious API)
  */
-function extractVideoId(url) {
-  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[7].length === 11) ? match[7] : false;
-}
-
-/**
- * YouTube Noembed API'den şarkı bilgisini alır
- */
-async function fetchVideoInfo(videoId) {
+export async function searchSongByName(query) {
+  if (!query || !query.trim()) return [];
   try {
-    const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+    const res = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=music_videos`);
     const data = await res.json();
-    return {
-      title: data.title || 'Bilinmeyen Şarkı',
-      thumbnail: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    };
-  } catch (error) {
-    return {
-      title: 'Bilinmeyen Şarkı',
-      thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    };
-  }
+    if (data && data.items && data.items.length > 0) {
+      return data.items.slice(0, 6).map(item => ({
+        videoId: item.url ? item.url.replace('/watch?v=', '') : '',
+        title: item.title,
+        thumbnail: item.thumbnail || `https://img.youtube.com/vi/${item.url.replace('/watch?v=', '')}/hqdefault.jpg`,
+        uploaderName: item.uploaderName || 'Müzik'
+      })).filter(i => i.videoId);
+    }
+  } catch (e) {}
+
+  try {
+    const res = await fetch(`https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return data.slice(0, 6).map(item => ({
+        videoId: item.videoId,
+        title: item.title,
+        thumbnail: item.videoThumbnails?.[0]?.url || `https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`,
+        uploaderName: item.author || 'Müzik'
+      }));
+    }
+  } catch (e) {}
+
+  return [];
 }
 
 /**
- * Şarkıyı sıraya ekler
+ * Şarkıyı sıraya ekler (Link veya Şarkı İsmi)
  */
-export async function addSongToQueue(spaceId, url, requestedBy) {
-  const videoId = extractVideoId(url);
-  if (!videoId) throw new Error("Geçersiz YouTube linki.");
+export async function addSongToQueue(spaceId, input, requestedBy) {
+  let videoId = extractVideoId(input);
+  let title = 'Bilinmeyen Şarkı';
+  let thumbnail = '';
 
-  const info = await fetchVideoInfo(videoId);
-  
+  if (videoId) {
+    const info = await fetchVideoInfo(videoId);
+    title = info.title;
+    thumbnail = info.thumbnail;
+  } else {
+    // Şarkı ismiyle arama yap
+    const results = await searchSongByName(input);
+    if (!results || results.length === 0) {
+      throw new Error("Şarkı bulunamadı. Lütfen tam şarkı ismini veya YouTube linkini girin.");
+    }
+    videoId = results[0].videoId;
+    title = results[0].title;
+    thumbnail = results[0].thumbnail;
+  }
+
   const song = {
-    id: videoId + '-' + Date.now(), // Kuyrukta aynı şarkı olabilir diye uniq id
+    id: videoId + '-' + Date.now(),
     videoId,
-    title: info.title,
-    thumbnail: info.thumbnail,
+    title,
+    thumbnail,
     requestedBy
   };
 
@@ -83,7 +103,6 @@ export async function addSongToQueue(spaceId, url, requestedBy) {
   const snap = await getDoc(ref);
   
   if (!snap.exists()) {
-    // İlk defa oluşturuluyor
     await setDoc(ref, {
       currentSong: song,
       queue: [],
@@ -105,6 +124,59 @@ export async function addSongToQueue(spaceId, url, requestedBy) {
         queue: [...(data.queue || []), song]
       });
     }
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Çalma Listeleri (Playlists)
+// ────────────────────────────────────────────────────────────
+
+export async function createPlaylist(spaceId, { name, songs = [], createdBy }) {
+  const plRef = doc(collection(db, 'spaces', spaceId, 'playlists'));
+  await setDoc(plRef, {
+    id: plRef.id,
+    name: name.trim(),
+    songs,
+    createdBy,
+    createdAt: Date.now(),
+  });
+  return plRef.id;
+}
+
+export function subscribeToPlaylists(spaceId, onPlaylists) {
+  if (!spaceId) return () => {};
+  const q = collection(db, 'spaces', spaceId, 'playlists');
+  return onSnapshot(q, (snap) => {
+    onPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export async function loadPlaylistToQueue(spaceId, songs, requestedBy) {
+  if (!songs || songs.length === 0) return;
+  const ref = getMusicStateRef(spaceId);
+  const snap = await getDoc(ref);
+  
+  const formattedSongs = songs.map(s => ({
+    id: s.videoId + '-' + Math.random().toString(36).substr(2, 9),
+    videoId: s.videoId,
+    title: s.title,
+    thumbnail: s.thumbnail || `https://img.youtube.com/vi/${s.videoId}/hqdefault.jpg`,
+    requestedBy
+  }));
+
+  if (!snap.exists() || !snap.data().currentSong) {
+    await setDoc(ref, {
+      currentSong: formattedSongs[0],
+      queue: formattedSongs.slice(1),
+      status: 'playing',
+      currentTime: 0,
+      updatedAt: getSyncedTime()
+    }, { merge: true });
+  } else {
+    const data = snap.data();
+    await updateDoc(ref, {
+      queue: [...(data.queue || []), ...formattedSongs]
+    });
   }
 }
 
