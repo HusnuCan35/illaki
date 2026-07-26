@@ -1,4 +1,4 @@
-import { Users, WifiOff, Crown, UserPlus, UserCheck, Shield } from 'lucide-react';
+import { Users, WifiOff, Crown, UserPlus, UserCheck, Shield, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePeerStore, useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { UserProfileModal } from './UserProfileModal';
@@ -79,7 +79,7 @@ function MemberItem({
   );
 }
 
-export function MembersPanel() {
+export function MembersPanel({ kickPeer, onClose }) {
   const { peers } = usePeerStore();
   const { activeSpaceId, getActiveSpace } = useSpaceStore();
   const { identity } = useIdentityStore();
@@ -124,6 +124,8 @@ export function MembersPanel() {
   // Firebase üyeleri ile PeerJS çevrimiçi üyeleri birleştir
   const peerEntries = Object.entries(peers).filter(([_, p]) => p.spaceCode === space?.code);
   
+  const isGenericName = (name) => !name || name === 'Kullanıcı' || name === 'Anonim' || name === 'Bağlanıyor...' || name === 'Katılımcı';
+
   const nowMs = Date.now();
   const mergedMembers = dbMembers.filter(m => m.uid !== identity?.uid).map(m => {
     const isPeerConnected = peerEntries.some(([pId, p]) => 
@@ -159,15 +161,18 @@ export function MembersPanel() {
   });
 
   peerEntries.forEach(([peerId, peer]) => {
-    const existing = mergedMembers.find(m => m.username === peer.username || m.uid === peerId);
+    const existing = mergedMembers.find(m => m.uid === peer.uid || m.username === peer.username || m.uid === peerId);
     if (existing) {
       existing.peerId = peerId;
       existing.status = 'online';
+      if (isGenericName(existing.username) && !isGenericName(peer.username)) {
+        existing.username = peer.username;
+      }
     } else {
       mergedMembers.push({
-        uid: peerId,
+        uid: peer.uid || peerId,
         peerId,
-        username: peer.username,
+        username: isGenericName(peer.username) ? 'Üye' : peer.username,
         avatarColor: peer.avatarColor,
         status: 'online',
         isHost: space?.hostPeerId === peerId,
@@ -206,6 +211,16 @@ export function MembersPanel() {
       <div className={styles.header}>
         <Users size={14} />
         <span>ÜYELER — {totalCount}</span>
+        {onClose && (
+          <button
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label="Üyeler panelini kapat"
+            title="Kapat"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <div className={styles.list} role="list" aria-label="Bağlı üyeler">

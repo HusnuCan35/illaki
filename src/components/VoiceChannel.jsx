@@ -37,9 +37,10 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   const { peers } = usePeerStore();
   const peerInfo = peers[peerId] || {};
   
-  const validPeerName = peerInfo.username && peerInfo.username !== 'Katılımcı' && peerInfo.username !== 'Anonim' ? peerInfo.username : null;
-  const validPartName = participant.username && participant.username !== 'Katılımcı' && participant.username !== 'Anonim' ? participant.username : null;
-  const displayName = isSelf ? participant.username : (validPartName || validPeerName || 'Katılımcı');
+  const isGeneric = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
+  const validPeerName = !isGeneric(peerInfo.username) ? peerInfo.username : null;
+  const validPartName = !isGeneric(participant.username) ? participant.username : null;
+  const displayName = isSelf ? (participant.username || 'Ben') : (validPartName || validPeerName || 'Üye');
   const displayColor = isSelf ? participant.avatarColor : (peerInfo.avatarColor || participant.avatarColor);
   
   const effectiveMute = isSelf ? isMuted : !!peerInfo.isMuted;

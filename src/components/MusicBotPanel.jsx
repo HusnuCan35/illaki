@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Play, Pause, Square, SkipForward, Music, Plus, Trash2, Volume2, Disc3 } from 'lucide-react';
+import { Play, Pause, Square, SkipForward, Music, Plus, Trash2, Volume2, Disc3, X } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { subscribeToMusic, addSongToQueue, playNextSong, updatePlaybackStatus, removeSongFromQueue } from '../lib/music';
 import styles from './MusicBotPanel.module.css';
 
-export function MusicBotPanel() {
+export function MusicBotPanel({ onClose }) {
   const { activeSpaceId } = useSpaceStore();
   const { identity } = useIdentityStore();
   const { musicVolume, setMusicVolume } = useUIStore();
@@ -66,6 +66,26 @@ export function MusicBotPanel() {
       <div className={styles.header}>
         <Music size={18} className={styles.headerIcon} />
         <h2>Müzik Botu</h2>
+        {onClose && (
+          <button
+            onClick={onClose}
+            title="Kapat"
+            aria-label="Kapat"
+            style={{
+              marginLeft: 'auto',
+              background: 'transparent',
+              border: 'none',
+              color: '#94A3B8',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: '6px',
+            }}
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <div className={styles.playerSection}>

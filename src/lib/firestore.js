@@ -70,8 +70,13 @@ export async function upsertUserProfile(uid, { username, avatarColor, photoURL =
     });
   } else {
     const existingData = snap.data();
+    const isGenericName = (name) => !name || name === 'Kullanıcı' || name === 'Anonim';
+    const resolvedUsername = isGenericName(existingData.username) && !isGenericName(username)
+      ? username
+      : (existingData.username || username);
+
     await updateDoc(userRef, {
-      username: existingData.username || username,
+      username: resolvedUsername,
       avatarColor: avatarColor || existingData.avatarColor,
       photoURL: photoURL !== undefined ? photoURL : existingData.photoURL,
       lastSeen: serverTimestamp(),
@@ -111,7 +116,31 @@ export async function updateUsername(uid, newUsername) {
   if (usernameStr.length < 2) throw new Error('Kullanıcı adı en az 2 karakter olmalıdır.');
   
   await updateDoc(doc(db, 'users', uid), { username: usernameStr });
+
+  // Katıldığı tüm space'lerdeki üye kaydını da güncelle
+  const userSnap = await getDoc(doc(db, 'users', uid));
+  const joinedSpaces = userSnap.data()?.joinedSpaces || [];
+  await Promise.all(
+    joinedSpaces.map(spaceId =>
+      updateDoc(doc(db, 'spaces', spaceId, 'members', uid), { username: usernameStr }).catch(() => {})
+    )
+  );
+
   return usernameStr;
+}
+
+/**
+ * Space üyesinin profil bilgilerini güncelle (giriş/katılım sırasında senkronizasyon)
+ */
+export async function syncMemberProfile(spaceId, uid, { username, avatarColor }) {
+  if (!spaceId || !uid) return;
+  try {
+    const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
+    const updates = { lastSeen: serverTimestamp() };
+    if (username) updates.username = username;
+    if (avatarColor) updates.avatarColor = avatarColor;
+    await updateDoc(memberRef, updates);
+  } catch {}
 }
 
 /**
@@ -243,8 +272,13 @@ export async function joinSpace(code, { uid, username }) {
   }
 
   if (memberSnap.exists()) {
-    // Zaten üye — sadece online yap
-    await updateDoc(memberRef, { online: true, lastSeen: serverTimestamp() });
+    // Zaten üye — online yap ve profil bilgilerini güncelle
+    await updateDoc(memberRef, {
+      online: true,
+      lastSeen: serverTimestamp(),
+      username,
+      avatarColor: (await getUserProfile(uid))?.avatarColor || memberSnap.data().avatarColor,
+    });
     return { spaceId, spaceData };
   }
 
@@ -515,10 +549,14 @@ export async function updateMemberRole(spaceId, hostUid, targetUid, newRole) {
 /**
  * Kullanıcının peer ID'sini üye belgesine yaz (ses kanalı keşfi için)
  */
-export async function updateMemberPeerId(spaceId, uid, peerId) {
+export async function updateMemberPeerId(spaceId, uid, peerId, profile = {}) {
+  if (!spaceId || !uid || !peerId) return;
   try {
     const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
-    await updateDoc(memberRef, { peerId, online: true, lastSeen: serverTimestamp() });
+    const updates = { peerId, online: true, lastSeen: serverTimestamp() };
+    if (profile.username) updates.username = profile.username;
+    if (profile.avatarColor) updates.avatarColor = profile.avatarColor;
+    await updateDoc(memberRef, updates);
   } catch {
     // Üye belgesi yoksa sessizce devam et
   }

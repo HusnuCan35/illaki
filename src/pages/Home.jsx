@@ -15,7 +15,7 @@ import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
 import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
-import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus } from '../lib/firestore';
+import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile } from '../lib/firestore';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -64,13 +64,27 @@ export function Home() {
 
     updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
 
+    // Profil bilgilerini senkronize et ve stale ses kanalı kaydını temizle
+    syncMemberProfile(activeSpaceId, identity.uid, {
+      username: identity.username,
+      avatarColor: identity.avatarColor,
+    });
+    if (!voice.isInVoice) {
+      updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
+      const { voiceChannelId, setVoiceChannelId } = usePeerStore.getState();
+      if (voiceChannelId) {
+        setVoiceChannelId(null);
+        broadcastVoiceStatus({ channelId: null, isMuted: false, isDeafened: false });
+      }
+    }
+
     const interval = setInterval(() => {
       updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
     }, 30000);
 
     const handleUnload = () => {
       updateMemberOnlineStatus(activeSpaceId, identity.uid, false);
-      if (usePeerStore.getState().voiceChannelId) {
+      if (!voice.isInVoice) {
         updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
       }
     };
@@ -81,11 +95,11 @@ export function Home() {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
       updateMemberOnlineStatus(activeSpaceId, identity.uid, false).catch(() => {});
-      if (usePeerStore.getState().voiceChannelId) {
+      if (!voice.isInVoice) {
         updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
       }
     };
-  }, [activeSpaceId, identity?.uid]);
+  }, [activeSpaceId, identity?.uid, identity?.username, identity?.avatarColor, voice.isInVoice, broadcastVoiceStatus]);
 
   // Real-time Ban & Membership check for current user in activeSpace
   useEffect(() => {
@@ -218,8 +232,12 @@ export function Home() {
       {rightPanel && <div className={styles.rightPanelOverlay} onClick={() => setRightPanel(null)} />}
 
       <div className={`${styles.rightPanels} ${rightPanel ? styles.rightPanelsOpen : ''}`}>
-        {activeSpaceId && rightPanel === 'members' && <MembersPanel kickPeer={kickPeer} />}
-        {activeSpaceId && rightPanel === 'music' && <MusicBotPanel />}
+        {activeSpaceId && rightPanel === 'members' && (
+          <MembersPanel kickPeer={kickPeer} onClose={() => setRightPanel(null)} />
+        )}
+        {activeSpaceId && rightPanel === 'music' && (
+          <MusicBotPanel onClose={() => setRightPanel(null)} />
+        )}
       </div>
 
       {/* Stream Viewer Modal / Fullscreen Stage */}

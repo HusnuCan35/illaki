@@ -4,7 +4,6 @@ import { updateMemberPeerId, getSpaceOnlineMembers, kickMemberFromVoice } from '
 
 /**
  * Peer ID formatı: "illaki-XXXXXXXX" (8 büyük harf/rakam)
- * Oda kodu = Peer ID'nin "illaki-" sonrasındaki kısmı.
  *
  * Akış:
  *  1. Uygulama açılır → initPeer() → random peer ID: "illaki-AB3K9PQM"
@@ -30,10 +29,13 @@ export function usePeer() {
   useEffect(() => {
     if (peerId && identity?.uid && spaces && spaces.length > 0) {
       spaces.forEach(space => {
-        updateMemberPeerId(space.id, identity.uid, peerId).catch(() => {});
+        updateMemberPeerId(space.id, identity.uid, peerId, {
+          username: identity.username,
+          avatarColor: identity.avatarColor,
+        }).catch(() => {});
       });
     }
-  }, [peerId, identity?.uid, spaces]);
+  }, [peerId, identity?.uid, identity?.username, identity?.avatarColor, spaces]);
 
   useEffect(() => { identityRef.current = identity; }, [identity]);
 
@@ -50,14 +52,15 @@ export function usePeer() {
       }
       case 'identity':
         updatePeer(fromPeerId, { 
+          uid: data.uid,
           username: data.username, 
           avatarColor: data.avatarColor,
-          voiceChannelId: data.voiceChannelId
+          voiceChannelId: data.voiceChannelId ?? null,
         });
         break;
       case 'voice-status':
         updatePeer(fromPeerId, { 
-          voiceChannelId: data.channelId,
+          voiceChannelId: data.channelId ?? null,
           isMuted: data.isMuted,
           isDeafened: data.isDeafened
         });
@@ -139,6 +142,7 @@ export function usePeer() {
                     });
                     conn.send({ 
                       type: 'identity', 
+                      uid: identityRef.current?.uid,
                       username: identityRef.current?.username, 
                       avatarColor: identityRef.current?.avatarColor,
                       voiceChannelId: usePeerStore.getState().voiceChannelId
@@ -197,6 +201,7 @@ export function usePeer() {
       // Kimliğimizi gönder
       conn.send({ 
         type: 'identity', 
+        uid: identityRef.current?.uid,
         username: identityRef.current?.username, 
         avatarColor: identityRef.current?.avatarColor,
         voiceChannelId: usePeerStore.getState().voiceChannelId
@@ -331,6 +336,7 @@ export function usePeer() {
       // Kimliğimizi ve ses durumumuzu gönder
       conn.send({ 
         type: 'identity', 
+        uid: identityRef.current?.uid,
         username: identityRef.current?.username, 
         avatarColor: identityRef.current?.avatarColor,
         voiceChannelId: usePeerStore.getState().voiceChannelId

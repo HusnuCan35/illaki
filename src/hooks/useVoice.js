@@ -216,12 +216,14 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           const videoTracks = remoteStream.getVideoTracks();
           const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
 
-          const peersStore = usePeerStore.getState();
-          const peerInfo = peersStore.peers[call.peer];
-          const username = call.metadata?.username || (peerInfo?.username !== 'Katılımcı' && peerInfo?.username !== 'Anonim' ? peerInfo?.username : null) || existing.username || 'Katılımcı';
+          const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
+          const metaName = !isGenericName(call.metadata?.username) ? call.metadata.username : null;
+          const peerName = !isGenericName(peerInfo?.username) ? peerInfo.username : null;
+          const existName = !isGenericName(existing.username) ? existing.username : null;
+          const username = metaName || peerName || existName || 'Üye';
           const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || existing.avatarColor;
 
-          if (username !== 'Katılımcı') {
+          if (!isGenericName(username)) {
             peersStore.updatePeer(call.peer, {
               username,
               avatarColor,
@@ -379,12 +381,13 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
             const videoTracks = remoteStream.getVideoTracks();
             const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
             
-            const peersStore = usePeerStore.getState();
-            const peerInfo = peersStore.peers[pId];
-            const username = (peerInfo?.username !== 'Katılımcı' && peerInfo?.username !== 'Anonim' ? peerInfo?.username : null) || existing.username || 'Katılımcı';
+            const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
+            const peerName = !isGenericName(peerInfo?.username) ? peerInfo.username : null;
+            const existName = !isGenericName(existing.username) ? existing.username : null;
+            const username = peerName || existName || 'Üye';
             const avatarColor = peerInfo?.avatarColor || existing.avatarColor;
 
-            if (username !== 'Katılımcı') {
+            if (!isGenericName(username)) {
               peersStore.updatePeer(pId, {
                 username,
                 avatarColor,

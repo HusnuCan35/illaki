@@ -317,22 +317,38 @@ export function ChannelSidebar({
                 });
               }
 
-              // 2. Real-time Firestore üyelerini ekle (kullanıcı daha sese girmeden sestedekileri anlık görsün)
+              // 2. Real-time Firestore üyelerini ekle (sadece gerçekten çevrimiçi ve seste olanlar)
+              const nowMs = Date.now();
               (dbMembers || []).forEach(m => {
-                if (m.voiceChannelId === channel.id && (m.online || (Date.now() - (m.lastSeen?.toMillis?.() || 0) < 60000))) {
-                  const peerMatch = Object.values(peers).find(p => p.uid === m.uid || p.username === m.username);
-                  const isMe = m.uid === identity?.uid;
-                  
-                  if (!participantsMap.has(m.uid)) {
-                    participantsMap.set(m.uid, {
-                      id: m.peerId || m.uid,
-                      uid: m.uid,
-                      username: isMe ? `${m.username} (Sen)` : (m.username || peerMatch?.username || 'Üye'),
-                      avatarColor: m.avatarColor || peerMatch?.avatarColor,
-                      isSelf: isMe,
-                      status: 'online',
-                    });
+                const isMe = m.uid === identity?.uid;
+                // Kendimiz için yerel store ses kanalını kontrol et — eğer yerel olarak seste değilsek seste gösterme
+                if (isMe) {
+                  if (voiceChannelId !== channel.id) return;
+                } else {
+                  let lastSeenMs = 0;
+                  if (m.lastSeen) {
+                    if (typeof m.lastSeen.toMillis === 'function') lastSeenMs = m.lastSeen.toMillis();
+                    else if (typeof m.lastSeen.seconds === 'number') lastSeenMs = m.lastSeen.seconds * 1000;
+                    else if (typeof m.lastSeen === 'number') lastSeenMs = m.lastSeen;
                   }
+                  const isRecent = lastSeenMs > 0 ? (nowMs - lastSeenMs < 60000) : false;
+                  if (m.voiceChannelId !== channel.id || !m.online || !isRecent) return;
+                }
+
+                const peerMatch = Object.values(peers).find(p => p.uid === m.uid || p.username === m.username);
+                const resolvedName = m.username || peerMatch?.username;
+                const isGeneric = !resolvedName || resolvedName === 'Katılımcı' || resolvedName === 'Anonim' || resolvedName === 'Kullanıcı' || resolvedName === 'Bağlanıyor...';
+                const finalName = isGeneric ? 'Üye' : resolvedName;
+                
+                if (!participantsMap.has(m.uid)) {
+                  participantsMap.set(m.uid, {
+                    id: m.peerId || m.uid,
+                    uid: m.uid,
+                    username: isMe ? `${identity?.username || finalName} (Sen)` : finalName,
+                    avatarColor: m.avatarColor || peerMatch?.avatarColor,
+                    isSelf: isMe,
+                    status: 'online',
+                  });
                 }
               });
 
@@ -340,14 +356,20 @@ export function ChannelSidebar({
               Object.entries(peers).forEach(([pId, p]) => {
                 if (p.voiceChannelId === channel.id) {
                   const key = p.uid || pId;
+                  const dbMatch = dbMembers.find(m => m.uid === p.uid || m.username === p.username);
+                  const resolvedName = dbMatch?.username || p.username;
+                  const isGeneric = !resolvedName || resolvedName === 'Katılımcı' || resolvedName === 'Anonim' || resolvedName === 'Kullanıcı' || resolvedName === 'Bağlanıyor...';
+                  
                   if (!participantsMap.has(key)) {
                     const isMe = p.uid === identity?.uid;
-                    const nameToShow = (p.username && p.username !== 'Katılımcı' && p.username !== 'Anonim') ? p.username : 'Üye';
+                    if (isMe && voiceChannelId !== channel.id) return;
+
+                    const nameToShow = isGeneric ? (dbMatch?.username || 'Üye') : resolvedName;
                     participantsMap.set(key, {
                       id: pId,
                       uid: p.uid || pId,
-                      username: isMe ? `${nameToShow} (Sen)` : nameToShow,
-                      avatarColor: p.avatarColor,
+                      username: isMe ? `${identity?.username || nameToShow} (Sen)` : nameToShow,
+                      avatarColor: p.avatarColor || dbMatch?.avatarColor,
                       isSelf: isMe,
                       status: 'online',
                     });
