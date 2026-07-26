@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useUIStore, useIdentityStore, usePeerStore, useSpaceStore } from '../stores';
 import { getSpaceOnlineMembers, updateMemberVoiceStatus } from '../lib/firestore';
-import { playSelfJoinVoice, playUserJoinVoice, playUserLeaveVoice, playCamOn, playCamOff } from '../lib/soundEffects';
+import { playSelfJoinVoice, playUserJoinVoice, playUserLeaveVoice, playCamOn, playCamOff, playMuteOn, playMuteOff, playDeafenOn, playDeafenOff } from '../lib/soundEffects';
 
 /**
  * useVoice — HD WebRTC Sesli + Görüntülü Görüşme
@@ -474,6 +474,9 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         if (track) track.enabled = !nextMute;
       }
       
+      if (nextMute) playMuteOn();
+      else playMuteOff();
+
       const { voiceChannelId } = usePeerStore.getState();
       if (broadcastVoiceStatus && voiceChannelId) {
         broadcastVoiceStatus({ channelId: voiceChannelId, isMuted: nextMute, isDeafened });
@@ -491,6 +494,9 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         const audio = document.getElementById(`audio-${peerId}`);
         if (audio) audio.volume = next ? 0 : 1;
       });
+
+      if (next) playDeafenOn();
+      else playDeafenOff();
       
       const { voiceChannelId } = usePeerStore.getState();
       if (broadcastVoiceStatus && voiceChannelId) {

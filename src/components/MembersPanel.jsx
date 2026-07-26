@@ -1,4 +1,4 @@
-import { Users, WifiOff, Crown, UserPlus, UserCheck } from 'lucide-react';
+import { Users, WifiOff, Crown, UserPlus, UserCheck, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePeerStore, useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { UserProfileModal } from './UserProfileModal';
@@ -18,14 +18,14 @@ function MemberItem({
 
   return (
     <div 
-      className={styles.member} 
+      className={`${styles.member} ${peer.status === 'offline' ? styles.offlineMember : ''}`} 
       role="listitem"
       onClick={onClick}
       style={{ cursor: 'pointer' }}
     >
       <div
         className={styles.avatar}
-        style={{ background: peer.avatarColor || 'var(--accent)' }}
+        style={{ background: peer.avatarColor || '#FF7E20' }}
         aria-hidden="true"
       >
         {initial}
@@ -37,16 +37,16 @@ function MemberItem({
           {peer.username || 'Anonim'}
           {isSelf && <span className={styles.selfTag}>sen</span>}
           {!isSelf && peer.status === 'offline' && (
-            <span className={styles.selfTag} style={{ background: 'var(--bg-modifier-hover)' }}>çevrimdışı</span>
+            <span className={styles.selfTag} style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#64748B' }}>çevrimdışı</span>
           )}
         </span>
         <span className={styles.sub}>
           {peer.role === 'host' ? (
-            <span style={{ color: '#faa61a' }}><Crown size={10} /> Kurucu</span>
-          ) : peer.role === 'mod' ? (
-            <span style={{ color: '#43b581' }}>Moderatör</span>
+            <span style={{ color: '#FAA61A', display: 'flex', alignItems: 'center', gap: 3 }}><Crown size={10} /> Kurucu</span>
           ) : peer.role === 'admin' ? (
-            <span style={{ color: '#3B82F6' }}>Yönetici</span>
+            <span style={{ color: '#3B82F6', display: 'flex', alignItems: 'center', gap: 3 }}><Shield size={10} /> Yönetici</span>
+          ) : peer.role === 'mod' ? (
+            <span style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: 3 }}><Shield size={10} /> Moderatör</span>
           ) : (
             'Üye'
           )}
@@ -64,7 +64,7 @@ function MemberItem({
             className={styles.addFriendBtn}
             onClick={() => onAddFriend(peer.uid)}
             title="Arkadaş Ekle"
-            style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '6px' }}
+            style={{ background: 'transparent', border: 'none', color: '#FF7E20', cursor: 'pointer', padding: '6px' }}
           >
             <UserPlus size={15} />
           </button>
@@ -134,6 +134,8 @@ export function MembersPanel() {
       isHost: m.role === 'host',
       role: m.role || 'member',
       points: m.points || 0,
+      bio: m.bio || '',
+      banner: m.banner || '',
       timeoutUntil: m.timeoutUntil || null
     };
   });
@@ -157,11 +159,29 @@ export function MembersPanel() {
     }
   });
 
-  const onlineMembers = mergedMembers.filter(m => m.status === 'online');
+  const selfRole = space?.isHost ? 'host' : (dbMembers.find(m => m.uid === identity?.uid)?.role || 'member');
+  const selfPoints = dbMembers.find(m => m.uid === identity?.uid)?.points || 0;
+
+  const selfMember = {
+    uid: identity?.uid,
+    username: identity?.username || 'Ben',
+    avatarColor: identity?.avatarColor || '#FF7E20',
+    status: 'online',
+    role: selfRole,
+    points: selfPoints
+  };
+
+  const onlineOthers = mergedMembers.filter(m => m.status === 'online');
   const offlineMembers = mergedMembers.filter(m => m.status === 'offline');
-  const myMember = dbMembers.find(m => m.uid === identity?.uid);
-  const myPoints = myMember?.points || 0;
-  const totalCount = mergedMembers.length + 1; // +1 for self
+
+  // Rol bazlı gruplama
+  const onlineHosts = [selfMember, ...onlineOthers].filter(m => m.role === 'host');
+  const onlineAdmins = [selfMember, ...onlineOthers].filter(m => m.role === 'admin');
+  const onlineMods = [selfMember, ...onlineOthers].filter(m => m.role === 'mod');
+  const onlineNormal = [selfMember, ...onlineOthers].filter(m => m.role !== 'host' && m.role !== 'admin' && m.role !== 'mod');
+
+  const totalOnlineCount = 1 + onlineOthers.length;
+  const totalCount = mergedMembers.length + 1;
 
   return (
     <aside className={styles.panel} aria-label="Üyeler">
@@ -171,52 +191,94 @@ export function MembersPanel() {
       </div>
 
       <div className={styles.list} role="list" aria-label="Bağlı üyeler">
-        {/* Çevrim İçi Başlığı */}
-        <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '8px 8px 4px', letterSpacing: '0.05em' }}>
-          ÇEVRİMİÇİ — {onlineMembers.length + 1}
+        <div className={styles.sectionHeaderTitle}>
+          ÇEVRİMİÇİ — {totalOnlineCount}
         </div>
 
-        {/* Kendimiz */}
-        <MemberItem
-          peer={{
-            uid: identity?.uid,
-            username: identity?.username || 'Ben',
-            avatarColor: identity?.avatarColor,
-            status: 'online',
-            role: space?.isHost ? 'host' : (myMember?.role || 'member'),
-            points: myPoints
-          }}
-          isSelf
-          isFriend={false}
-          onClick={() => setSelectedUser({
-            uid: identity?.uid,
-            username: identity?.username || 'Ben',
-            avatarColor: identity?.avatarColor,
-            status: 'online',
-            role: space?.isHost ? 'host' : (myMember?.role || 'member'),
-            points: myPoints
-          })}
-        />
-
-        {/* Online Diğer Katılımcılar */}
-        {onlineMembers.map((m) => (
-          <MemberItem
-            key={m.uid}
-            peer={m}
-            isSelf={false}
-            isFriend={isUserFriend(m.uid)}
-            onAddFriend={handleAddFriend}
-            onClick={() => setSelectedUser(m)}
-          />
-        ))}
-
-        {/* Çevrim Dışı Başlığı */}
-        {offlineMembers.length > 0 && (
-          <>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '16px 8px 4px', letterSpacing: '0.05em' }}>
-              ÇEVRİMDIŞI — {offlineMembers.length}
+        {/* 👑 KURUCULAR */}
+        {onlineHosts.length > 0 && (
+          <div className={styles.roleGroup}>
+            <div className={styles.roleHeader} style={{ color: '#FAA61A' }}>
+              👑 KURUCU — {onlineHosts.length}
             </div>
+            {onlineHosts.map((m) => (
+              <MemberItem
+                key={m.uid}
+                peer={m}
+                isSelf={m.uid === identity?.uid}
+                isFriend={m.uid !== identity?.uid && isUserFriend(m.uid)}
+                onAddFriend={handleAddFriend}
+                onClick={() => setSelectedUser(m)}
+              />
+            ))}
+          </div>
+        )}
 
+        {/* 🛡️ YÖNETİCİLER */}
+        {onlineAdmins.length > 0 && (
+          <div className={styles.roleGroup}>
+            <div className={styles.roleHeader} style={{ color: '#3B82F6' }}>
+              🛡️ YÖNETİCİLER — {onlineAdmins.length}
+            </div>
+            {onlineAdmins.map((m) => (
+              <MemberItem
+                key={m.uid}
+                peer={m}
+                isSelf={m.uid === identity?.uid}
+                isFriend={m.uid !== identity?.uid && isUserFriend(m.uid)}
+                onAddFriend={handleAddFriend}
+                onClick={() => setSelectedUser(m)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 🛡️ MODERATÖRLER */}
+        {onlineMods.length > 0 && (
+          <div className={styles.roleGroup}>
+            <div className={styles.roleHeader} style={{ color: '#10B981' }}>
+              🛡️ MODERATÖRLER — {onlineMods.length}
+            </div>
+            {onlineMods.map((m) => (
+              <MemberItem
+                key={m.uid}
+                peer={m}
+                isSelf={m.uid === identity?.uid}
+                isFriend={m.uid !== identity?.uid && isUserFriend(m.uid)}
+                onAddFriend={handleAddFriend}
+                onClick={() => setSelectedUser(m)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 👤 ÇEVRİMİÇİ ÜYELER */}
+        {onlineNormal.length > 0 && (
+          <div className={styles.roleGroup}>
+            { (onlineHosts.length > 0 || onlineAdmins.length > 0 || onlineMods.length > 0) && (
+              <div className={styles.roleHeader} style={{ color: '#94A3B8' }}>
+                👤 ÜYELER — {onlineNormal.length}
+              </div>
+            )}
+            {onlineNormal.map((m) => (
+              <MemberItem
+                key={m.uid}
+                peer={m}
+                isSelf={m.uid === identity?.uid}
+                isFriend={m.uid !== identity?.uid && isUserFriend(m.uid)}
+                onAddFriend={handleAddFriend}
+                onClick={() => setSelectedUser(m)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ⚪ ÇEVRİMDİŞİ ÜYELER */}
+        {offlineMembers.length > 0 && (
+          <div className={styles.roleGroup} style={{ marginTop: '16px' }}>
+            <div className={styles.sectionHeaderTitle}>
+              ÇEVRİMDİŞİ — {offlineMembers.length}
+            </div>
             {offlineMembers.map((m) => (
               <MemberItem
                 key={m.uid}
@@ -227,7 +289,7 @@ export function MembersPanel() {
                 onClick={() => setSelectedUser(m)}
               />
             ))}
-          </>
+          </div>
         )}
 
         {mergedMembers.length === 0 && (

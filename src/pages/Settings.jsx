@@ -3,7 +3,8 @@ import { User, Mic, Info, Check, ChevronRight, Shield, Palette, Camera } from 'l
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useIdentityStore, useUIStore } from '../stores';
-import { uploadAvatar, updateCustomId, updateUsername } from '../lib/firestore';
+import { uploadAvatar, updateCustomId, updateUsername, updateUserProfileDetails } from '../lib/firestore';
+import { PRESET_BANNERS } from '../components/UserProfileModal';
 import styles from './Settings.module.css';
 
 const SECTIONS = [
@@ -31,6 +32,9 @@ export function SettingsModal({ isOpen, onClose }) {
   const [section, setSection] = useState('profile');
   const [username, setUsername] = useState(identity?.username || '');
   const [customId, setCustomId] = useState(identity?.customId || '');
+  const [bio, setBio] = useState(identity?.bio || '');
+  const [banner, setBanner] = useState(identity?.banner || 'tr_flag');
+  const [customBannerUrl, setCustomBannerUrl] = useState(identity?.banner?.startsWith('http') ? identity.banner : '');
   const [accentColor, setAccentColor] = useState(
     getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7e20'
   );
@@ -57,6 +61,8 @@ export function SettingsModal({ isOpen, onClose }) {
     setUploading(true);
     let finalCustomId = customId;
     let finalUsername = username.trim();
+    const finalBanner = banner === 'custom' ? customBannerUrl.trim() : banner;
+
     try {
       if (customId.trim() !== identity?.customId) {
         finalCustomId = await updateCustomId(identity.uid, customId);
@@ -64,7 +70,20 @@ export function SettingsModal({ isOpen, onClose }) {
       if (finalUsername !== identity?.username) {
         finalUsername = await updateUsername(identity.uid, finalUsername);
       }
-      setIdentity({ ...identity, username: finalUsername, customId: finalCustomId });
+
+      await updateUserProfileDetails(identity.uid, {
+        bio: bio.trim(),
+        banner: finalBanner,
+      });
+
+      setIdentity({
+        ...identity,
+        username: finalUsername,
+        customId: finalCustomId,
+        bio: bio.trim(),
+        banner: finalBanner,
+      });
+
       document.documentElement.style.setProperty('--accent', accentColor);
       document.documentElement.style.setProperty('--accent-dark', accentColor + 'cc');
       setSaved(true);
@@ -190,6 +209,73 @@ export function SettingsModal({ isOpen, onClose }) {
                   className={styles.input}
                 />
                 <span className={styles.hint}>Sadece küçük harf, rakam ve nokta/tire/alt çizgi içerebilir. Arkadaşların seni bu ID ile ekleyebilir.</span>
+              </div>
+
+              <div className={styles.field} style={{ marginTop: '16px' }}>
+                <label htmlFor="settings-bio" className={styles.label}>Hakkımda / Profil Açıklaması</label>
+                <textarea
+                  id="settings-bio"
+                  value={bio}
+                  onChange={e => setBio(e.target.value)}
+                  maxLength={250}
+                  rows={3}
+                  placeholder="Kendinden bahset..."
+                  className={styles.input}
+                  style={{ resize: 'vertical', minHeight: '60px' }}
+                />
+                <span className={styles.hint}>{bio.length}/250 karakter</span>
+              </div>
+
+              <div className={styles.field} style={{ marginTop: '16px' }}>
+                <label className={styles.label}>Profil Arka Planı (Banner)</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                  {PRESET_BANNERS.map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: banner === b.id ? '2px solid #FF7E20' : '1px solid rgba(255,255,255,0.15)',
+                        background: banner === b.id ? 'rgba(255,126,32,0.15)' : 'rgba(255,255,255,0.06)',
+                        color: banner === b.id ? '#FF7E20' : '#CBD5E1',
+                        fontSize: '12px',
+                        fontWeight: banner === b.id ? '700' : '500',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setBanner(b.id)}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: banner === 'custom' ? '2px solid #FF7E20' : '1px solid rgba(255,255,255,0.15)',
+                      background: banner === 'custom' ? 'rgba(255,126,32,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: banner === 'custom' ? '#FF7E20' : '#CBD5E1',
+                      fontSize: '12px',
+                      fontWeight: banner === 'custom' ? '700' : '500',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setBanner('custom')}
+                  >
+                    🔗 Özel URL
+                  </button>
+                </div>
+
+                {banner === 'custom' && (
+                  <input
+                    type="url"
+                    value={customBannerUrl}
+                    onChange={e => setCustomBannerUrl(e.target.value)}
+                    placeholder="https://gorsel-linki.com/banner.jpg"
+                    className={styles.input}
+                    style={{ marginTop: '8px' }}
+                  />
+                )}
               </div>
             </div>
           )}
