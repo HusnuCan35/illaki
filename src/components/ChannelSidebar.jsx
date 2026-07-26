@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2, UserMinus } from 'lucide-react';
+import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2, UserMinus, Link2 } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, usePeerStore, useUIStore } from '../stores';
 import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace, subscribeToFriends, inviteFriendToServer, getFriends } from '../lib/firestore';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CreateChannelModal, ChannelSettingsModal } from './ChannelModals';
 import { LogoutModal } from './LogoutModal';
+import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
 import styles from './ChannelSidebar.module.css';
 
 // Avatar Component
@@ -483,7 +485,12 @@ export function ChannelSidebar({
 function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
   const [friends, setFriends] = useState([]);
   const [invitedIds, setInvitedIds] = useState([]);
-  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const { addToast } = useUIStore();
+
   useEffect(() => {
     if (!isOpen || !identity?.uid) return;
     const unsub = subscribeToFriends(identity.uid, setFriends);
@@ -500,43 +507,193 @@ function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
         activeSpace.code
       );
       setInvitedIds(prev => [...prev, friendUid]);
+      addToast({ type: 'success', message: 'Davet başarıyla gönderildi.' });
     } catch (err) {
-      useUIStore.getState().addToast({ type: 'error', message: err.message });
+      addToast({ type: 'error', message: err.message });
     }
   };
 
-  if (!isOpen) return null;
+  const copyCode = async () => {
+    if (!activeSpace?.code) return;
+    await navigator.clipboard.writeText(activeSpace.code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+    addToast({ type: 'success', message: 'Sunucu davet kodu kopyalandı!' });
+  };
+
+  const copyLink = async () => {
+    if (!activeSpace?.code) return;
+    const link = `${window.location.origin}/?join=${activeSpace.code}`;
+    await navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+    addToast({ type: 'success', message: 'Sunucu davet bağlantısı kopyalandı!' });
+  };
+
+  const filteredFriends = friends.filter(f => 
+    f.username?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.modalContent} style={{ width: '400px' }}>
-        <h3>Arkadaşlarını Davet Et</h3>
-        <p style={{ color: '#8b929a', fontSize: '14px', marginBottom: '16px' }}>
-          <b>{activeSpace.name}</b> sunucusuna katılmaları için arkadaşlarına davet gönder.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-          {friends.map(friend => {
-            const isInvited = invitedIds.includes(friend.uid);
-            return (
-              <div key={friend.uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0B0C10', padding: '12px', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: friend.avatarColor || '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>
-                    {friend.username?.charAt(0).toUpperCase()}
-                  </div>
-                  <span style={{ color: '#fff' }}>{friend.username}</span>
-                </div>
-                <button 
-                  style={{ background: isInvited ? '#2a2a2d' : '#66FCF1', color: isInvited ? '#8b929a' : '#0B0C10', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', cursor: isInvited ? 'default' : 'pointer' }}
-                  onClick={() => !isInvited && handleInvite(friend.uid)}
-                  disabled={isInvited}
-                >
-                  {isInvited ? 'Davet Edildi' : 'Davet Et'}
-                </button>
+    <Modal isOpen={isOpen} onClose={onClose} title="Arkadaşlarını Sunucuya Davet Et">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Sunucu Başlık Bannerı */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '12px 16px',
+          background: 'rgba(15, 23, 42, 0.8)',
+          border: '1px solid rgba(255, 126, 32, 0.3)',
+          borderRadius: '12px',
+        }}>
+          <div style={{
+            fontSize: '24px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            background: 'rgba(255,126,32,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            {activeSpace?.icon || '💬'}
+          </div>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '15px', color: '#FFF', fontWeight: 700 }}>{activeSpace?.name || 'Sunucu'}</h4>
+            <span style={{ fontSize: '12px', color: '#94A3B8' }}>{activeSpace?.description || 'Topluluğuna arkadaşlarını dahil et!'}</span>
+          </div>
+        </div>
+
+        {/* Davet Kodu & Bağlantı Kutusu */}
+        <div>
+          <label style={{ fontSize: '11px', fontWeight: 700, color: '#CBD5E1', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>
+            SUNUCU DAVET BAĞLANTISI & KODU
+          </label>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              background: '#090A0F',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '8px',
+              padding: '0 12px',
+              color: '#FF7E20',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              fontWeight: 700,
+              letterSpacing: '1px'
+            }}>
+              {activeSpace?.code || 'KOD-YOK'}
+            </div>
+            <Button type="button" onClick={copyCode} style={{ padding: '8px 12px', fontSize: '12px' }}>
+              {copiedCode ? <Check size={16} /> : <Copy size={16} />}
+              {copiedCode ? 'Kopyalandı' : 'Kodu Kopyala'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={copyLink} style={{ padding: '8px 12px', fontSize: '12px' }}>
+              {copiedLink ? <Check size={16} /> : <Link2 size={16} />}
+              {copiedLink ? 'Kopyalandı' : 'Bağlantı'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Arkadaşlarım Arama & Listeleme */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#CBD5E1', letterSpacing: '0.05em' }}>
+              DOĞRUDAN ARKADAŞLARINA GÖNDER ({friends.length})
+            </label>
+          </div>
+
+          {friends.length > 5 && (
+            <input
+              type="text"
+              placeholder="Arkadaş ara..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: '#090A0F',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: '#FFF',
+                fontSize: '12px',
+                marginBottom: '10px'
+              }}
+            />
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
+            {filteredFriends.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#94A3B8', fontSize: '12px' }}>
+                {friends.length === 0 ? 'Henüz arkadaş listen boş. Davet kodunu kopyalayıp arkadaşına gönderebilirsin!' : 'Eşleşen arkadaş bulunamadı.'}
               </div>
-            );
-          })}
+            ) : (
+              filteredFriends.map(friend => {
+                const isInvited = invitedIds.includes(friend.uid);
+                return (
+                  <div
+                    key={friend.uid}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRadius: '10px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        background: friend.avatarColor || '#3B82F6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#FFF',
+                        fontSize: '14px',
+                        fontWeight: 700
+                      }}>
+                        {friend.username?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span style={{ fontWeight: 600, color: '#FFF', fontSize: '13px', display: 'block' }}>{friend.username}</span>
+                        <span style={{ fontSize: '11px', color: '#10B981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                          Çevrimiçi
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => !isInvited && handleInvite(friend.uid)}
+                      disabled={isInvited}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: isInvited ? 'default' : 'pointer',
+                        background: isInvited ? 'rgba(255, 255, 255, 0.08)' : 'var(--accent, #FF7E20)',
+                        color: isInvited ? '#94A3B8' : '#FFF',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {isInvited ? '✓ Davet Edildi' : 'Davet Et'}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
