@@ -223,6 +223,36 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           attachAudio(audioOnlyStream, call.peer);
         }
 
+        const updateVideoStream = () => {
+          const videoTracks = remoteStream.getVideoTracks();
+          const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : null;
+          setVoiceParticipants(prev => ({
+            ...prev,
+            [call.peer]: {
+              ...(prev[call.peer] || {}),
+              videoStream,
+            }
+          }));
+        };
+
+        remoteStream.onaddtrack = updateVideoStream;
+        remoteStream.onremovetrack = updateVideoStream;
+
+        if (call.peerConnection) {
+          call.peerConnection.ontrack = (event) => {
+            if (event.track?.kind === 'video') {
+              const stream = event.streams[0] || new MediaStream([event.track]);
+              setVoiceParticipants(prev => ({
+                ...prev,
+                [call.peer]: {
+                  ...(prev[call.peer] || {}),
+                  videoStream: stream,
+                }
+              }));
+            }
+          };
+        }
+
         // Video track'leri varsa katılımcı state'ini güncelle
         setVoiceParticipants(prev => {
           const existing = prev[call.peer] || {};
@@ -234,7 +264,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           const metaName = !isGenericName(call.metadata?.username) ? call.metadata.username : null;
           const peerName = !isGenericName(peerInfo?.username) ? peerInfo.username : null;
           const existName = !isGenericName(existing.username) ? existing.username : null;
-          const username = metaName || peerName || existName || 'Üye';
+          const username = metaName || peerName || existName || 'Kullanıcı';
           const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || existing.avatarColor;
 
           if (!isGenericName(username)) {
@@ -390,6 +420,37 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           if (audioTracks.length > 0) {
             attachAudio(new MediaStream(audioTracks), pId);
           }
+
+          const updateVideoStream = () => {
+            const videoTracks = remoteStream.getVideoTracks();
+            const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : null;
+            setVoiceParticipants(prev => ({
+              ...prev,
+              [pId]: {
+                ...(prev[pId] || {}),
+                videoStream,
+              }
+            }));
+          };
+
+          remoteStream.onaddtrack = updateVideoStream;
+          remoteStream.onremovetrack = updateVideoStream;
+
+          if (call.peerConnection) {
+            call.peerConnection.ontrack = (event) => {
+              if (event.track?.kind === 'video') {
+                const stream = event.streams[0] || new MediaStream([event.track]);
+                setVoiceParticipants(prev => ({
+                  ...prev,
+                  [pId]: {
+                    ...(prev[pId] || {}),
+                    videoStream: stream,
+                  }
+                }));
+              }
+            };
+          }
+
           setVoiceParticipants(prev => {
             const existing = prev[pId] || {};
             const peerInfo = usePeerStore.getState().peers[pId] || {};
@@ -399,7 +460,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
             const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
             const peerName = !isGenericName(peerInfo?.username) ? peerInfo.username : null;
             const existName = !isGenericName(existing.username) ? existing.username : null;
-            const username = peerName || existName || 'Üye';
+            const username = peerName || existName || 'Kullanıcı';
             const avatarColor = peerInfo?.avatarColor || existing.avatarColor;
 
             if (!isGenericName(username)) {

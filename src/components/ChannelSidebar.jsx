@@ -319,35 +319,27 @@ export function ChannelSidebar({
                 });
               }
 
-              // 2. Real-time Firestore üyelerini ekle (sadece gerçekten çevrimiçi ve seste olanlar)
-              const nowMs = Date.now();
+              // 2. Real-time Firestore üyelerini ekle (ses kanalında olan her üyeyi göster)
               (dbMembers || []).forEach(m => {
                 const isMe = m.uid === identity?.uid;
                 // Kendimiz için yerel store ses kanalını kontrol et — eğer yerel olarak seste değilsek seste gösterme
                 if (isMe) {
                   if (voiceChannelId !== channel.id) return;
                 } else {
-                  let lastSeenMs = 0;
-                  if (m.lastSeen) {
-                    if (typeof m.lastSeen.toMillis === 'function') lastSeenMs = m.lastSeen.toMillis();
-                    else if (typeof m.lastSeen.seconds === 'number') lastSeenMs = m.lastSeen.seconds * 1000;
-                    else if (typeof m.lastSeen === 'number') lastSeenMs = m.lastSeen;
-                  }
-                  const isRecent = lastSeenMs > 0 ? (nowMs - lastSeenMs < 60000) : false;
-                  if (m.voiceChannelId !== channel.id || !m.online || !isRecent) return;
+                  if (m.voiceChannelId !== channel.id) return;
                 }
 
                 const peerMatch = Object.values(peers).find(p => p.uid === m.uid || p.username === m.username);
-                const resolvedName = m.username || peerMatch?.username;
-                const isGeneric = !resolvedName || resolvedName === 'Katılımcı' || resolvedName === 'Anonim' || resolvedName === 'Kullanıcı' || resolvedName === 'Bağlanıyor...';
-                const finalName = isGeneric ? 'Üye' : resolvedName;
+                const rawName = m.username || peerMatch?.username || m.displayName;
+                const isGeneric = !rawName || rawName === 'Katılımcı' || rawName === 'Anonim' || rawName === 'Kullanıcı' || rawName === 'Bağlanıyor...' || rawName === 'Üye';
+                const finalName = isGeneric ? 'Kullanıcı' : rawName;
                 
                 if (!participantsMap.has(m.uid)) {
                   participantsMap.set(m.uid, {
                     id: m.peerId || m.uid,
                     uid: m.uid,
                     username: isMe ? `${identity?.username || finalName} (Sen)` : finalName,
-                    avatarColor: m.avatarColor || peerMatch?.avatarColor,
+                    avatarColor: m.avatarColor || peerMatch?.avatarColor || 'var(--accent)',
                     isSelf: isMe,
                     status: 'online',
                   });
@@ -359,19 +351,19 @@ export function ChannelSidebar({
                 if (p.voiceChannelId === channel.id) {
                   const key = p.uid || pId;
                   const dbMatch = dbMembers.find(m => m.uid === p.uid || m.username === p.username);
-                  const resolvedName = dbMatch?.username || p.username;
-                  const isGeneric = !resolvedName || resolvedName === 'Katılımcı' || resolvedName === 'Anonim' || resolvedName === 'Kullanıcı' || resolvedName === 'Bağlanıyor...';
+                  const rawName = dbMatch?.username || p.username;
+                  const isGeneric = !rawName || rawName === 'Katılımcı' || rawName === 'Anonim' || rawName === 'Kullanıcı' || rawName === 'Bağlanıyor...' || rawName === 'Üye';
                   
                   if (!participantsMap.has(key)) {
                     const isMe = p.uid === identity?.uid;
                     if (isMe && voiceChannelId !== channel.id) return;
 
-                    const nameToShow = isGeneric ? (dbMatch?.username || 'Üye') : resolvedName;
+                    const nameToShow = isGeneric ? 'Kullanıcı' : rawName;
                     participantsMap.set(key, {
                       id: pId,
                       uid: p.uid || pId,
                       username: isMe ? `${identity?.username || nameToShow} (Sen)` : nameToShow,
-                      avatarColor: p.avatarColor || dbMatch?.avatarColor,
+                      avatarColor: p.avatarColor || dbMatch?.avatarColor || 'var(--accent)',
                       isSelf: isMe,
                       status: 'online',
                     });
