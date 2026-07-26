@@ -235,6 +235,12 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   // ── Gelen Aramayı Cevapla ──────────────────────────────────────────────────
   const answerCall = useCallback(async (call) => {
     try {
+      // Eski call varsa kapat ve yenisiyle değiştir
+      if (callsRef.current[call.peer] && callsRef.current[call.peer] !== call) {
+        try { callsRef.current[call.peer].close(); } catch {}
+      }
+      callsRef.current[call.peer] = call;
+
       const audioStream = await getLocalStream();
 
       // Kamera açıksa video track'i de ekle
@@ -302,41 +308,36 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         }
 
         // Video track'leri varsa katılımcı state'ini güncelle
-        setVoiceParticipants(prev => {
-          const existing = prev[call.peer] || {};
-          const peerInfo = usePeerStore.getState().peers[call.peer] || {};
-          const videoTracks = remoteStream.getVideoTracks();
-          const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
+        const videoTracks = remoteStream.getVideoTracks();
+        const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : null;
 
-          const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
-          const metaName = !isGenericName(call.metadata?.username) ? call.metadata.username : null;
-          const peerName = !isGenericName(peerInfo?.username) ? peerInfo.username : null;
-          const existName = !isGenericName(existing.username) ? existing.username : null;
-          const username = metaName || peerName || existName || 'Kullanıcı';
-          const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || existing.avatarColor;
+        const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
+        const metaName = !isGenericName(call.metadata?.username) ? call.metadata.username : null;
+        const peerInfo = usePeerStore.getState().peers[call.peer] || {};
+        const peerName = !isGenericName(peerInfo?.username) ? peerInfo.username : null;
+        const username = metaName || peerName || 'Kullanıcı';
+        const avatarColor = call.metadata?.avatarColor || peerInfo?.avatarColor || '#3B82F6';
 
-          if (!isGenericName(username)) {
-            usePeerStore.getState().updatePeer(call.peer, {
-              username,
-              avatarColor,
-              voiceChannelId: usePeerStore.getState().voiceChannelId,
-            });
-          }
+        if (!isGenericName(username)) {
+          usePeerStore.getState().updatePeer(call.peer, {
+            username,
+            avatarColor,
+            voiceChannelId: usePeerStore.getState().voiceChannelId,
+          });
+        }
 
-          return {
-            ...prev,
-            [call.peer]: {
-              ...existing,
-              username,
-              avatarColor,
-              speaking: false,
-              videoStream,
-            },
-          };
-        });
+        setVoiceParticipants(prev => ({
+          ...prev,
+          [call.peer]: {
+            ...(prev[call.peer] || {}),
+            username,
+            avatarColor,
+            speaking: false,
+            videoStream: videoStream || prev[call.peer]?.videoStream || null,
+          },
+        }));
 
         playUserJoinVoice();
-        addToast({ type: 'info', message: 'Sesli görüşme bağlandı' });
       });
 
       call.on('close', () => {

@@ -319,7 +319,7 @@ export function ChannelSidebar({
                 });
               }
 
-              // Real-time Firestore üyelerini ekle (ses kanalında olan her üyeyi göster)
+              // 2. Real-time Firestore üyelerini ekle (ses kanalında olan her üyeyi göster)
               (dbMembers || []).forEach(m => {
                 const isMe = m.uid === identity?.uid;
                 if (isMe) {
@@ -344,6 +344,28 @@ export function ChannelSidebar({
                   });
                 }
               });
+
+              // 3. Bu kanalda aktif seste olan tüm PeerJS üyelerini ekle (sol liste ile alt paneli %100 eşle)
+              if (meInChannel) {
+                Object.entries(peers).forEach(([pId, p]) => {
+                  const key = p.uid || pId;
+                  if (!participantsMap.has(key) && key !== identity?.uid) {
+                    const dbMatch = (dbMembers || []).find(m => m.uid === p.uid || m.username === p.username);
+                    const rawName = dbMatch?.username || p.username;
+                    const isGeneric = !rawName || rawName === 'Katılımcı' || rawName === 'Anonim' || rawName === 'Kullanıcı' || rawName === 'Bağlanıyor...' || rawName === 'Üye';
+                    const nameToShow = isGeneric ? 'Kullanıcı' : rawName;
+
+                    participantsMap.set(key, {
+                      id: pId,
+                      uid: p.uid || pId,
+                      username: nameToShow,
+                      avatarColor: p.avatarColor || dbMatch?.avatarColor || 'var(--accent)',
+                      isSelf: false,
+                      status: 'online',
+                    });
+                  }
+                });
+              }
 
               const participantsList = Array.from(participantsMap.values());
 
