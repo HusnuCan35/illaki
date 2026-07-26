@@ -35,6 +35,76 @@ export function subscribeToMusic(spaceId, callback) {
 }
 
 /**
+ * YouTube Linkinden Video ID'sini çıkarır
+ */
+export function extractVideoId(url) {
+  if (!url || typeof url !== 'string') return false;
+  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[7].length === 11) ? match[7] : false;
+}
+
+/**
+ * YouTube Playlist ID'sini çıkarır
+ */
+export function extractPlaylistId(url) {
+  if (!url || typeof url !== 'string') return false;
+  const regExp = /[&?]list=([^&]+)/;
+  const match = url.match(regExp);
+  return match ? match[1] : false;
+}
+
+/**
+ * YouTube Noembed API'den şarkı bilgisini alır
+ */
+export async function fetchVideoInfo(videoId) {
+  try {
+    const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+    const data = await res.json();
+    return {
+      title: data.title || 'Bilinmeyen Şarkı',
+      thumbnail: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    };
+  } catch (error) {
+    return {
+      title: 'Bilinmeyen Şarkı',
+      thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    };
+  }
+}
+
+/**
+ * YouTube Playlist şarkılarını çeker (Invidious / Piped API)
+ */
+export async function fetchPlaylistSongs(playlistId) {
+  try {
+    const res = await fetch(`https://pipedapi.kavin.rocks/playlists/${playlistId}`);
+    const data = await res.json();
+    if (data && data.relatedStreams && data.relatedStreams.length > 0) {
+      return data.relatedStreams.map(item => ({
+        videoId: item.url ? item.url.replace('/watch?v=', '') : '',
+        title: item.title || 'Müzik',
+        thumbnail: item.thumbnail || `https://img.youtube.com/vi/${item.url.replace('/watch?v=', '')}/hqdefault.jpg`,
+      })).filter(i => i.videoId);
+    }
+  } catch (e) {}
+
+  try {
+    const res = await fetch(`https://vid.puffyan.us/api/v1/playlists/${playlistId}`);
+    const data = await res.json();
+    if (data && data.videos && data.videos.length > 0) {
+      return data.videos.map(item => ({
+        videoId: item.videoId,
+        title: item.title,
+        thumbnail: item.videoThumbnails?.[0]?.url || `https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`,
+      }));
+    }
+  } catch (e) {}
+
+  throw new Error("YouTube çalma listesi çekilemedi.");
+}
+
+/**
  * Şarkı ismi ile arama yapar (YouTube / Invidious API)
  */
 export async function searchSongByName(query) {
@@ -69,9 +139,18 @@ export async function searchSongByName(query) {
 }
 
 /**
- * Şarkıyı sıraya ekler (Link veya Şarkı İsmi)
+ * Şarkıyı veya YouTube Çalma Listesini sıraya ekler
  */
 export async function addSongToQueue(spaceId, input, requestedBy) {
+  // YouTube Çalma Listesi mi?
+  const playlistId = extractPlaylistId(input);
+  if (playlistId) {
+    const songs = await fetchPlaylistSongs(playlistId);
+    if (!songs || songs.length === 0) throw new Error("Çalma listesinde şarkı bulunamadı.");
+    await loadPlaylistToQueue(spaceId, songs, requestedBy);
+    return { isPlaylist: true, count: songs.length };
+  }
+
   let videoId = extractVideoId(input);
   let title = 'Bilinmeyen Şarkı';
   let thumbnail = '';
@@ -84,7 +163,7 @@ export async function addSongToQueue(spaceId, input, requestedBy) {
     // Şarkı ismiyle arama yap
     const results = await searchSongByName(input);
     if (!results || results.length === 0) {
-      throw new Error("Şarkı bulunamadı. Lütfen tam şarkı ismini veya YouTube linkini girin.");
+      throw new Error("Şarkı bulunamadı. Lütfen şarkı adı veya geçerli YouTube linki girin.");
     }
     videoId = results[0].videoId;
     title = results[0].title;
@@ -125,6 +204,8 @@ export async function addSongToQueue(spaceId, input, requestedBy) {
       });
     }
   }
+
+  return { isPlaylist: false, song };
 }
 
 // ────────────────────────────────────────────────────────────

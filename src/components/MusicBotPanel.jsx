@@ -4,7 +4,7 @@ import { useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { subscribeToMusic, addSongToQueue, playNextSong, updatePlaybackStatus, removeSongFromQueue, searchSongByName, createPlaylist, subscribeToPlaylists, loadPlaylistToQueue } from '../lib/music';
 import styles from './MusicBotPanel.module.css';
 
-export function MusicBotPanel({ onClose }) {
+export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
   const { activeSpaceId } = useSpaceStore();
   const { identity } = useIdentityStore();
   const { musicVolume, setMusicVolume } = useUIStore();
@@ -55,12 +55,21 @@ export function MusicBotPanel({ onClose }) {
     const query = customSong ? customSong.videoId : urlInput.trim();
     if (!query) return;
 
+    if (!isVoiceConnected) {
+      useUIStore.getState().addToast({ type: 'warning', message: 'Müzik botunu kullanabilmek için önce bir ses kanalına girmelisin!' });
+      return;
+    }
+
     setLoading(true);
     setSearchResults([]);
     try {
-      await addSongToQueue(activeSpaceId, query, identity.username);
+      const res = await addSongToQueue(activeSpaceId, query, identity.username);
       setUrlInput('');
-      useUIStore.getState().addToast({ type: 'success', message: 'Müzik sıraya eklendi!' });
+      if (res?.isPlaylist) {
+        useUIStore.getState().addToast({ type: 'success', message: `YouTube Çalma Listesindeki ${res.count} şarkı sıraya eklendi!` });
+      } else {
+        useUIStore.getState().addToast({ type: 'success', message: 'Müzik sıraya eklendi!' });
+      }
     } catch (err) {
       useUIStore.getState().addToast({ type: 'error', message: err.message });
     } finally {
@@ -159,6 +168,25 @@ export function MusicBotPanel({ onClose }) {
           </button>
         )}
       </div>
+
+      {!isVoiceConnected && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.15)',
+          border: '1px solid rgba(245, 158, 11, 0.4)',
+          borderRadius: '10px',
+          padding: '10px 12px',
+          color: '#F59E0B',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          margin: '0 0 10px 0'
+        }}>
+          <span style={{ fontSize: '16px' }}>⚠️</span>
+          <span>Müzik dinlemek ve şarkı çalmak için önce bir <strong>ses kanalına katılmalısın</strong>.</span>
+        </div>
+      )}
 
       <div className={styles.playerSection}>
         {musicState.currentSong ? (
