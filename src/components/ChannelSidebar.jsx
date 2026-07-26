@@ -42,6 +42,8 @@ export function ChannelSidebar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState('member');
   const [dbMembers, setDbMembers] = useState([]);
+  // uid -> gerçek kullanıcı adı cache'i
+  const [resolvedNames, setResolvedNames] = useState({});
   
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -83,6 +85,42 @@ export function ChannelSidebar({
       unsubMembers();
     };
   }, [activeSpaceId, identity?.uid]);
+
+  // Kullanıcı adı eksik olan sesli kanal üyeleri için Firestore'dan gerçek adı çek
+  useEffect(() => {
+    const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
+    const uidsToResolve = new Set();
+    dbMembers.forEach(m => {
+      if (m.uid && m.uid !== identity?.uid && m.voiceChannelId && isGenericName(m.username)) {
+        uidsToResolve.add(m.uid);
+      }
+    });
+    if (uidsToResolve.size === 0) return;
+
+    Promise.all(
+      [...uidsToResolve].map(async uid => {
+        try {
+          const { getDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('../lib/firebase');
+          const snap = await getDoc(doc(db, 'users', uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            const name = data.username || data.displayName;
+            if (name && !isGenericName(name)) return { uid, name };
+          }
+        } catch {}
+        return null;
+      })
+    ).then(results => {
+      const updates = {};
+      results.forEach(r => { if (r) updates[r.uid] = r.name; });
+      if (Object.keys(updates).length > 0) {
+        setResolvedNames(prev => ({ ...prev, ...updates }));
+      }
+    });
+  }, [dbMembers, identity?.uid]);
+
+
 
   useEffect(() => {
     if (activeSpaceId && spaces.length > 0 && !spaces.some(s => s.id === activeSpaceId)) {
@@ -306,6 +344,7 @@ export function ChannelSidebar({
 
               // Kanaldaki tüm kullanıcıları topla (dbMembers + peers + kendimiz)
               const participantsMap = new Map();
+              const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
 
               // 1. Kendimiz bu kanaldaysak ekle
               if (meInChannel && identity) {
@@ -319,20 +358,27 @@ export function ChannelSidebar({
                 });
               }
 
-              // 2. Real-time Firestore üyelerini ekle (ses kanalında olan her üyeyi göster)
+              // 2. Real-time Firestore üyelerini ekle
+              // online===false VEYA voiceChannelId eşleşmiyorsa gösterme
               (dbMembers || []).forEach(m => {
                 const isMe = m.uid === identity?.uid;
                 if (isMe) {
                   if (voiceChannelId !== channel.id) return;
                 } else {
-                  if (m.voiceChannelId !== channel.id || m.online === false) return;
+                  // voiceChannelId null veya farklıysa kanaldan çıkmış demektir
+                  if (!m.voiceChannelId || m.voiceChannelId !== channel.id) return;
+                  // online kesinlikle false ise gösterme (undefined/true ise göster)
+                  if (m.online === false) return;
                 }
 
-                const peerMatch = Object.values(peers).find(p => p.uid === m.uid || p.username === m.username);
-                const rawName = m.username || peerMatch?.username || m.displayName;
-                const isGeneric = !rawName || rawName === 'Katılımcı' || rawName === 'Anonim' || rawName === 'Kullanıcı' || rawName === 'Bağlanıyor...' || rawName === 'Üye';
-                const finalName = isGeneric ? 'Kullanıcı' : rawName;
-                
+                const peerMatch = Object.values(peers).find(p => p.uid === m.uid);
+                const rawName = resolvedNames[m.uid]
+                  || (!isGenericName(m.username) ? m.username : null)
+                  || (!isGenericName(peerMatch?.username) ? peerMatch?.username : null)
+                  || (!isGenericName(m.displayName) ? m.displayName : null)
+                  || null;
+                const finalName = rawName || `Kullanıcı#${m.uid.slice(-4)}`;
+
                 if (!participantsMap.has(m.uid)) {
                   participantsMap.set(m.uid, {
                     id: m.peerId || m.uid,
@@ -345,15 +391,17 @@ export function ChannelSidebar({
                 }
               });
 
-              // 3. Bu kanalda aktif seste olan tüm PeerJS üyelerini ekle (sol liste ile alt paneli %100 eşle)
+              // 3. PeerJS store'undaki üyeleri de ekle (Firestore gecikmesi durumunda)
               if (meInChannel) {
                 Object.entries(peers).forEach(([pId, p]) => {
                   const key = p.uid || pId;
                   if (!participantsMap.has(key) && key !== identity?.uid) {
-                    const dbMatch = (dbMembers || []).find(m => m.uid === p.uid || m.username === p.username);
-                    const rawName = dbMatch?.username || p.username;
-                    const isGeneric = !rawName || rawName === 'Katılımcı' || rawName === 'Anonim' || rawName === 'Kullanıcı' || rawName === 'Bağlanıyor...' || rawName === 'Üye';
-                    const nameToShow = isGeneric ? 'Kullanıcı' : rawName;
+                    const dbMatch = (dbMembers || []).find(m => m.uid === p.uid);
+                    const rawName = resolvedNames[p.uid || pId]
+                      || (!isGenericName(p.username) ? p.username : null)
+                      || (!isGenericName(dbMatch?.username) ? dbMatch?.username : null)
+                      || null;
+                    const nameToShow = rawName || `Kullanıcı#${pId.slice(-4)}`;
 
                     participantsMap.set(key, {
                       id: pId,
@@ -368,6 +416,7 @@ export function ChannelSidebar({
               }
 
               const participantsList = Array.from(participantsMap.values());
+
 
               return (
                 <div key={channel.id}>

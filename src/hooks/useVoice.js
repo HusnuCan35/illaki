@@ -110,6 +110,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     audio.setAttribute('webkit-playsinline', 'true');
     audio.volume = 1;
     audio.style.display = 'none';
+    audio.suppressLocalAudioPlayback = true;
     document.body.appendChild(audio);
 
     audio.play().catch(err => {
@@ -130,7 +131,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setIsCameraOn(false);
       setLocalVideoStream(null);
 
-      // Mevcut call'lardan video track'i kaldır
+      // Mevcut call'lardan video track'i null olarak değiştir
       for (const call of Object.values(callsRef.current)) {
         try {
           const senders = call.peerConnection?.getSenders?.() || [];
@@ -171,9 +172,9 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           self: { ...prev.self, videoStream },
         }));
 
-        // Mevcut call'lara video track ekle + PeerJS üzerinden taze akış gönder
         const videoTrack = videoStream.getVideoTracks()[0];
         const audioStream = localStreamRef.current;
+        const peer = getPeer(); // getPeer() kullanarak peerRef'e erişiyoruz
 
         for (const [pId, call] of Object.entries(callsRef.current)) {
           try {
@@ -182,41 +183,69 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
               const senders = pc.getSenders() || [];
               const videoSender = senders.find(s => s.track?.kind === 'video');
               if (videoSender) {
+                // Video sender varsa track'i değiştir — otomatik renegotiation tetikler
                 await videoSender.replaceTrack(videoTrack);
               } else {
+                // Video sender yoksa yeni ekle — bu da renegotiation tetikler
                 pc.addTrack(videoTrack, videoStream);
+                // Offer/answer renegotiation manuel olarak tetikle
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                // PeerJS bunu otomatik işler — renegotiation event yeterli
               }
             }
-            if (peerRef.current && audioStream) {
-              const combinedStream = new MediaStream([
-                ...audioStream.getAudioTracks(),
-                videoTrack,
-              ]);
-              const newCall = peerRef.current.call(pId, combinedStream, {
-                metadata: {
-                  username: identity?.username,
-                  avatarColor: identity?.avatarColor,
-                  hasVideo: true,
-                },
-              });
-              callsRef.current[pId] = newCall;
-
-              newCall.on('stream', (remoteStream) => {
-                const audioTracks = remoteStream.getAudioTracks();
-                if (audioTracks.length > 0) {
-                  attachAudio(new MediaStream(audioTracks), pId);
-                }
-                setVoiceParticipants(prev => ({
-                  ...prev,
-                  [pId]: {
-                    ...(prev[pId] || {}),
-                    videoStream: remoteStream.getVideoTracks().length > 0 ? new MediaStream(remoteStream.getVideoTracks()) : null,
-                  }
-                }));
-              });
-            }
           } catch (e) {
-            console.warn('[Voice] Video kanalı aktarım uyarısı:', e);
+            console.warn('[Voice] Video track ekleme uyarısı:', e);
+          }
+        }
+
+        // Eğer mevcut call üzerinden renegotiation çalışmadıysa,
+        // her peer için yeni arama yap (fallback)
+        if (peer && audioStream) {
+          for (const [pId] of Object.entries(callsRef.current)) {
+            try {
+              const call = callsRef.current[pId];
+              const pc = call?.peerConnection;
+              const hasSentVideo = pc?.getSenders().some(s => s.track?.kind === 'video' && s.track?.enabled);
+              if (!hasSentVideo) {
+                const combinedStream = new MediaStream([
+                  ...audioStream.getAudioTracks(),
+                  videoTrack,
+                ]);
+                const newCall = peer.call(pId, combinedStream, {
+                  metadata: {
+                    username: identity?.username,
+                    avatarColor: identity?.avatarColor,
+                    hasVideo: true,
+                  },
+                });
+                if (newCall) {
+                  // Eski call'ı kapat
+                  try { call?.close(); } catch {}
+                  callsRef.current[pId] = newCall;
+                  newCall.on('stream', (remoteStream) => {
+                    const aTracks = remoteStream.getAudioTracks();
+                    if (aTracks.length > 0) attachAudio(new MediaStream(aTracks), pId);
+                    const vTracks = remoteStream.getVideoTracks();
+                    setVoiceParticipants(prev => ({
+                      ...prev,
+                      [pId]: {
+                        ...(prev[pId] || {}),
+                        videoStream: vTracks.length > 0 ? new MediaStream(vTracks) : prev[pId]?.videoStream || null,
+                      },
+                    }));
+                  });
+                  newCall.on('close', () => {
+                    const el = document.getElementById(`audio-${pId}`);
+                    if (el) el.remove();
+                    delete callsRef.current[pId];
+                    setVoiceParticipants(prev => { const n = {...prev}; delete n[pId]; return n; });
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('[Voice] Fallback kamera araması uyarısı:', e);
+            }
           }
         }
 
@@ -353,11 +382,12 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         });
       });
 
+      // call.peer zaten en üstte set edildi, bu satır gereksiz ama zarar vermez
       callsRef.current[call.peer] = call;
     } catch (err) {
       console.error('[Voice] Gelen arama yanıtlanamadı:', err);
     }
-  }, [getLocalStream, attachAudio, addToast]);
+  }, [getLocalStream, attachAudio]);
 
   // ── Gelen Arama Dinleyici ─────────────────────────────────────────────────
   useEffect(() => {

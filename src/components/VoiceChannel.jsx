@@ -122,6 +122,8 @@ export function VoiceChannel({
   const [fps, setFps] = useState('30');
   const [musicState, setMusicState] = useState(null);
   const [spaceMembers, setSpaceMembers] = useState([]);
+  // uid -> gerçek kullanıcı adı cache'i (Firestore users koleksiyonundan async çekilen)
+  const [resolvedNames, setResolvedNames] = useState({});
 
   const { channels, activeSpaceId } = useSpaceStore();
   const { voiceChannelId } = usePeerStore();
@@ -134,13 +136,54 @@ export function VoiceChannel({
     return () => unsub();
   }, [activeSpaceId]);
 
+  // Kullanıcı adı eksik olan üyeler için Firestore users koleksiyonundan gerçek adı çek
+  useEffect(() => {
+    if (!isInVoice) return;
+    const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
+    
+    const uidsToResolve = new Set();
+    spaceMembers.forEach(m => {
+      if (m.uid && m.uid !== identity?.uid && isGenericName(m.username)) {
+        uidsToResolve.add(m.uid);
+      }
+    });
+
+    if (uidsToResolve.size === 0) return;
+
+    Promise.all(
+      [...uidsToResolve].map(async uid => {
+        try {
+          const { getDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('../lib/firebase');
+          const snap = await getDoc(doc(db, 'users', uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            const name = data.username || data.displayName;
+            if (name && !isGenericName(name)) {
+              return { uid, name };
+            }
+          }
+        } catch {}
+        return null;
+      })
+    ).then(results => {
+      const updates = {};
+      results.forEach(r => { if (r) updates[r.uid] = r.name; });
+      if (Object.keys(updates).length > 0) {
+        setResolvedNames(prev => ({ ...prev, ...updates }));
+      }
+    });
+  }, [spaceMembers, isInVoice, identity?.uid]);
+
   if (!isInVoice) {
     return null;
   }
 
-  const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
 
-  // Bu ses kanalında olan GERÇEKTEN AKTİF üyeleri belirle
+  const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
+  const { peers: peerStoreData } = usePeerStore();
+
+  // Bu ses kanalında olan AKTİF üyeleri belirle (online olmayan ve kanaldan ayrılanları filtrele)
   const inChannelMembers = spaceMembers.filter(m => {
     if (m.voiceChannelId !== voiceChannelId) return false;
     if (m.online === false) return false;
@@ -149,6 +192,9 @@ export function VoiceChannel({
 
   // Katılımcı haritası oluştur (Firestore üyeleri + WebRTC yayınları)
   const participantMap = new Map();
+
+  // Yardımcı: isim jenerik mi?
+  const isGeneric = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
 
   // 1. Önce kendimizi ekle
   participantMap.set('self', {
@@ -163,32 +209,49 @@ export function VoiceChannel({
   inChannelMembers.forEach(m => {
     if (m.uid !== identity?.uid) {
       const pId = m.peerId || m.uid;
+      // voiceParticipants içinde hem peerId hem uid ile ara
       const webRTC = voiceParticipants[pId] || voiceParticipants[m.uid] || {};
-      const realName = m.username || m.displayName || webRTC.username;
-      const isGeneric = !realName || realName === 'Katılımcı' || realName === 'Anonim' || realName === 'Kullanıcı' || realName === 'Üye';
-      const finalName = isGeneric ? 'Kullanıcı' : realName;
+      // peerStore içinde de ara
+      const peerStoreEntry = Object.values(peerStoreData).find(p => p.uid === m.uid) || peerStoreData[pId] || {};
+
+      // En iyi isim kaynağını bul: WebRTC metadata > peerStore > Firestore member
+      const nameCandidate = (!isGeneric(webRTC.username) ? webRTC.username : null)
+        || (!isGeneric(peerStoreEntry.username) ? peerStoreEntry.username : null)
+        || (!isGeneric(m.username) ? m.username : null)
+        || (!isGeneric(m.displayName) ? m.displayName : null)
+        || resolvedNames[m.uid]
+        || null;
+
+      const finalName = nameCandidate || `Kullanıcı#${m.uid.slice(-4)}`;
 
       participantMap.set(pId, {
         isSelf: false,
+        uid: m.uid,
         username: finalName,
-        avatarColor: m.avatarColor || webRTC.avatarColor || '#3B82F6',
+        avatarColor: m.avatarColor || webRTC.avatarColor || peerStoreEntry.avatarColor || '#3B82F6',
         videoStream: webRTC.videoStream || null,
         peerId: pId,
       });
     }
   });
 
-  // 3. WebRTC üzerinden ekstra gelen aktör varsa ekle
+  // 3. WebRTC üzerinden ekstra gelen aktör varsa ekle (Firestore'da eksik olabilir)
   Object.entries(voiceParticipants).forEach(([pId, p]) => {
     if (pId !== 'self' && !participantMap.has(pId)) {
-      const realName = p.username;
-      const isGeneric = !realName || realName === 'Katılımcı' || realName === 'Anonim' || realName === 'Kullanıcı' || realName === 'Üye';
-      const finalName = isGeneric ? 'Kullanıcı' : realName;
+      // Bu peer'ın Firestore member kaydına bak
+      const dbMember = spaceMembers.find(m => m.peerId === pId || m.uid === pId);
+      const nameCandidate = (!isGeneric(p.username) ? p.username : null)
+        || (!isGeneric(dbMember?.username) ? dbMember?.username : null)
+        || resolvedNames[p.uid || pId]
+        || null;
+
+      const finalName = nameCandidate || `Kullanıcı#${pId.slice(-4)}`;
 
       participantMap.set(pId, {
         isSelf: false,
+        uid: p.uid || pId,
         username: finalName,
-        avatarColor: p.avatarColor || '#3B82F6',
+        avatarColor: p.avatarColor || dbMember?.avatarColor || '#3B82F6',
         videoStream: p.videoStream || null,
         peerId: pId,
       });
@@ -196,6 +259,7 @@ export function VoiceChannel({
   });
 
   const participantEntries = Array.from(participantMap.entries());
+
 
   return (
     <div className={styles.connectionPanel}>
