@@ -64,35 +64,47 @@
 .connectionPanel {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(8px);
-  padding: 10px;
+  padding: 8px 10px;
   border-radius: 10px;
-  margin: 0 8px 8px;
+  margin: 0 8px 6px;
   border: 1px solid rgba(255,255,255,0.08);
   box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   gap: 8px;
 }
 
+.connectionTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
 .connectionInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
 }
 
 .connectionStatus {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--success, #23a559);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .connectedIcon {
   color: var(--success, #23a559);
   animation: pulse 2s infinite;
+  flex-shrink: 0;
 }
 
 @keyframes pulse {
@@ -102,12 +114,12 @@
 }
 
 .connectionChannel {
-  color: var(--text-muted);
+  color: var(--text-muted, #94a3b8);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-left: 20px;
+  padding-left: 18px;
 }
 
 /* ── Video Grid ───────────────────────────────────────────────────────────── */
@@ -116,6 +128,8 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
   width: 100%;
+  max-height: 140px;
+  overflow-y: auto;
 }
 
 .videoGridSingle {

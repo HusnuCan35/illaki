@@ -323,23 +323,19 @@
 @media (max-width: 768px) {
   .container {
     width: 280px;
-    max-width: 80vw;
+    max-width: 85vw;
   }
 
   .channelItem {
-    padding: 10px 12px;
-    font-size: 15px;
-  }
-
-  .footer {
-    padding: 10px 12px;
+    padding: 8px 10px;
+    font-size: 14px;
   }
 }
 
 @media (max-width: 480px) {
   .container {
-    width: 100vw;
-    max-width: 100vw;
+    width: 280px;
+    max-width: 85vw;
   }
 }
 
