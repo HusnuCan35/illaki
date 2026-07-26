@@ -235,10 +235,10 @@ export async function createSpace({ uid, username, name, description = '', isPri
     online: true,
   });
 
-  // Kullanıcının katıldığı odalara ekle
-  await updateDoc(doc(db, 'users', uid), {
+  // Kullanıcının katıldığı odalara ekle (merge: true ile doküman yoksa da oluşturur)
+  await setDoc(doc(db, 'users', uid), {
     joinedSpaces: arrayUnion(spaceId)
-  });
+  }, { merge: true });
 
   // Space key'i session cache'e yaz
   await cacheSpaceKey(spaceId, spaceKey);
@@ -260,6 +260,11 @@ export async function joinSpace(code, { uid, username }) {
   if (spaceData.memberCount >= spaceData.maxMembers) {
     throw new Error('Oda dolu.');
   }
+
+  // Kullanıcının katıldığı odalara kesin ekle (merge: true ile)
+  await setDoc(doc(db, 'users', uid), {
+    joinedSpaces: arrayUnion(spaceId)
+  }, { merge: true });
 
   // Mevcut üye mi kontrol et
   const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
@@ -295,11 +300,6 @@ export async function joinSpace(code, { uid, username }) {
   await updateDoc(spaceRef, {
     memberCount: (spaceData.memberCount || 1) + 1,
     updatedAt: serverTimestamp(),
-  });
-
-  // Kullanıcının katıldığı odalara ekle
-  await updateDoc(doc(db, 'users', uid), {
-    joinedSpaces: arrayUnion(spaceId)
   });
 
   return { spaceId, spaceData };
