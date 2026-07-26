@@ -213,6 +213,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         // Video track'leri varsa katılımcı state'ini güncelle
         setVoiceParticipants(prev => {
           const existing = prev[call.peer] || {};
+          const peerInfo = usePeerStore.getState().peers[call.peer] || {};
           const videoTracks = remoteStream.getVideoTracks();
           const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
 
@@ -378,6 +379,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           }
           setVoiceParticipants(prev => {
             const existing = prev[pId] || {};
+            const peerInfo = usePeerStore.getState().peers[pId] || {};
             const videoTracks = remoteStream.getVideoTracks();
             const videoStream = videoTracks.length > 0 ? new MediaStream(videoTracks) : existing.videoStream || null;
             
