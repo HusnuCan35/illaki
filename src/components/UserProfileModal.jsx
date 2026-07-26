@@ -10,7 +10,9 @@ export const PRESET_BANNERS = [
     id: 'tr_flag',
     name: '🇹🇷 Türk Bayrağı',
     style: {
-      background: 'linear-gradient(135deg, #E30A17 0%, #99000B 100%)',
+      backgroundImage: `url('https://png.pngtree.com/thumb_back/fh260/background/20210204/pngtree-beautiful-turkish-flag-background-image_554991.jpg')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
     },
     badge: '🇹🇷 Türk Bayrağı'
   },
@@ -18,7 +20,9 @@ export const PRESET_BANNERS = [
     id: 'ataturk',
     name: '🇹🇷 Atatürk',
     style: {
-      background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+      backgroundImage: `url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSuvwZ6czQAEFb_ozLewMGScDeEskkkyqR8a-bbiirUomyjG1BFu_9btrk&s=10')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
       borderBottom: '2px solid #D4AF37'
     },
     badge: '🇹🇷 Gazi Mustafa Kemal Atatürk'

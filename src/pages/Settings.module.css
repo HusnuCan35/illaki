@@ -3,6 +3,7 @@
   display: flex;
   gap: 0;
   min-height: 420px;
+  max-height: 75vh;
   margin: calc(-1 * var(--space-6));
   overflow: hidden;
 }
@@ -78,6 +79,7 @@
   gap: var(--space-5);
   overflow-y: auto;
   min-width: 0;
+  max-height: 75vh;
 }
 
 .section {
