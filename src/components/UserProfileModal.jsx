@@ -273,6 +273,8 @@ export function UserProfileModal({ isOpen, onClose, user }) {
                   onClick={async () => {
                     try {
                       const { createDuel } = await import('../lib/firestore');
+                      const { useSpaceStore } = await import('../stores');
+                      const activeSpaceId = useSpaceStore.getState().activeSpaceId;
                       const opponentUid = user?.uid || user?.id;
                       const opponentName = user?.username || user?.name || 'Kullanıcı';
                       if (!activeSpaceId || !opponentUid) {
