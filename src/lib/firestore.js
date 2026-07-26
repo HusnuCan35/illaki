@@ -582,9 +582,15 @@ export async function updateMemberOnlineStatus(spaceId, uid, isOnline) {
 export async function updateMemberVoiceStatus(spaceId, uid, voiceChannelId) {
   try {
     const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
-    await updateDoc(memberRef, { voiceChannelId, lastSeen: serverTimestamp() });
+    const update = { voiceChannelId, lastSeen: serverTimestamp() };
+    // Ses kanalına katılırken online durumunu da true yap (sidebar görünürlüğü için)
+    if (voiceChannelId !== null && voiceChannelId !== undefined) {
+      update.online = true;
+    }
+    await updateDoc(memberRef, update);
   } catch {}
 }
+
 
 /**
  * Üyeyi ses kanalından at (Firestore üzerinden anlık düşürme)

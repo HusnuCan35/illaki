@@ -10,6 +10,7 @@ export function useScreenShare(getPeer) {
 
   const localStreamRef = useRef(null);
   const screenCallsRef = useRef({}); // { [peerId]: MediaConnection }
+  const screenAudioCtxRef = useRef({}); // { [peer]: AudioContext }
 
   const { addToast } = useUIStore();
   const { identity } = useIdentityStore();
@@ -21,6 +22,9 @@ export function useScreenShare(getPeer) {
     }
     Object.values(screenCallsRef.current).forEach(call => call.close());
     screenCallsRef.current = {};
+    // Ses context'lerini temizle
+    Object.values(screenAudioCtxRef.current).forEach(ctx => { try { ctx.close(); } catch {} });
+    screenAudioCtxRef.current = {};
     setIsSharing(false);
     setLocalScreenStream(null);
     playStreamStop();
@@ -35,25 +39,14 @@ export function useScreenShare(getPeer) {
           frameRate: { ideal: resolution.fps, max: resolution.fps }
         },
         audio: {
-          echoCancellation: true,
+          echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          // Sistem sesini YEREL hoparlörden çalma — bu eko döngüsünü önler
-          suppressLocalAudioPlayback: true,
-          sampleRate: 48000,
+          suppressLocalAudioPlayback: true,  // Lokal hoparlörden çalma → eko döngüsü önlenir
         }
       });
 
-      // Stop sharing if user clicks "Stop sharing" on the browser bar
-      stream.getVideoTracks()[0].onended = () => {
-        stopScreenShare();
-      };
-
-      // Sistem sesi track'lerini (varsa) ekrandan lokal olarak mute et
-      // — bu, mikrofona sistem sesinin geri yansımasını engeller
-      stream.getAudioTracks().forEach(track => {
-        track.contentHint = 'music';
-      });
+      stream.getVideoTracks()[0].onended = () => stopScreenShare();
 
       localStreamRef.current = stream;
       setLocalScreenStream(stream);
@@ -62,24 +55,15 @@ export function useScreenShare(getPeer) {
       const peer = getPeer();
       if (!peer) return;
 
-      // Call all connected peers with the screen stream
       for (const peerId of connectedPeerIds) {
         const call = peer.call(peerId, stream, {
-          metadata: { 
-            type: 'screen',
-            username: identity?.username 
-          }
+          metadata: { type: 'screen', username: identity?.username }
         });
-
-        call.on('close', () => {
-          delete screenCallsRef.current[peerId];
-        });
-        
+        call.on('close', () => { delete screenCallsRef.current[peerId]; });
         call.on('error', (err) => console.error('Screen share call error:', err));
-
         screenCallsRef.current[peerId] = call;
       }
-      
+
       playStreamStart();
       addToast({ type: 'info', message: 'Ekran paylaşımı başlatıldı.' });
     } catch (err) {
@@ -92,22 +76,26 @@ export function useScreenShare(getPeer) {
 
   // Answer incoming screen share calls
   const answerScreenCall = useCallback((call) => {
-    call.answer(); // Answer without sending a stream back
+    call.answer();
     call.on('stream', (remoteStream) => {
-      // Sistem sesini lokal olarak mute et — eko döngüsünü önler
-      // Alıcı taraf ses track'lerini Web Audio ile çalar (muted video element üzerinden değil)
       const audioTracks = remoteStream.getAudioTracks();
       if (audioTracks.length > 0) {
-        const audioEl = document.createElement('audio');
-        audioEl.id = `screen-audio-${call.peer}`;
-        audioEl.srcObject = new MediaStream(audioTracks);
-        audioEl.autoplay = true;
-        audioEl.muted = false;
-        // suppressLocalAudioPlayback — bu sesi MİKROFONA yansıtma
-        audioEl.suppressLocalAudioPlayback = true;
-        audioEl.style.display = 'none';
-        document.body.appendChild(audioEl);
-        audioEl.play().catch(() => {});
+        // Eski audio context'i temizle
+        if (screenAudioCtxRef.current[call.peer]) {
+          try { screenAudioCtxRef.current[call.peer].close(); } catch {}
+        }
+        // Web Audio API ile çal: HTMLAudioElement'ten farklı olarak
+        // AudioContext çıkışı mikrofon capture'ına yakalanmaz.
+        const ctx = new AudioContext();
+        screenAudioCtxRef.current[call.peer] = ctx;
+        const source = ctx.createMediaStreamSource(new MediaStream(audioTracks));
+        // Gain node: ses seviyesini kontrol et
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1.0;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        // Context'i resume et (autoplay policy)
+        ctx.resume().catch(() => {});
       }
 
       setRemoteScreenStream(remoteStream);
@@ -116,14 +104,17 @@ export function useScreenShare(getPeer) {
       addToast({ type: 'info', message: `${call.metadata?.username || 'Biri'} ekran paylaşıyor.` });
     });
     call.on('close', () => {
-      // Ekran paylaşımı ses elementini temizle
-      const audioEl = document.getElementById(`screen-audio-${call.peer}`);
-      if (audioEl) audioEl.remove();
+      // AudioContext'i kapat
+      if (screenAudioCtxRef.current[call.peer]) {
+        try { screenAudioCtxRef.current[call.peer].close(); } catch {}
+        delete screenAudioCtxRef.current[call.peer];
+      }
       setRemoteScreenStream(null);
       setRemoteSharer(null);
       playStreamStop();
     });
   }, [addToast]);
+
 
 
   // Listen for incoming calls and kick events

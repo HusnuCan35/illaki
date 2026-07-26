@@ -90,11 +90,11 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     if (!entry) return 0;
     entry.analyser.getByteFrequencyData(entry.dataArray);
     const avg = entry.dataArray.reduce((s, v) => s + v, 0) / entry.dataArray.length;
-    // Gürültü ve sistem sesi sekmelerini filtreleme eşiği
-    const rawLevel = avg < 10 ? 0 : Math.min(100, (avg - 10) * 1.8);
+    // Eşiği 18'e yükselttik: sistem sesi / ekran paylaşımı sesi animasyonlara yansımasın
+    const rawLevel = avg < 18 ? 0 : Math.min(100, (avg - 18) * 2.0);
     // Hareketli ortalama yumuşatma
-    entry.lastLevel = (entry.lastLevel || 0) * 0.75 + rawLevel * 0.25;
-    return entry.lastLevel < 3 ? 0 : Math.round(entry.lastLevel);
+    entry.lastLevel = (entry.lastLevel || 0) * 0.8 + rawLevel * 0.2;
+    return entry.lastLevel < 5 ? 0 : Math.round(entry.lastLevel);
   }, []);
 
   // ── Ses Oynatıcı Oluştur ───────────────────────────────────────────────────
@@ -136,115 +136,79 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         try {
           const senders = call.peerConnection?.getSenders?.() || [];
           const videoSender = senders.find(s => s.track?.kind === 'video');
-          if (videoSender) {
-            await videoSender.replaceTrack(null);
-          }
+          if (videoSender) await videoSender.replaceTrack(null);
         } catch {}
       }
 
-      // Katılımcılarda kendi video'sunu kaldır
-      setVoiceParticipants(prev => ({
-        ...prev,
-        self: { ...prev.self, videoStream: null },
-      }));
-
+      setVoiceParticipants(prev => ({ ...prev, self: { ...prev.self, videoStream: null } }));
       playCamOff();
       addToast({ type: 'info', message: 'Kamera kapatıldı' });
     } else {
       // Kamerayı aç
       try {
         const videoStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 },
-          },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
           audio: false,
         });
 
         localVideoRef.current = videoStream;
         setIsCameraOn(true);
         setLocalVideoStream(videoStream);
-
-        // Kendi self katılımcısını güncelle
-        setVoiceParticipants(prev => ({
-          ...prev,
-          self: { ...prev.self, videoStream },
-        }));
+        setVoiceParticipants(prev => ({ ...prev, self: { ...prev.self, videoStream } }));
 
         const videoTrack = videoStream.getVideoTracks()[0];
         const audioStream = localStreamRef.current;
-        const peer = getPeer(); // getPeer() kullanarak peerRef'e erişiyoruz
+        const peer = getPeer();
 
-        for (const [pId, call] of Object.entries(callsRef.current)) {
-          try {
-            const pc = call?.peerConnection;
-            if (pc) {
-              const senders = pc.getSenders() || [];
-              const videoSender = senders.find(s => s.track?.kind === 'video');
-              if (videoSender) {
-                // Video sender varsa track'i değiştir — otomatik renegotiation tetikler
-                await videoSender.replaceTrack(videoTrack);
-              } else {
-                // Video sender yoksa yeni ekle — bu da renegotiation tetikler
-                pc.addTrack(videoTrack, videoStream);
-                // Offer/answer renegotiation manuel olarak tetikle
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                // PeerJS bunu otomatik işler — renegotiation event yeterli
-              }
-            }
-          } catch (e) {
-            console.warn('[Voice] Video track ekleme uyarısı:', e);
-          }
-        }
-
-        // Eğer mevcut call üzerinden renegotiation çalışmadıysa,
-        // her peer için yeni arama yap (fallback)
+        // PeerJS renegotiation'ı desteklemez — tek güvenilir yol:
+        // Her peer için eski call'ı kapat, audio+video ile TAN yeni call yap.
+        // Karşı taraf yeni 'call' event'ini alır, answerCall() ile cevaplar ve videoyu görür.
         if (peer && audioStream) {
-          for (const [pId] of Object.entries(callsRef.current)) {
+          const combinedStream = new MediaStream([
+            ...audioStream.getAudioTracks(),
+            videoTrack,
+          ]);
+
+          for (const [pId, oldCall] of Object.entries(callsRef.current)) {
             try {
-              const call = callsRef.current[pId];
-              const pc = call?.peerConnection;
-              const hasSentVideo = pc?.getSenders().some(s => s.track?.kind === 'video' && s.track?.enabled);
-              if (!hasSentVideo) {
-                const combinedStream = new MediaStream([
-                  ...audioStream.getAudioTracks(),
-                  videoTrack,
-                ]);
-                const newCall = peer.call(pId, combinedStream, {
-                  metadata: {
-                    username: identity?.username,
-                    avatarColor: identity?.avatarColor,
-                    hasVideo: true,
+              // Eski call'ı kapat ama state'i hemen temizleme (yeni call hemen açılacak)
+              try { oldCall?.close(); } catch {}
+
+              const newCall = peer.call(pId, combinedStream, {
+                metadata: {
+                  username: identity?.username,
+                  avatarColor: identity?.avatarColor,
+                  hasVideo: true,
+                },
+              });
+
+              if (!newCall) continue;
+              callsRef.current[pId] = newCall;
+
+              newCall.on('stream', (remoteStream) => {
+                const aTracks = remoteStream.getAudioTracks();
+                if (aTracks.length > 0) attachAudio(new MediaStream(aTracks), pId);
+                const vTracks = remoteStream.getVideoTracks();
+                setVoiceParticipants(prev => ({
+                  ...prev,
+                  [pId]: {
+                    ...(prev[pId] || {}),
+                    videoStream: vTracks.length > 0 ? new MediaStream(vTracks) : prev[pId]?.videoStream || null,
                   },
-                });
-                if (newCall) {
-                  // Eski call'ı kapat
-                  try { call?.close(); } catch {}
-                  callsRef.current[pId] = newCall;
-                  newCall.on('stream', (remoteStream) => {
-                    const aTracks = remoteStream.getAudioTracks();
-                    if (aTracks.length > 0) attachAudio(new MediaStream(aTracks), pId);
-                    const vTracks = remoteStream.getVideoTracks();
-                    setVoiceParticipants(prev => ({
-                      ...prev,
-                      [pId]: {
-                        ...(prev[pId] || {}),
-                        videoStream: vTracks.length > 0 ? new MediaStream(vTracks) : prev[pId]?.videoStream || null,
-                      },
-                    }));
-                  });
-                  newCall.on('close', () => {
-                    const el = document.getElementById(`audio-${pId}`);
-                    if (el) el.remove();
-                    delete callsRef.current[pId];
-                    setVoiceParticipants(prev => { const n = {...prev}; delete n[pId]; return n; });
-                  });
-                }
-              }
+                }));
+              });
+
+              newCall.on('close', () => {
+                const el = document.getElementById(`audio-${pId}`);
+                if (el) el.remove();
+                delete analysersRef.current[pId];
+                delete callsRef.current[pId];
+                setVoiceParticipants(prev => { const n = { ...prev }; delete n[pId]; return n; });
+              });
+
+              newCall.on('error', (e) => console.warn('[Voice] Kamera call hatası:', e));
             } catch (e) {
-              console.warn('[Voice] Fallback kamera araması uyarısı:', e);
+              console.warn('[Voice] Kamera araması uyarısı:', e);
             }
           }
         }
@@ -259,7 +223,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         }
       }
     }
-  }, [isCameraOn, addToast]);
+  }, [isCameraOn, getPeer, identity, attachAudio, addToast]);
 
   // ── Gelen Aramayı Cevapla ──────────────────────────────────────────────────
   const answerCall = useCallback(async (call) => {
@@ -470,6 +434,17 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           }
         } catch (err) {
           console.warn('[Voice] Firestore üye listesi alınamadı:', err);
+        }
+      }
+
+      // Yeniden katılma (kick sonrası) durumunda eski stale call ref'lerini temizle
+      // Bu olmadan eski referanslar 'continue' bloğuna takılır ve kimseye arama yapılmaz
+      for (const [oldPId, oldCall] of Object.entries(callsRef.current)) {
+        const isStillConnected = oldCall?.peerConnection?.connectionState === 'connected'
+          || oldCall?.peerConnection?.connectionState === 'connecting';
+        if (!isStillConnected) {
+          try { oldCall?.close(); } catch {}
+          delete callsRef.current[oldPId];
         }
       }
 
