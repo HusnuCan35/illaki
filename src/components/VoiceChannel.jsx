@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Mic, MicOff, Headphones,
   PhoneOff, Volume2, VolumeX, Radio, MonitorUp, MonitorOff,
   Camera, CameraOff, X
 } from 'lucide-react';
-import { useSpaceStore, usePeerStore } from '../stores';
-import { Modal } from './ui/Modal';
-import { Button } from './ui/Button';
+import { useSpaceStore, usePeerStore, useIdentityStore } from '../stores';
+import { subscribeToMembers } from '../lib/firestore';
 import { MusicPlayerCore } from './MusicPlayerCore';
 import styles from './VoiceChannel.module.css';
 
@@ -37,11 +36,10 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   const { peers } = usePeerStore();
   const peerInfo = peers[peerId] || {};
   
-  const isGeneric = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Üye' || name === 'Kullanıcı' || name === 'Bağlanıyor...';
-  const validPeerName = !isGeneric(peerInfo.username) ? peerInfo.username : null;
-  const validPartName = !isGeneric(participant.username) ? participant.username : null;
-  const displayName = isSelf ? (participant.username || 'Ben') : (validPartName || validPeerName || 'Üye');
-  const displayColor = isSelf ? participant.avatarColor : (peerInfo.avatarColor || participant.avatarColor);
+  const displayName = isSelf 
+    ? `${participant.username || 'Ben'} (Sen)` 
+    : (participant.username || peerInfo.username || 'Kullanıcı');
+  const displayColor = participant.avatarColor || peerInfo.avatarColor || 'var(--accent)';
   
   const effectiveMute = isSelf ? isMuted : !!peerInfo.isMuted;
   const effectiveDeafen = isSelf ? isDeafened : !!peerInfo.isDeafened;
@@ -61,9 +59,9 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   useEffect(() => {
     if (videoRef.current && participant.videoStream) {
       videoRef.current.srcObject = participant.videoStream;
+      videoRef.current.play().catch(() => {});
     }
   }, [participant.videoStream]);
-
 
   return (
     <div
@@ -81,16 +79,16 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
       ) : (
         <div
           className={styles.videoAvatar}
-          style={{ background: displayColor || 'var(--accent)' }}
+          style={{ background: displayColor }}
         >
-          {(displayName || '?').slice(0, 2).toUpperCase()}
+          {(participant.username || '?').slice(0, 2).toUpperCase()}
           {isSpeaking && <div className={styles.speakingRing} aria-hidden="true" />}
         </div>
       )}
 
       <div className={styles.videoTileFooter}>
         <span className={styles.videoTileName}>
-          {isSelf ? `${displayName} (Sen)` : displayName}
+          {displayName}
         </span>
         <div className={styles.videoTileIcons}>
           {effectiveMute && <MicOff size={12} className={styles.mutedIcon} />}
@@ -102,9 +100,6 @@ function VideoTile({ participant, peerId, getSpeakingLevel, isMuted, isDeafened,
   );
 }
 
-/**
- * VoiceChannel — Ses + Video kanalı UI bileşeni
- */
 export function VoiceChannel({
   isInVoice,
   isMuted,
@@ -126,17 +121,69 @@ export function VoiceChannel({
   const [res, setRes] = useState('1080');
   const [fps, setFps] = useState('30');
   const [musicState, setMusicState] = useState(null);
+  const [spaceMembers, setSpaceMembers] = useState([]);
 
   const { channels, activeSpaceId } = useSpaceStore();
   const { voiceChannelId } = usePeerStore();
+  const { identity } = useIdentityStore();
+
+  // Firestore sunucu üyelerini takip et
+  useEffect(() => {
+    if (!activeSpaceId) return;
+    const unsub = subscribeToMembers(activeSpaceId, setSpaceMembers);
+    return () => unsub();
+  }, [activeSpaceId]);
 
   if (!isInVoice) {
     return null;
   }
 
   const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
-  const participantEntries = Object.entries(voiceParticipants);
-  const hasActiveVideo = isCameraOn || participantEntries.some(([_, p]) => !!p.videoStream);
+
+  // Bu ses kanalında olan tüm kullanıcıları belirle
+  const inChannelMembers = spaceMembers.filter(m => m.voiceChannelId === voiceChannelId || m.uid === identity?.uid);
+
+  // Katılımcı haritası oluştur (Firestore üyeleri + WebRTC yayınları)
+  const participantMap = new Map();
+
+  // 1. Önce kendimizi ekle
+  participantMap.set('self', {
+    isSelf: true,
+    username: identity?.username || 'Ben',
+    avatarColor: identity?.avatarColor || 'var(--accent)',
+    videoStream: localVideoStream,
+    peerId: 'self',
+  });
+
+  // 2. Firestore'da bu ses kanalında olan diğer üyeleri ekle
+  inChannelMembers.forEach(m => {
+    if (m.uid !== identity?.uid) {
+      const pId = m.peerId || m.uid;
+      const webRTC = voiceParticipants[pId] || voiceParticipants[m.uid] || {};
+      participantMap.set(pId, {
+        isSelf: false,
+        username: m.username || webRTC.username || 'Kullanıcı',
+        avatarColor: m.avatarColor || webRTC.avatarColor || '#3B82F6',
+        videoStream: webRTC.videoStream || null,
+        peerId: pId,
+      });
+    }
+  });
+
+  // 3. WebRTC üzerinden ekstra gelen peer varsa ekle
+  Object.entries(voiceParticipants).forEach(([pId, p]) => {
+    if (pId !== 'self' && !participantMap.has(pId)) {
+      participantMap.set(pId, {
+        isSelf: false,
+        username: p.username || 'Kullanıcı',
+        avatarColor: p.avatarColor || '#3B82F6',
+        videoStream: p.videoStream || null,
+        peerId: pId,
+      });
+    }
+  });
+
+  const participantEntries = Array.from(participantMap.entries());
 
   return (
     <div className={styles.connectionPanel}>
