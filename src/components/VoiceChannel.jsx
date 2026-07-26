@@ -239,38 +239,67 @@ export function VoiceChannel({
         </div>
       )}
 
-      {/* Ekran Paylaşımı Kalite Modalı */}
-      <Modal isOpen={showQualityMenu} onClose={() => setShowQualityMenu(false)} title="Ekran Paylaşımı">
-        <div className={styles.modalContent}>
-          <div className={styles.modalField}>
-            <label className={styles.modalLabel}>Çözünürlük</label>
-            <select
-              value={res}
-              onChange={e => setRes(e.target.value)}
-              className={styles.modalSelect}
+      {/* Ekran Paylaşımı Kalite Açılır Penceresi (Yukarı Doğru Şık Popover) */}
+      {showQualityMenu && (
+        <div className={styles.qualityPopover}>
+          <div className={styles.qualityPopoverHeader}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MonitorUp size={16} color="#FF7E20" />
+              <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#FFF' }}>Ekran Paylaşım Kalitesi</span>
+            </div>
+            <button 
+              type="button" 
+              className={styles.popoverCloseBtn} 
+              onClick={() => setShowQualityMenu(false)}
             >
-              <option value="720">720p (HD)</option>
-              <option value="1080">1080p (Full HD)</option>
-              <option value="1440">1440p (2K)</option>
-              <option value="2160">2160p (4K Ultra HD)</option>
-            </select>
+              <X size={14} />
+            </button>
           </div>
 
-          <div className={styles.modalField}>
-            <label className={styles.modalLabel}>Kare Hızı (FPS)</label>
-            <select
-              value={fps}
-              onChange={e => setFps(e.target.value)}
-              className={styles.modalSelect}
-            >
-              <option value="30">30 FPS</option>
-              <option value="60">60 FPS</option>
-            </select>
-          </div>
+          <div className={styles.qualityPopoverBody}>
+            <div className={styles.popoverField}>
+              <label>Çözünürlük</label>
+              <div className={styles.qualityPills}>
+                {[
+                  { id: '720', label: '720p HD' },
+                  { id: '1080', label: '1080p FHD' },
+                  { id: '1440', label: '2K' },
+                  { id: '2160', label: '4K Ultra' },
+                ].map(q => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    className={`${styles.qualityPill} ${res === q.id ? styles.qualityPillActive : ''}`}
+                    onClick={() => setRes(q.id)}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div className={styles.modalActions}>
-            <Button variant="secondary" onClick={() => setShowQualityMenu(false)}>İptal</Button>
-            <Button
+            <div className={styles.popoverField}>
+              <label>Kare Hızı (FPS)</label>
+              <div className={styles.qualityPills}>
+                {[
+                  { id: '30', label: '30 FPS' },
+                  { id: '60', label: '60 FPS' },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className={`${styles.qualityPill} ${fps === f.id ? styles.qualityPillActive : ''}`}
+                    onClick={() => setFps(f.id)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={styles.startStreamBtn}
               onClick={() => {
                 const resMap = {
                   '720': { w: 1280, h: 720 },
@@ -283,11 +312,11 @@ export function VoiceChannel({
                 setShowQualityMenu(false);
               }}
             >
-              Paylaşımı Başlat
-            </Button>
+              🚀 Yayını Başlat
+            </button>
           </div>
         </div>
-      </Modal>
+      )}
 
       {/* Arka plan müzik motoru */}
       <MusicPlayerCore
