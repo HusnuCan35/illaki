@@ -273,13 +273,18 @@ export function UserProfileModal({ isOpen, onClose, user }) {
                   onClick={async () => {
                     try {
                       const { createDuel } = await import('../lib/firestore');
-                      const { activeSpaceId } = useSpaceStore.getState();
-                      if (!activeSpaceId) return;
-                      await createDuel(activeSpaceId, identity, { uid: targetUid, username: user.username });
-                      addToast({ type: 'success', message: `${user.username} kullanıcısına düello teklifi gönderildi!` });
+                      const opponentUid = user?.uid || user?.id;
+                      const opponentName = user?.username || user?.name || 'Kullanıcı';
+                      if (!activeSpaceId || !opponentUid) {
+                        addToast({ type: 'error', message: 'Düello için oda veya üye bilgisi bulunamadı.' });
+                        return;
+                      }
+                      await createDuel(activeSpaceId, identity, { uid: opponentUid, username: opponentName });
+                      addToast({ type: 'success', message: `${opponentName} kullanıcısına düello teklifi gönderildi!` });
                       onClose();
                     } catch (err) {
-                      addToast({ type: 'error', message: 'Düello daveti gönderilemedi.' });
+                      console.error('Düello oluşturma hatası:', err);
+                      addToast({ type: 'error', message: 'Düello daveti gönderilemedi: ' + (err.message || '') });
                     }
                   }}
                   style={{
