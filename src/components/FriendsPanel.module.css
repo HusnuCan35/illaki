@@ -164,3 +164,11 @@ h3 {
   font-style: italic;
   padding: 12px 0;
 }
+
+@media (max-width: 768px) {
+  .container {
+    width: 100%;
+    max-width: 100%;
+    border-left: none;
+  }
+}

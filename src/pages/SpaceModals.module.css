@@ -313,3 +313,14 @@
   color: var(--text-muted);
   font-weight: 500;
 }
+
+@media (max-width: 480px) {
+  .codeDisplay {
+    padding: var(--space-4);
+  }
+  .codeLetter {
+    max-width: 36px;
+    height: 44px;
+    font-size: var(--text-xl);
+  }
+}

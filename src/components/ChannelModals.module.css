@@ -214,3 +214,21 @@
   margin-top: auto;
   padding-top: var(--space-4);
 }
+
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tabBtn {
+    white-space: nowrap;
+    text-align: center;
+    justify-content: center;
+  }
+}

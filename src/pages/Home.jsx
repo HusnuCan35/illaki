@@ -208,6 +208,9 @@ export function Home() {
         )}
       </div>
 
+      {/* Right panel overlay for mobile */}
+      {rightPanel && <div className={styles.rightPanelOverlay} onClick={() => setRightPanel(null)} />}
+
       <div className={`${styles.rightPanels} ${rightPanel ? styles.rightPanelsOpen : ''}`}>
         {activeSpaceId && rightPanel === 'members' && <MembersPanel kickPeer={kickPeer} />}
         {activeSpaceId && rightPanel === 'music' && <MusicBotPanel />}

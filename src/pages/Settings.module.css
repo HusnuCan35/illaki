@@ -493,6 +493,32 @@
 }
 
 /* ── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .layout {
+    max-height: 90vh;
+  }
+
+  .content {
+    max-height: 85vh;
+    padding: var(--space-4);
+  }
+
+  .nav {
+    width: 56px;
+    padding: var(--space-3) var(--space-1);
+  }
+
+  .navLabel,
+  .navArrow {
+    display: none;
+  }
+
+  .navItem {
+    justify-content: center;
+    padding: 10px 0;
+  }
+}
+
 @media (max-width: 540px) {
   .nav {
     width: 48px;
@@ -522,5 +548,19 @@
 
   .aboutVal {
     text-align: left;
+  }
+
+  .content {
+    padding: var(--space-3);
+  }
+}
+
+@media (max-width: 400px) {
+  .layout {
+    max-height: 95vh;
+  }
+
+  .content {
+    padding: var(--space-2);
   }
 }

@@ -959,6 +959,7 @@
   .msgContent {
     font-size: 0.9rem;
     line-height: 1.5;
+    max-width: min(85%, 520px);
   }
 
   /* Input area */
@@ -983,7 +984,7 @@
   }
 
   /* Emoji picker on mobile */
-  .emojiWrapper {
+  .emojiPickerWrapper {
     bottom: 60px;
     right: var(--space-3);
     left: var(--space-3);

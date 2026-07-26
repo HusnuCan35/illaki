@@ -144,3 +144,86 @@
     width: 100%;
   }
 }
+
+/* ── Discover Modal Overlay ────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.modalContent {
+  background: var(--bg-surface, #1a1a2e);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.closeModalBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.closeModalBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Right Panel Overlay (mobile) ─────────────────────────────────────── */
+.rightPanelOverlay {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .rightPanelOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 45;
+    backdrop-filter: blur(2px);
+  }
+}
+
+@media (max-width: 768px) {
+  .rightPanels {
+    background: var(--bg-surface, #1a1a2e);
+  }
+
+  .modalContent {
+    width: 95% !important;
+    height: 90vh !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .modalContent {
+    width: 100% !important;
+    height: 95vh !important;
+    border-radius: 12px;
+  }
+}

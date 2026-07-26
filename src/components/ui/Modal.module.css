@@ -58,3 +58,16 @@
 .body {
   padding: var(--space-6);
 }
+
+@media (max-width: 768px) {
+  .modal {
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    max-height: 90vh;
+  }
+}

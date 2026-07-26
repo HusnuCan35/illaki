@@ -70,3 +70,16 @@
   border-color: rgba(255, 126, 32, 0.25);
   color: var(--accent-light);
 }
+
+@media (max-width: 480px) {
+  .container {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .toast {
+    min-width: unset;
+    width: 100%;
+  }
+}

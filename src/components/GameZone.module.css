@@ -105,3 +105,12 @@
     transform: translateY(0) scale(1);
   }
 }
+
+@media (max-width: 480px) {
+  .gameZoneWrapper {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    bottom: 60px;
+  }
+}

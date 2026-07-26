@@ -561,3 +561,27 @@
   50% { left: 40%; }
   100% { left: 100%; }
 }
+
+@media (max-width: 768px) {
+  .root {
+    padding: 1rem;
+  }
+  .orb1, .orb2 {
+    width: 100vw;
+    height: 100vw;
+    opacity: 0.08;
+  }
+  .main {
+    width: 100%;
+  }
+  .authCard {
+    border-radius: 12px;
+  }
+  .input {
+    font-size: 16px;
+    padding: 0.75rem 0.875rem 0.75rem 2.25rem;
+  }
+  .headline {
+    font-size: 1.5rem;
+  }
+}

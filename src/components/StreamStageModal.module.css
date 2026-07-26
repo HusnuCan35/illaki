@@ -187,3 +187,17 @@
   50% { transform: scale(1.1); opacity: 1; }
   100% { transform: scale(0.95); opacity: 0.8; }
 }
+
+@media (max-width: 768px) {
+  .controlBar {
+    padding: 0 10px;
+    overflow-x: auto;
+  }
+  .controlBtn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .leftControls, .rightControls {
+    gap: 8px;
+  }
+}

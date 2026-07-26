@@ -242,6 +242,13 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
       className={styles.msgBubbleWrapper}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
+      onClick={(e) => {
+        // On mobile, tap to toggle actions (only if not in select mode)
+        if ('ontouchstart' in window && !isSelectMode) {
+          e.stopPropagation();
+          setShowActions(prev => !prev);
+        }
+      }}
       style={{ display: 'flex', alignItems: 'center', gap: 6 }}
     >
       {isSelectMode && (
