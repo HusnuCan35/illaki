@@ -107,7 +107,7 @@ export function Landing() {
           <div className={styles.glassLoaderCard}>
             <div className={styles.loaderLogoWrapper}>
               <div className={styles.loaderLogoIcon}>
-                <Hash size={36} strokeWidth={2.5} />
+                <img src="/logo.png" alt="illaki" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
               </div>
               <div className={styles.pulseRing} />
             </div>
@@ -131,7 +131,9 @@ export function Landing() {
       <main className={styles.main}>
         {/* Logo */}
         <div className={styles.logoArea}>
-          <div className={styles.logoIcon}><Hash size={28} strokeWidth={2.5} /></div>
+          <div className={styles.logoIcon}>
+            <img src="/logo.png" alt="illaki" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+          </div>
           <div className={styles.logoText}>
             <span className={styles.logoName}>illaki</span>
             <span className={styles.logoBadge}>E2E</span>

@@ -50,7 +50,7 @@ export function ChannelSidebar({
   const handleChannelClick = (channelId) => {
     setActiveChannel(channelId);
     if (window.innerWidth <= 768) {
-      useUIStore.getState().toggleSidebar();
+      useUIStore.getState().setSidebarOpen(false);
     }
   };
 

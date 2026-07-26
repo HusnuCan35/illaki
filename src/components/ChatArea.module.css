@@ -1009,6 +1009,11 @@
 
   .inputWrapper {
     flex-wrap: nowrap;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .inputField {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
   }
 }
 

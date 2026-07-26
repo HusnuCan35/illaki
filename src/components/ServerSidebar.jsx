@@ -45,7 +45,7 @@ export function ServerSidebar({ onCreateSpace, onJoinSpace, onDiscover }) {
           onClick={() => setActiveSpace(null)}
           title="Ana Sayfa"
         >
-          <Hash size={24} />
+          <img src="/logo.png" alt="illaki" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
         </button>
       </div>
 

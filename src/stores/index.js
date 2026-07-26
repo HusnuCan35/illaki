@@ -139,6 +139,7 @@ export const useUIStore = create((set) => ({
 
   setView: (view) => set({ view }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setSidebarOpen: (v) => set({ sidebarOpen: v }),
   setSettingsOpen: (v) => set({ settingsOpen: v }),
   setJoinModalOpen: (v) => set({ joinModalOpen: v }),
   setCreateModalOpen: (v) => set({ createModalOpen: v }),

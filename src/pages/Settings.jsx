@@ -392,7 +392,7 @@ export function SettingsModal({ isOpen, onClose }) {
               </div>
               <div className={styles.aboutCard}>
                 <div className={styles.aboutLogo}>
-                  <span>#</span>
+                  <img src="/logo.png" alt="illaki" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
                 </div>
                 <div>
                   <div className={styles.aboutName}>illaki</div>
