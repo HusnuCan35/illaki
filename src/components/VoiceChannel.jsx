@@ -160,7 +160,37 @@ export function VoiceChannel({
         </button>
       </div>
 
-      {/* Kontrol Butonları Satırı */}
+      {/* Katılımcılar & Kamera Alanı (Ses Bağlantısı Kontrollerinin ÜSTÜNDE sürekli görünür) */}
+      {participantEntries.length > 0 && (
+        <div className={`${styles.videoGrid} ${participantEntries.length === 1 && !musicState?.currentSong ? styles.videoGridSingle : ''}`}>
+          {musicState?.currentSong && (
+            <div className={`${styles.videoTile} ${musicState.status === 'playing' ? styles.videoTileSpeaking : ''}`}>
+              <div className={styles.videoAvatar} style={{ background: '#FF0000' }}>
+                🎵
+                {musicState.status === 'playing' && <div className={styles.speakingRing} />}
+              </div>
+              <div className={styles.videoTileFooter}>
+                <span className={styles.videoTileName}>Müzik Botu</span>
+                <SpeakingBars level={musicState.status === 'playing' ? 12 : 0} active={musicState.status === 'playing'} />
+              </div>
+            </div>
+          )}
+
+          {participantEntries.map(([peerId, participant]) => (
+            <VideoTile
+              key={peerId}
+              peerId={peerId}
+              participant={participant}
+              getSpeakingLevel={getSpeakingLevel}
+              isMuted={isMuted}
+              isDeafened={isDeafened}
+              isSelf={participant.isSelf}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Kontrol Butonları Satırı (Alt Tarafta) */}
       <div className={styles.controlsRow}>
         <button
           className={`${styles.controlBtn} ${isMuted ? styles.controlActive : ''}`}
@@ -208,36 +238,6 @@ export function VoiceChannel({
           {screenShare?.isSharing ? <MonitorOff size={16} /> : <MonitorUp size={16} />}
         </button>
       </div>
-
-      {/* Video Grid — Sadece kamera/video aktifse gösterilir */}
-      {hasActiveVideo && participantEntries.length > 0 && (
-        <div className={`${styles.videoGrid} ${participantEntries.length === 1 ? styles.videoGridSingle : ''}`}>
-          {musicState?.currentSong && (
-            <div className={`${styles.videoTile} ${musicState.status === 'playing' ? styles.videoTileSpeaking : ''}`}>
-              <div className={styles.videoAvatar} style={{ background: '#FF0000' }}>
-                🎵
-                {musicState.status === 'playing' && <div className={styles.speakingRing} />}
-              </div>
-              <div className={styles.videoTileFooter}>
-                <span className={styles.videoTileName}>Müzik Botu</span>
-                <SpeakingBars level={musicState.status === 'playing' ? 12 : 0} active={musicState.status === 'playing'} />
-              </div>
-            </div>
-          )}
-
-          {participantEntries.map(([peerId, participant]) => (
-            <VideoTile
-              key={peerId}
-              peerId={peerId}
-              participant={participant}
-              getSpeakingLevel={getSpeakingLevel}
-              isMuted={isMuted}
-              isDeafened={isDeafened}
-              isSelf={participant.isSelf}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Ekran Paylaşımı Kalite Açılır Penceresi (Yukarı Doğru Şık Popover) */}
       {showQualityMenu && (

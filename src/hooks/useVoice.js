@@ -84,13 +84,17 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     analysersRef.current[peerId] = { analyser, dataArray };
   }, []);
 
-  // ── Ses Seviyesi Okuma ─────────────────────────────────────────────────────
+  // ── Ses Seviyesi Okuma (Düzgün yumuşatılmış, sekmeyen hareketli ortalama) ──
   const getSpeakingLevel = useCallback((peerId) => {
     const entry = analysersRef.current[peerId];
     if (!entry) return 0;
     entry.analyser.getByteFrequencyData(entry.dataArray);
     const avg = entry.dataArray.reduce((s, v) => s + v, 0) / entry.dataArray.length;
-    return Math.min(100, avg * 2);
+    // Gürültü ve sistem sesi sekmelerini filtreleme eşiği
+    const rawLevel = avg < 10 ? 0 : Math.min(100, (avg - 10) * 1.8);
+    // Hareketli ortalama yumuşatma
+    entry.lastLevel = (entry.lastLevel || 0) * 0.75 + rawLevel * 0.25;
+    return entry.lastLevel < 3 ? 0 : Math.round(entry.lastLevel);
   }, []);
 
   // ── Ses Oynatıcı Oluştur ───────────────────────────────────────────────────
@@ -129,9 +133,10 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       // Mevcut call'lardan video track'i kaldır
       for (const call of Object.values(callsRef.current)) {
         try {
-          const sender = call.peerConnection?.getSenders?.().find(s => s.track?.kind === 'video');
-          if (sender) {
-            call.peerConnection.removeTrack(sender);
+          const senders = call.peerConnection?.getSenders?.() || [];
+          const videoSender = senders.find(s => s.track?.kind === 'video');
+          if (videoSender) {
+            await videoSender.replaceTrack(null);
           }
         } catch {}
       }
@@ -166,12 +171,20 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           self: { ...prev.self, videoStream },
         }));
 
-        // Mevcut call'lara video track ekle (renegotiation)
+        // Mevcut call'lara video track ekle (sender.replaceTrack ile anında ilet)
         const videoTrack = videoStream.getVideoTracks()[0];
         for (const call of Object.values(callsRef.current)) {
           try {
-            call.peerConnection?.addTrack(videoTrack, videoStream);
-          } catch {}
+            const senders = call.peerConnection?.getSenders?.() || [];
+            const videoSender = senders.find(s => s.track?.kind === 'video' || s.kind === 'video');
+            if (videoSender) {
+              await videoSender.replaceTrack(videoTrack);
+            } else if (call.peerConnection?.addTrack) {
+              call.peerConnection.addTrack(videoTrack, videoStream);
+            }
+          } catch (e) {
+            console.warn('[Voice] Video kanalı aktarım uyarısı:', e);
+          }
         }
 
         playCamOn();
