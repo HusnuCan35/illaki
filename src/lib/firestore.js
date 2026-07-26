@@ -716,17 +716,15 @@ export async function getUserSpaces(uid) {
     for (const spaceId of joined) {
       if (!spaceIds.has(spaceId)) {
         try {
-          const [memberSnap, banSnap, spaceSnap] = await Promise.all([
-            getDoc(doc(db, 'spaces', spaceId, 'members', uid)),
+          const [banSnap, spaceSnap] = await Promise.all([
             getDoc(doc(db, 'spaces', spaceId, 'bans', uid)),
             getDoc(doc(db, 'spaces', spaceId)),
           ]);
 
           const isBanned = banSnap.exists();
-          const isMember = memberSnap.exists();
 
-          if (isBanned || !isMember || !spaceSnap.exists()) {
-            // Üye değil, yasaklanmış veya sunucu silinmiş — kullanıcının listesinden temizle
+          if (isBanned || !spaceSnap.exists()) {
+            // Yasaklanmış veya sunucu silinmiş — kullanıcının listesinden temizle
             await updateDoc(doc(db, 'users', uid), {
               joinedSpaces: arrayRemove(spaceId)
             }).catch(() => {});
