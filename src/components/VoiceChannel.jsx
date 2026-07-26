@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, MicOff, Headphones,
   PhoneOff, Volume2, VolumeX, Radio, MonitorUp, MonitorOff,
-  Camera, CameraOff
+  Camera, CameraOff, X
 } from 'lucide-react';
 import { useSpaceStore, usePeerStore } from '../stores';
 import { Modal } from './ui/Modal';
