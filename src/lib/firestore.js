@@ -1357,14 +1357,23 @@ export function subscribeToRoles(spaceId, onRoles) {
 // ────────────────────────────────────────────────────────────
 
 export async function createDuel(spaceId, challenger, opponent) {
+  const cUid = challenger?.uid || challenger?.id || '';
+  const cName = challenger?.username || challenger?.name || 'Oyuncu 1';
+  const oUid = opponent?.uid || opponent?.id || '';
+  const oName = opponent?.username || opponent?.name || 'Oyuncu 2';
+
+  if (!spaceId || !cUid || !oUid) {
+    throw new Error('Geçersiz düello bilgileri.');
+  }
+
   const duelRef = doc(collection(db, 'spaces', spaceId, 'duels'));
   const duelData = {
     id: duelRef.id,
     spaceId,
-    challengerUid: challenger.uid,
-    challengerName: challenger.username,
-    opponentUid: opponent.uid,
-    opponentName: opponent.username,
+    challengerUid: cUid,
+    challengerName: cName,
+    opponentUid: oUid,
+    opponentName: oName,
     challengerChoice: null,
     opponentChoice: null,
     status: 'pending', // 'pending' | 'accepted' | 'declined' | 'completed'

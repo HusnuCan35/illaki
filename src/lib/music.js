@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from './firebase';
 import { getSyncedTime } from './time';
 

@@ -598,13 +598,48 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
           )}
 
           {activeTab === 'roles' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+              {/* Rol Oluşturma Kartı */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 126, 32, 0.3)', borderRadius: '12px', padding: '14px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#FF7E20', fontWeight: '700' }}>✨ Yeni Özel Rol Oluştur</h4>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <input
+                    type="text"
+                    id="new-role-name"
+                    placeholder="Rol Adı (örn: Moderatör, VIP)..."
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: '12px' }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      const inputEl = document.getElementById('new-role-name');
+                      const roleName = inputEl?.value?.trim();
+                      if (!roleName) return;
+                      try {
+                        const { createCustomRole } = await import('../lib/firestore');
+                        await createCustomRole(space.id, identity.uid, { name: roleName, color: '#FF7E20' });
+                        inputEl.value = '';
+                        addToast({ type: 'success', message: `"${roleName}" rolü oluşturuldu.` });
+                      } catch (err) {
+                        addToast({ type: 'error', message: err.message });
+                      }
+                    }}
+                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                  >
+                    Oluştur
+                  </Button>
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>Varsayılan izinler: Mesaj Okuma/Gönderme, Sese Katılma.</div>
+              </div>
+
+              {/* Üyeler ve Rol Atamaları */}
+              <h4 style={{ margin: '8px 0 4px 0', fontSize: '13px', color: '#FFF', fontWeight: '700' }}>Üye Yetkileri & Rol Atama</h4>
               {members.map(m => (
-                <div key={m.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-modifier-hover)', borderRadius: '8px' }}>
+                <div key={m.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-modifier-hover)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div>
-                    <span style={{ fontWeight: 600, display: 'block' }}>{m.username} {m.uid === identity?.uid && '(Sen)'}</span>
+                    <span style={{ fontWeight: 600, display: 'block', fontSize: '13px', color: '#FFF' }}>{m.username} {m.uid === identity?.uid && '(Sen)'}</span>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {m.role === 'host' ? 'Kurucu' : m.role === 'mod' ? 'Moderatör' : m.role === 'admin' ? 'Yönetici' : 'Üye'} 
+                      {m.role === 'host' ? '👑 Kurucu' : m.role === 'admin' ? '🛡️ Yönetici' : m.role === 'mod' ? '⭐ Moderatör' : '👤 Üye'} 
                       {m.points > 0 && ` • ⭐ ${m.points} Puan`}
                     </span>
                   </div>
@@ -627,8 +662,8 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                             }
                           }}
                           style={{
-                            padding: '4px 10px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 500,
-                            background: (m.role || 'member') === r.val ? 'var(--accent)' : 'var(--bg-surface)',
+                            padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                            background: (m.role || 'member') === r.val ? 'var(--accent)' : 'rgba(255,255,255,0.08)',
                             color: (m.role || 'member') === r.val ? '#fff' : 'var(--text-secondary)'
                           }}
                         >
@@ -640,10 +675,10 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                         type="button"
                         onClick={() => handleKickUser(m.uid, m.username)}
                         style={{
-                          padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.4)',
-                          background: 'rgba(239,68,68,0.15)', color: '#FF4D4D', cursor: 'pointer', fontSize: '12px', fontWeight: 600
+                          padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.4)',
+                          background: 'rgba(239,68,68,0.15)', color: '#FF4D4D', cursor: 'pointer', fontSize: '11px', fontWeight: 700
                         }}
-                        title="Tekmele"
+                        title="Sunucudan At"
                       >
                         At
                       </button>
@@ -655,18 +690,99 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
           )}
 
           {activeTab === 'bans' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+              {/* Yasakla / Uzaklaştır Hızlı Formu */}
+              <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '12px', padding: '14px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#EF4444', fontWeight: '700' }}>⛔ Kullanıcı Yasakla / Sustur (Timeout)</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      id="action-target-uid"
+                      style={{ flex: 1, padding: '8px', borderRadius: '8px', background: '#0E1017', border: '1px solid rgba(255,255,255,0.15)', color: '#FFF', fontSize: '12px' }}
+                    >
+                      <option value="">Üye Seç...</option>
+                      {members.filter(m => m.uid !== identity?.uid).map(m => (
+                        <option key={m.uid} value={m.uid}>{m.username}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      id="action-type"
+                      style={{ padding: '8px', borderRadius: '8px', background: '#0E1017', border: '1px solid rgba(255,255,255,0.15)', color: '#FFF', fontSize: '12px' }}
+                    >
+                      <option value="timeout">Sustur (Timeout)</option>
+                      <option value="ban">Yasakla (Ban)</option>
+                    </select>
+
+                    <select
+                      id="action-duration"
+                      style={{ padding: '8px', borderRadius: '8px', background: '#0E1017', border: '1px solid rgba(255,255,255,0.15)', color: '#FFF', fontSize: '12px' }}
+                    >
+                      <option value="5">5 Dk</option>
+                      <option value="15">15 Dk</option>
+                      <option value="60">1 Saat</option>
+                      <option value="1440">24 Saat</option>
+                      <option value="permanent">Süresiz</option>
+                    </select>
+                  </div>
+
+                  <input
+                    type="text"
+                    id="action-reason"
+                    placeholder="Sebep (örn: Kural İhlali)..."
+                    style={{ padding: '8px 12px', borderRadius: '8px', background: '#0E1017', border: '1px solid rgba(255,255,255,0.15)', color: '#FFF', fontSize: '12px' }}
+                  />
+
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      const targetUid = document.getElementById('action-target-uid')?.value;
+                      const type = document.getElementById('action-type')?.value;
+                      const duration = document.getElementById('action-duration')?.value;
+                      const reason = document.getElementById('action-reason')?.value || 'Kural İhlali';
+
+                      if (!targetUid) {
+                        addToast({ type: 'error', message: 'Lütfen bir üye seçin.' });
+                        return;
+                      }
+
+                      try {
+                        if (type === 'timeout') {
+                          const { timeoutMember } = await import('../lib/firestore');
+                          const mins = duration === 'permanent' ? 1440 : parseInt(duration);
+                          await timeoutMember(space.id, identity.uid, targetUid, { durationMinutes: mins, reason });
+                          addToast({ type: 'success', message: 'Kullanıcı susturuldu (Timeout).' });
+                        } else {
+                          const { banMember } = await import('../lib/firestore');
+                          const isPerm = duration === 'permanent';
+                          const days = isPerm ? 365 : Math.ceil(parseInt(duration) / 1440);
+                          await banMember(space.id, identity.uid, targetUid, { banType: isPerm ? 'permanent' : 'temporary', durationDays: days, reason });
+                          addToast({ type: 'success', message: 'Kullanıcı yasaklandı.' });
+                        }
+                      } catch (err) {
+                        addToast({ type: 'error', message: err.message });
+                      }
+                    }}
+                    style={{ background: '#EF4444', color: '#FFF', padding: '8px', fontSize: '12px', fontWeight: '700' }}
+                  >
+                    Cezayı Uygula
+                  </Button>
+                </div>
+              </div>
+
+              {/* Yasaklı Üyeler Listesi */}
+              <h4 style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#FFF', fontWeight: '700' }}>Yasaklı Üyeler ({bans.length})</h4>
               {bans.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#94A3B8', fontSize: '13px' }}>
+                <div style={{ textAlign: 'center', padding: '16px', color: '#94A3B8', fontSize: '12px' }}>
                   Henüz yasaklanmış kullanıcı yok.
                 </div>
               ) : (
                 bans.map(b => (
                   <div key={b.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255, 77, 77, 0.08)', border: '1px solid rgba(255, 77, 77, 0.2)', borderRadius: '8px' }}>
                     <div>
-                      <div style={{ fontWeight: '700', color: '#FFF', fontSize: '14px' }}>{b.username}</div>
+                      <div style={{ fontWeight: '700', color: '#FFF', fontSize: '13px' }}>{b.username}</div>
                       <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
-                        Türü: <strong>{b.banType === 'temporary' ? 'Süreli' : 'Süresiz (Kalıcı)'}</strong> | Sebep: <em>"{b.reason}"</em>
+                        Türü: <strong>{b.banType === 'temporary' ? 'Süreli' : 'Kalıcı'}</strong> | Sebep: <em>"{b.reason}"</em>
                       </div>
                     </div>
                     <button
@@ -674,7 +790,7 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                       onClick={() => handleUnban(b.uid, b.username)}
                       style={{
                         padding: '6px 12px', borderRadius: '6px', border: '1px solid #10B981',
-                        background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', cursor: 'pointer', fontSize: '12px', fontWeight: '700'
+                        background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', cursor: 'pointer', fontSize: '11px', fontWeight: '700'
                       }}
                     >
                       Yasağı Kaldır
