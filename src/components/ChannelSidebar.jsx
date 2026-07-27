@@ -409,6 +409,9 @@ export function ChannelSidebar({
                   const key = p.uid || pId;
                   if (!participantsMap.has(key) && key !== identity?.uid) {
                     const dbMatch = (dbMembers || []).find(m => m.uid === p.uid);
+                    // Sadece bu kanalda olanları ekle
+                    if (p.voiceChannelId !== channel.id && dbMatch?.voiceChannelId !== channel.id) return;
+                    
                     const rawName = resolvedNames[p.uid || pId]
                       || (!isGenericName(p.username) ? p.username : null)
                       || (!isGenericName(dbMatch?.username) ? dbMatch?.username : null)

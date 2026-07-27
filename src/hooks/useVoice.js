@@ -519,14 +519,15 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
       // Firestore'dan aynı ses kanalındaki üyelerin peer ID'lerini al
       // Sadece hedef kanalda olan ya da tüm online üyeleri al (henuz kanalda olmayanlara da ulaşmak için)
-      let allPeerIds = [...connectedPeerIds];
+      let allPeerIds = [];
 
       if (activeSpaceId) {
         try {
           const { identity: ident } = useIdentityStore.getState();
           const members = await getSpaceOnlineMembers(activeSpaceId, ident?.uid);
           for (const member of members) {
-            if (member.voiceChannelId === channelId && member.peerId && !allPeerIds.includes(member.peerId) && member.peerId !== peer.id) {
+            // SADECE aynı ses kanalında olanlara bağlan
+            if (member.voiceChannelId === channelId && member.peerId && member.peerId !== peer.id) {
               allPeerIds.push(member.peerId);
             }
           }
@@ -535,16 +536,18 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         }
       }
 
-      // Yeniden katılma (kick sonrası) durumunda eski stale call ref'lerini temizle
-      // Bu olmadan eski referanslar 'continue' bloğuna takılır ve kimseye arama yapılmaz
+      // Yeni bir kanala geçerken veya yeniden bağlanırken tüm eski aramaları (farklı kanal) temizle
       for (const [oldPId, oldCall] of Object.entries(callsRef.current)) {
-        const isStillConnected = oldCall?.peerConnection?.connectionState === 'connected'
-          || oldCall?.peerConnection?.connectionState === 'connecting';
-        if (!isStillConnected) {
-          try { oldCall?.close(); } catch {}
-          delete callsRef.current[oldPId];
-        }
+        try { oldCall?.close(); } catch {}
+        delete callsRef.current[oldPId];
       }
+
+      // Ayrıca mevcut participant'ları temizle ki eski kanaldaki isimler görünmesin
+      setVoiceParticipants(prev => {
+        const reset = {};
+        if (prev.self) reset.self = prev.self;
+        return reset;
+      });
 
       // Tüm peer ID'lere arama yap
       for (const pId of allPeerIds) {
