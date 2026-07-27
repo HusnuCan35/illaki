@@ -73,21 +73,19 @@ export function Home() {
     }
   }, [activeSpaceId, connectToPeer]);
 
-  // Heartbeat & Online status tracking for activeSpace
+  // Profile Sync
   useEffect(() => {
     if (!activeSpaceId || !identity?.uid) return;
-
-    updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
-
-    // Profil bilgilerini senkronize et
     syncMemberProfile(activeSpaceId, identity.uid, {
       username: identity.username,
       avatarColor: identity.avatarColor,
     });
+  }, [activeSpaceId, identity?.uid, identity?.username, identity?.avatarColor]);
 
+  // Voice Status Cleanup on Load
+  useEffect(() => {
+    if (!activeSpaceId || !identity?.uid) return;
     // Sayfa yenilendiğinde (veya ilk açılışta) ses kanalından çıktı olarak işaretle.
-    // voice.isInVoice sıfırdan başlar (persist edilmez) bu yüzden Firestore'daki
-    // stale voiceChannelId'yi temizlememiz gerekiyor.
     if (!voice.isInVoice) {
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
       const { voiceChannelId, setVoiceChannelId } = usePeerStore.getState();
@@ -96,18 +94,23 @@ export function Home() {
         broadcastVoiceStatus({ channelId: null, isMuted: false, isDeafened: false });
       }
     }
+  }, [activeSpaceId, identity?.uid]); // Sadece açılışta ve space değişiminde kontrol et
+
+  // Heartbeat & Online status tracking for activeSpace
+  useEffect(() => {
+    if (!activeSpaceId || !identity?.uid) return;
+
+    const currentStatus = useIdentityStore.getState().identity?.status || 'online';
+    updateMemberOnlineStatus(activeSpaceId, identity.uid, currentStatus !== 'offline', currentStatus);
 
     const interval = setInterval(() => {
-      const currentStatus = useIdentityStore.getState().identity?.status || 'online';
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, currentStatus !== 'offline', currentStatus);
+      const status = useIdentityStore.getState().identity?.status || 'online';
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, status !== 'offline', status);
     }, 30000);
 
     const handleUnload = () => {
-      // Sayfa kapanırken/yenilenirken ses kanalını HER ZAMAN temizle.
-      // Önceki koşul (if !voice.isInVoice) yanlıştı — ses kanalındayken
-      // sayfa kapansa voiceChannelId Firestore'da kalıyordu.
-      const currentStatus = useIdentityStore.getState().identity?.status || 'online';
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, currentStatus);
+      const status = useIdentityStore.getState().identity?.status || 'online';
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, status);
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
     };
 
@@ -116,12 +119,12 @@ export function Home() {
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
-      // Bileşen unmount olunca (space değişimi vb.) online ve ses durumunu temizle
-      const currentStatus = useIdentityStore.getState().identity?.status || 'online';
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, currentStatus).catch(() => {});
+      // Sadece activeSpaceId değiştiğinde eski space'ten çıkış yap
+      const status = useIdentityStore.getState().identity?.status || 'online';
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, status).catch(() => {});
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
     };
-  }, [activeSpaceId, identity?.uid, identity?.username, identity?.avatarColor, voice.isInVoice, broadcastVoiceStatus]);
+  }, [activeSpaceId, identity?.uid]);
 
 
   // Real-time Ban & Membership check for current user in activeSpace
