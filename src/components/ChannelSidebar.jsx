@@ -443,8 +443,8 @@ export function ChannelSidebar({
                     <div className={styles.voiceParticipantsList}>
                       {participantsList.map((p) => (
                         <div key={p.id} className={styles.voiceParticipantRow}>
-                          <Avatar username={p.username.replace(' (Sen)', '')} color={p.avatarColor} size={24} status={p.status || 'online'} />
-                          <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{p.username}</span>
+                          <Avatar username={(p.username || 'Kullanıcı').replace(' (Sen)', '')} color={p.avatarColor} size={24} status={p.status || 'online'} />
+                          <span className={styles.voiceParticipantName} style={{ flex: 1 }}>{p.username || 'Kullanıcı'}</span>
                           {isPrivileged && kickFromVoice && !p.isSelf && (
                             <button 
                               className={styles.kickVoiceBtn}

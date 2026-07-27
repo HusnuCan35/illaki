@@ -488,6 +488,7 @@ export function ChatArea({
   const [diceValue, setDiceValue] = useState(6);
   const [showJackpot, setShowJackpot] = useState(false);
   const [isJackpotWin, setIsJackpotWin] = useState(false);
+  const [jackpotPendingMessage, setJackpotPendingMessage] = useState(null);
   const [duels, setDuels] = useState([]);
   const [activeDuel, setActiveDuel] = useState(null);
   const [showBotDuel, setShowBotDuel] = useState(false);
@@ -645,6 +646,9 @@ export function ChatArea({
             : `🎰 Jackpot denedi ama kazanamadı. Bol şans...`;
           setIsJackpotWin(win);
           setShowJackpot(true);
+          // Set these on state so we can send them when animation finishes
+          setJackpotPendingMessage({ gameResult, pointsAwarded });
+          isGameCommand = false; // Don't send immediately
         } else {
           isGameCommand = false; // Tanınmayan komut
         }
@@ -962,7 +966,30 @@ export function ChatArea({
       <JackpotMachine
         isOpen={showJackpot}
         isWin={isJackpotWin}
-        onComplete={() => setShowJackpot(false)}
+        onComplete={async () => {
+          setShowJackpot(false);
+          if (jackpotPendingMessage) {
+            try {
+              await sendEncryptedMessage(
+                activeSpaceId, 
+                activeChannelId, 
+                'system', 
+                'Sistem', 
+                jackpotPendingMessage.gameResult, 
+                'system', 
+                null, 
+                null
+              );
+              if (jackpotPendingMessage.pointsAwarded > 0) {
+                const { updateMemberPoints } = await import('../lib/firestore');
+                await updateMemberPoints(activeSpaceId, identity.uid, jackpotPendingMessage.pointsAwarded);
+              }
+            } catch (err) {
+              console.error('Failed to send jackpot message:', err);
+            }
+            setJackpotPendingMessage(null);
+          }
+        }}
       />
 
       <DuelModal
