@@ -123,26 +123,70 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   // ── Kamera Aç/Kapat ───────────────────────────────────────────────────────
   const toggleCamera = useCallback(async () => {
     if (isCameraOn) {
-      // Kamerayı kapat
+      // ── Kamerayı Kapat ──
       if (localVideoRef.current) {
         localVideoRef.current.getTracks().forEach(t => t.stop());
         localVideoRef.current = null;
       }
       setIsCameraOn(false);
       setLocalVideoStream(null);
+      setVoiceParticipants(prev => ({ ...prev, self: { ...prev.self, videoStream: null } }));
 
-      // Mevcut call'lardan video track'i null olarak değiştir
-      for (const call of Object.values(callsRef.current)) {
-        try {
-          const senders = call.peerConnection?.getSenders?.() || [];
-          const videoSender = senders.find(s => s.track?.kind === 'video');
-          if (videoSender) await videoSender.replaceTrack(null);
-        } catch {}
+      // PeerJS'te replaceTrack(null) çalışmıyor — fresh audio-only call yap
+      // Bu sayede karşı taraf yeni 'stream' event'i alır: video track yok → videoStream null olur
+      const peer = getPeer();
+      const audioStream = localStreamRef.current;
+      if (peer && audioStream) {
+        for (const [pId, oldCall] of Object.entries(callsRef.current)) {
+          try {
+            if (oldCall) oldCall._isCameraRetoggle = true;
+            try { oldCall?.close(); } catch {}
+
+            const newCall = peer.call(pId, audioStream, {
+              metadata: {
+                username: identity?.username,
+                avatarColor: identity?.avatarColor,
+                hasVideo: false,
+              },
+            });
+
+            if (!newCall) continue;
+            callsRef.current[pId] = newCall;
+
+            newCall.on('stream', (remoteStream) => {
+              const aTracks = remoteStream.getAudioTracks();
+              if (aTracks.length > 0) attachAudio(new MediaStream(aTracks), pId);
+              // Video track yok → karşı taraftaki videoStream'i null yap
+              const vTracks = remoteStream.getVideoTracks();
+              setVoiceParticipants(prev => ({
+                ...prev,
+                [pId]: {
+                  ...(prev[pId] || {}),
+                  videoStream: vTracks.length > 0 ? new MediaStream(vTracks) : null,
+                },
+              }));
+            });
+
+            newCall.on('close', () => {
+              if (!newCall._isCameraRetoggle) {
+                const el = document.getElementById(`audio-${pId}`);
+                if (el) el.remove();
+                delete analysersRef.current[pId];
+                delete callsRef.current[pId];
+                setVoiceParticipants(prev => { const n = { ...prev }; delete n[pId]; return n; });
+              }
+            });
+
+            newCall.on('error', (e) => console.warn('[Voice] Kamera kapat call hatası:', e));
+          } catch (e) {
+            console.warn('[Voice] Kamera kapat hatası:', e);
+          }
+        }
       }
 
-      setVoiceParticipants(prev => ({ ...prev, self: { ...prev.self, videoStream: null } }));
       playCamOff();
       addToast({ type: 'info', message: 'Kamera kapatıldı' });
+
     } else {
       // Kamerayı aç
       try {
