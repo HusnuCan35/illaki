@@ -1,0 +1,292 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(16px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  background: radial-gradient(ellipse at center, #2d0a0a 0%, #120303 100%);
+  border: 2px solid #8B0000;
+  border-radius: 40px;
+  padding: 60px 80px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.95),
+    0 0 60px rgba(255, 0, 0, 0.2),
+    inset 0 0 100px rgba(0,0,0,0.8);
+  transition: all 0.5s ease;
+  position: relative;
+}
+
+.containerWin {
+  background: radial-gradient(ellipse at center, #3a2200 0%, #120303 100%);
+  border-color: #FFD700;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.95),
+    0 0 80px rgba(255, 215, 0, 0.3),
+    0 0 160px rgba(255, 126, 32, 0.2);
+}
+
+.machineBody {
+  background: linear-gradient(180deg, #b3b3b3 0%, #808080 20%, #4d4d4d 80%, #333333 100%);
+  padding: 24px;
+  border-radius: 24px;
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.8),
+    inset 0 4px 10px rgba(255,255,255,0.4),
+    inset 0 -8px 16px rgba(0,0,0,0.6);
+  border: 4px solid #1a1a1a;
+  position: relative;
+}
+
+.machineBody::before {
+  content: '';
+  position: absolute;
+  top: -12px; left: -12px; right: -12px; bottom: -12px;
+  border: 2px solid #FFD700;
+  border-radius: 34px;
+  opacity: 0.3;
+}
+
+.glassPanel {
+  background: #000;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: inset 0 8px 24px rgba(0,0,0,1);
+  border: 2px solid #222;
+}
+
+.slotWindow {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(90deg, #f0f0f0 0%, #ffffff 50%, #f0f0f0 100%);
+  border-radius: 8px;
+  height: 120px;
+  overflow: hidden;
+  box-shadow: inset 0 20px 40px rgba(0,0,0,0.2), inset 0 -20px 40px rgba(0,0,0,0.2);
+  position: relative;
+  width: 320px;
+}
+
+.slotWindow::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.5);
+}
+
+/* Payline indicator */
+.slotWindow::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 2px;
+  background: rgba(255, 0, 0, 0.4);
+  transform: translateY(-50%);
+  z-index: 10;
+  box-shadow: 0 0 4px rgba(255,0,0,0.8);
+}
+
+.reelContainer {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.divider {
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #333 0%, #666 50%, #333 100%);
+  box-shadow: -2px 0 4px rgba(0,0,0,0.3), 2px 0 4px rgba(0,0,0,0.3);
+  z-index: 2;
+}
+
+.reel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* Each item is 120px tall, we have 6 items = 720px */
+  /* Starting transform aligns the last item (result) to the center */
+  transform: translateY(-600px); /* Adjust based on item count */
+}
+
+.symbolItem {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+}
+
+/* Animations */
+.spinning1 { animation: spinReel 0.3s linear infinite; }
+.spinning2 { animation: spinReel 0.35s linear infinite; }
+.spinning3 { animation: spinReel 0.4s linear infinite; }
+
+@keyframes spinReel {
+  0% { transform: translateY(0); filter: blur(4px); }
+  100% { transform: translateY(-480px); filter: blur(4px); }
+}
+
+/* Stop animations */
+/* We animate from the blurred spin to the final item */
+.stopped1 {
+  animation: stopReel 0.6s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+}
+.stopped2 {
+  animation: stopReel 0.6s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+  animation-delay: 0.5s; /* Stop 2nd reel later */
+}
+.stopped3 {
+  animation: stopReel 0.6s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+  animation-delay: 1.0s; /* Stop 3rd reel last */
+}
+
+@keyframes stopReel {
+  0% { transform: translateY(-240px); }
+  50% { transform: translateY(-620px); } /* Bounce past */
+  100% { transform: translateY(-600px); } /* Settle on the last item */
+}
+
+/* Result Area */
+.resultArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease 1.2s, transform 0.5s ease 1.2s;
+}
+
+.resultAreaVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.jackpotTitle {
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  background: linear-gradient(90deg, #FFD700 0%, #FF7E20 50%, #FFD700 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 1.5s linear infinite, pulseScale 1s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 24px rgba(255,215,0,0.8));
+}
+
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+
+@keyframes pulseScale {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+
+.jackpotSubtitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.pointsBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  color: #FFD700;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-weight: 800;
+  font-size: 16px;
+  box-shadow: 0 0 20px rgba(255,215,0,0.2);
+}
+
+.loseTitle {
+  font-size: 28px;
+  font-weight: 800;
+  color: #94A3B8;
+  letter-spacing: 0.05em;
+}
+
+.loseSubtitle {
+  font-size: 16px;
+  color: #64748b;
+}
+
+/* Particles */
+.particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.particle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(from calc(var(--i) * 15deg), #FFD700, #fff, #FFD700);
+  animation: burst 1.2s ease-out both;
+  animation-delay: calc(var(--i) * 0.02s);
+  --angle: calc(var(--i) * 15deg);
+  --dist: 250px;
+}
+
+@keyframes burst {
+  0%   { transform: translate(0, 0) scale(1);   opacity: 1; }
+  60%  { transform: translate(
+    calc(cos(var(--angle)) * var(--dist)),
+    calc(sin(var(--angle)) * var(--dist))
+  ) scale(0.8); opacity: 0.8; }
+  100% { transform: translate(
+    calc(cos(var(--angle)) * calc(var(--dist) * 1.5)),
+    calc(sin(var(--angle)) * calc(var(--dist) * 1.5))
+  ) scale(0); opacity: 0; }
+}
+
+/* Safari / Basic fallback for CSS math */
+.particle:nth-child(even) {
+  animation-name: burstFallbackEven;
+}
+.particle:nth-child(odd) {
+  animation-name: burstFallbackOdd;
+}
+
+@keyframes burstFallbackEven {
+  0% { transform: translate(0,0); opacity:1; }
+  100% { transform: translate(200px, 200px); opacity:0; }
+}
+@keyframes burstFallbackOdd {
+  0% { transform: translate(0,0); opacity:1; }
+  100% { transform: translate(-200px, -200px); opacity:0; }
+}

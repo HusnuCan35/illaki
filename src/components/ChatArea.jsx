@@ -16,6 +16,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { UserProfileModal } from './UserProfileModal';
 import { CameraGrid } from './CameraGrid';
 import { DiceRoller } from './DiceRoller';
+import { JackpotMachine } from './JackpotMachine';
 import { DuelModal } from './DuelModal';
 import { BotDuelModal } from './BotDuelModal';
 import styles from './ChatArea.module.css';
@@ -485,6 +486,8 @@ export function ChatArea({
 
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [diceValue, setDiceValue] = useState(6);
+  const [showJackpot, setShowJackpot] = useState(false);
+  const [isJackpotWin, setIsJackpotWin] = useState(false);
   const [duels, setDuels] = useState([]);
   const [activeDuel, setActiveDuel] = useState(null);
   const [showBotDuel, setShowBotDuel] = useState(false);
@@ -635,12 +638,13 @@ export function ChatArea({
           }
         } else if (cmd === '/jackpot') {
           const roll = Math.random();
-          if (roll > 0.95) { // %5 şans
-            pointsAwarded = 1000;
-            gameResult = `🎰 **JACKPOT!** İnanılmaz bir şans! Büyük ödülü kazandın! (+${pointsAwarded} Puan)`;
-          } else {
-            gameResult = `🎰 Jackpot denedi ama kazanamadı. Bol şans...`;
-          }
+          const win = roll > 0.95; // %5 şans
+          pointsAwarded = win ? 1000 : 0;
+          gameResult = win
+            ? `🎰 **JACKPOT!** İnanılmaz bir şans! Büyük ödülü kazandın! (+${pointsAwarded} Puan)`
+            : `🎰 Jackpot denedi ama kazanamadı. Bol şans...`;
+          setIsJackpotWin(win);
+          setShowJackpot(true);
         } else {
           isGameCommand = false; // Tanınmayan komut
         }
@@ -953,6 +957,12 @@ export function ChatArea({
         isOpen={showDiceRoller}
         value={diceValue}
         onComplete={() => setShowDiceRoller(false)}
+      />
+
+      <JackpotMachine
+        isOpen={showJackpot}
+        isWin={isJackpotWin}
+        onComplete={() => setShowJackpot(false)}
       />
 
       <DuelModal

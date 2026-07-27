@@ -139,8 +139,10 @@ export async function syncMemberProfile(spaceId, uid, { username, avatarColor })
     const updates = { lastSeen: serverTimestamp() };
     if (username) updates.username = username;
     if (avatarColor) updates.avatarColor = avatarColor;
-    await updateDoc(memberRef, updates);
-  } catch {}
+    await setDoc(memberRef, updates, { merge: true });
+  } catch (err) {
+    console.error('syncMemberProfile error:', err);
+  }
 }
 
 /**
@@ -556,9 +558,9 @@ export async function updateMemberPeerId(spaceId, uid, peerId, profile = {}) {
     const updates = { peerId, online: true, lastSeen: serverTimestamp() };
     if (profile.username) updates.username = profile.username;
     if (profile.avatarColor) updates.avatarColor = profile.avatarColor;
-    await updateDoc(memberRef, updates);
-  } catch {
-    // Üye belgesi yoksa sessizce devam et
+    await setDoc(memberRef, updates, { merge: true });
+  } catch (err) {
+    console.error('updateMemberPeerId error:', err);
   }
 }
 
@@ -569,11 +571,13 @@ export async function updateMemberOnlineStatus(spaceId, uid, isOnline) {
   if (!spaceId || !uid) return;
   try {
     const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
-    await updateDoc(memberRef, { 
+    await setDoc(memberRef, { 
       online: isOnline, 
       lastSeen: serverTimestamp() 
-    });
-  } catch {}
+    }, { merge: true });
+  } catch (err) {
+    console.error('updateMemberOnlineStatus error:', err);
+  }
 }
 
 /**
@@ -587,8 +591,10 @@ export async function updateMemberVoiceStatus(spaceId, uid, voiceChannelId) {
     if (voiceChannelId !== null && voiceChannelId !== undefined) {
       update.online = true;
     }
-    await updateDoc(memberRef, update);
-  } catch {}
+    await setDoc(memberRef, update, { merge: true });
+  } catch (err) {
+    console.error('updateMemberVoiceStatus error:', err);
+  }
 }
 
 
@@ -598,11 +604,13 @@ export async function updateMemberVoiceStatus(spaceId, uid, voiceChannelId) {
 export async function kickMemberFromVoice(spaceId, hostUid, targetUid) {
   try {
     const memberRef = doc(db, 'spaces', spaceId, 'members', targetUid);
-    await updateDoc(memberRef, { 
+    await setDoc(memberRef, { 
       voiceChannelId: null, 
       voiceKickedAt: Date.now() 
-    });
-  } catch {}
+    }, { merge: true });
+  } catch (err) {
+    console.error('kickMemberFromVoice error:', err);
+  }
 }
 
 /**
