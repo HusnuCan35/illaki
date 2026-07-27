@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import styles from './JackpotMachine.module.css';
 
 const SYMBOLS = ['🍒', '🍋', '🍇', '🍉', '⭐', '💎', '7️⃣'];
@@ -11,22 +11,19 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
   useEffect(() => {
     if (!isOpen) return;
 
-    // Determine results
     if (isWin) {
-      setResults(['7️⃣', '7️⃣', '7️⃣']); // Jackpot
+      setResults(['7️⃣', '7️⃣', '7️⃣']);
     } else {
-      // Pick random symbols, ensure they don't all match
       let r = [
         SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
         SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
         SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
       ];
       if (r[0] === r[1] && r[1] === r[2]) {
-        r[2] = SYMBOLS[(SYMBOLS.indexOf(r[2]) + 1) % SYMBOLS.length]; // guarantee a miss
+        r[2] = SYMBOLS[(SYMBOLS.indexOf(r[2]) + 1) % SYMBOLS.length]; 
       }
       setResults(r);
     }
-
     setPhase('enter');
   }, [isOpen, isWin]);
 
@@ -35,11 +32,11 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
     setPhase('pulled');
 
     setTimeout(() => setPhase('spinning'), 400);
-    setTimeout(() => setPhase('stopping'), 2400); // 2s spin
-    setTimeout(() => setPhase('landed'), 4200); // 1.8s to stop all reels
+    setTimeout(() => setPhase('stopping'), 2400);
+    setTimeout(() => setPhase('landed'), 4200);
     setTimeout(() => {
       if (onComplete) onComplete();
-    }, 6400); // stay visible longer
+    }, 7000); 
   };
 
   if (!isOpen) return null;
@@ -51,7 +48,7 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
     <div className={styles.overlay}>
       {isLanded && isWin && (
         <div className={styles.particles} aria-hidden="true">
-          {Array.from({ length: 24 }).map((_, i) => (
+          {Array.from({ length: 30 }).map((_, i) => (
             <span key={i} className={styles.particle} style={{ '--i': i }} />
           ))}
         </div>
@@ -74,13 +71,11 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
               {/* Reel 1 */}
               <div className={styles.reelContainer}>
                 <div className={`${styles.reel} ${isSpinning ? styles.spinning1 : ''} ${phase === 'stopping' || isLanded ? styles.stopped1 : ''}`}>
-                  {/* Fake items for the spinning blur */}
                   <div className={styles.symbolItem}>🍒</div>
                   <div className={styles.symbolItem}>⭐</div>
                   <div className={styles.symbolItem}>🍉</div>
                   <div className={styles.symbolItem}>💎</div>
                   <div className={styles.symbolItem}>🍋</div>
-                  {/* The final result is the last item so it lands on it */}
                   <div className={styles.symbolItem}>{results[0]}</div>
                 </div>
               </div>
@@ -115,27 +110,17 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
 
             </div>
           </div>
-        </div>
-
-        {(phase === 'stopping' || isLanded) && (
-          <div className={`${styles.resultArea} ${isLanded ? styles.resultAreaVisible : ''}`}>
-            {isWin ? (
-              <>
-                <div className={styles.jackpotTitle}>🎰 JACKPOT!</div>
-                <div className={styles.jackpotSubtitle}>İnanılmaz Şans!</div>
-                <div className={styles.pointsBadge}>
-                  <Sparkles size={16} />
-                  <span>+1000 Puan</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className={styles.loseTitle}>ŞANSINI DENEDİN</div>
-                <div className={styles.loseSubtitle}>Tekrar dene...</div>
-              </>
+          
+          <div className={styles.statusPanel}>
+            {phase === 'enter' && <div className={styles.statusText} style={{ color: '#888', textShadow: 'none', fontSize: '18px' }}>KOLU ÇEK</div>}
+            {(phase === 'stopping' || isLanded) && (
+              <div className={`${styles.statusText} ${isLanded && isWin ? styles.winText : ''}`}>
+                {isWin ? 'JACKPOT!' : 'TEKRAR DENE'}
+              </div>
             )}
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );
