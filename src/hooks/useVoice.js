@@ -354,12 +354,48 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       });
 
 
-      // call.peer zaten en üstte set edildi, bu satır gereksiz ama zarar vermez
-      callsRef.current[call.peer] = call;
+      // Kamera açıksa yeni gelen kullanıcıya kamera dahil geri call yap
+      // (PeerJS renegotiation desteklemiyor; yeni call en güvenilir yol)
+      if (localVideoRef.current && localVideoRef.current.active) {
+        const peer = getPeer();
+        const audioStream = localStreamRef.current;
+        if (peer && audioStream) {
+          const videoTrack = localVideoRef.current.getVideoTracks()[0];
+          if (videoTrack && videoTrack.readyState === 'live') {
+            const combinedStream = new MediaStream([
+              ...audioStream.getAudioTracks(),
+              videoTrack,
+            ]);
+            setTimeout(() => {
+              // Kısa gecikme: call.answer() tamamlansın
+              try {
+                const retCall = peer.call(call.peer, combinedStream, {
+                  metadata: { username: identity?.username, avatarColor: identity?.avatarColor, hasVideo: true },
+                });
+                if (retCall) {
+                  if (callsRef.current[call.peer]) {
+                    callsRef.current[call.peer]._isCameraRetoggle = true;
+                    try { callsRef.current[call.peer].close(); } catch {}
+                  }
+                  callsRef.current[call.peer] = retCall;
+                  retCall.on('stream', () => {}); // stream handler zaten answerCall'dan devralındı
+                  retCall.on('close', () => {
+                    delete callsRef.current[call.peer];
+                  });
+                }
+              } catch (e) {
+                console.warn('[Voice] Kamera geri-call hatası:', e);
+              }
+            }, 500);
+          }
+        }
+      }
+
+      // Duplikat satırı kaldırdık: callsRef.current[call.peer] zaten en üstte set edildi
     } catch (err) {
       console.error('[Voice] Gelen arama yanıtlanamadı:', err);
     }
-  }, [getLocalStream, attachAudio]);
+  }, [getLocalStream, attachAudio, getPeer, identity]);
 
   // ── Gelen Arama Dinleyici ─────────────────────────────────────────────────
   useEffect(() => {
@@ -426,17 +462,16 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
       createAnalyser(audioStream, 'self');
 
-      // ── Firestore'dan diğer üyelerin peer ID'lerini al ──────────────────────
-      // Bu sayede P2P bağlantısı olmayan ama aynı space'de olan kullanıcılar da bulunur
-      let allPeerIds = [...connectedPeerIds]; // P2P üzerinden bilinen peerlar
+      // Firestore'dan aynı ses kanalındaki üyelerin peer ID'lerini al
+      // Sadece hedef kanalda olan ya da tüm online üyeleri al (henuz kanalda olmayanlara da ulaşmak için)
+      let allPeerIds = [...connectedPeerIds];
 
       if (activeSpaceId) {
         try {
           const { identity: ident } = useIdentityStore.getState();
           const members = await getSpaceOnlineMembers(activeSpaceId, ident?.uid);
           for (const member of members) {
-            // Firestore'dan gelen peer ID'leri listeye ekle (tekrarı önle)
-            if (member.peerId && !allPeerIds.includes(member.peerId)) {
+            if (member.peerId && !allPeerIds.includes(member.peerId) && member.peerId !== peer.id) {
               allPeerIds.push(member.peerId);
             }
           }

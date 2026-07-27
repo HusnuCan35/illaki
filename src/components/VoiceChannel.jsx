@@ -184,12 +184,12 @@ export function VoiceChannel({
 
   const activeVoiceChannel = channels[activeSpaceId]?.find(c => c.id === voiceChannelId);
 
-  // Bu ses kanalında olan AKTİF üyeleri belirle (online olmayan ve kanaldan ayrılanları filtrele)
-  const inChannelMembers = spaceMembers.filter(m => {
-    if (m.voiceChannelId !== voiceChannelId) return false;
-    if (m.online === false) return false;
-    return true;
-  });
+  // Bu ses kanalında olan AKTİF üyeleri belirle
+  // Sadece voiceChannelId eşleşmesini kontrol et — online alanı stale olabilir,
+  // voiceChannelId null yazıldığı an kanaldan çıkmış sayılır.
+  const inChannelMembers = spaceMembers.filter(m =>
+    m.voiceChannelId === voiceChannelId
+  );
 
   // Katılımcı haritası oluştur (Firestore üyeleri + WebRTC yayınları)
   const participantMap = new Map();

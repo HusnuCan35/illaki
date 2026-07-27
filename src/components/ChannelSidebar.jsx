@@ -363,12 +363,11 @@ export function ChannelSidebar({
               (dbMembers || []).forEach(m => {
                 const isMe = m.uid === identity?.uid;
                 if (isMe) {
+                  // Kendimizi sadece bu kanaldaysak ekle
                   if (voiceChannelId !== channel.id) return;
                 } else {
-                  // voiceChannelId null veya farklıysa kanaldan çıkmış demektir
+                  // Sadece voiceChannelId eşleşmesine bak — online alanı stale olabilir
                   if (!m.voiceChannelId || m.voiceChannelId !== channel.id) return;
-                  // online kesinlikle false ise gösterme (undefined/true ise göster)
-                  if (m.online === false) return;
                 }
 
                 const peerMatch = Object.values(peers).find(p => p.uid === m.uid);

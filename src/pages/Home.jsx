@@ -171,7 +171,10 @@ export function Home() {
     return () => window.removeEventListener('illaki:join-voice', handleJoinVoice);
   }, [voice.joinVoice, connectedPeerIds]);
 
-  const activeStream = screenShare.remoteScreenStream || screenShare.localScreenStream;
+  // Ekran paylaşımı sadece ses kanalındayken görünsün
+  const activeStream = voice.isInVoice
+    ? (screenShare.remoteScreenStream || screenShare.localScreenStream)
+    : null;
   const sharerName = screenShare.remoteScreenStream ? (screenShare.remoteSharer || 'Biri') : 'Sen';
 
   return (

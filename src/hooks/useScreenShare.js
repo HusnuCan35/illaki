@@ -77,34 +77,40 @@ export function useScreenShare(getPeer) {
   // Answer incoming screen share calls
   const answerScreenCall = useCallback((call) => {
     call.answer();
+
+    // Tam ekran paylaşımında browser renegotiation yapar → stream eventi
+    // birden fazla tetiklenir → ses efekti sonsuz döngüye girer.
+    // hasStarted flag ile ilk tetiklemede ses/toast çalıştır, sonrakilerde sadece stream güncelle.
+    let hasStarted = false;
+
     call.on('stream', (remoteStream) => {
       const audioTracks = remoteStream.getAudioTracks();
       if (audioTracks.length > 0) {
-        // Eski audio context'i temizle
         if (screenAudioCtxRef.current[call.peer]) {
           try { screenAudioCtxRef.current[call.peer].close(); } catch {}
         }
-        // Web Audio API ile çal: HTMLAudioElement'ten farklı olarak
-        // AudioContext çıkışı mikrofon capture'ına yakalanmaz.
         const ctx = new AudioContext();
         screenAudioCtxRef.current[call.peer] = ctx;
         const source = ctx.createMediaStreamSource(new MediaStream(audioTracks));
-        // Gain node: ses seviyesini kontrol et
         const gainNode = ctx.createGain();
         gainNode.gain.value = 1.0;
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
-        // Context'i resume et (autoplay policy)
         ctx.resume().catch(() => {});
       }
 
       setRemoteScreenStream(remoteStream);
       setRemoteSharer(call.metadata?.username || 'Kullanıcı');
-      playStreamStart();
-      addToast({ type: 'info', message: `${call.metadata?.username || 'Biri'} ekran paylaşıyor.` });
+
+      // Ses efekti ve toast: sadece ilk kez çalıştır
+      if (!hasStarted) {
+        hasStarted = true;
+        playStreamStart();
+        addToast({ type: 'info', message: `${call.metadata?.username || 'Biri'} ekran paylaşıyor.` });
+      }
     });
+
     call.on('close', () => {
-      // AudioContext'i kapat
       if (screenAudioCtxRef.current[call.peer]) {
         try { screenAudioCtxRef.current[call.peer].close(); } catch {}
         delete screenAudioCtxRef.current[call.peer];
@@ -114,6 +120,7 @@ export function useScreenShare(getPeer) {
       playStreamStop();
     });
   }, [addToast]);
+
 
 
 
