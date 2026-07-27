@@ -182,6 +182,51 @@
   color: var(--text-muted);
 }
 
+.statusMenu {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  width: 180px;
+  background-color: var(--bg-darkest);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+.statusOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.statusOption:hover {
+  background-color: var(--bg-modifier-hover);
+  color: var(--text-bright);
+}
+
+.statusDotMenu {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.online { background-color: #23a559; }
+.idle { background-color: #f0b232; }
+.dnd { background-color: #f23f43; }
+.offline { background-color: #80848e; }
+
 .deleteChannelBtn {
   position: absolute;
   right: 8px;

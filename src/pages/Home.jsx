@@ -98,14 +98,16 @@ export function Home() {
     }
 
     const interval = setInterval(() => {
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
+      const currentStatus = useIdentityStore.getState().identity?.status || 'online';
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, currentStatus !== 'offline', currentStatus);
     }, 30000);
 
     const handleUnload = () => {
       // Sayfa kapanırken/yenilenirken ses kanalını HER ZAMAN temizle.
       // Önceki koşul (if !voice.isInVoice) yanlıştı — ses kanalındayken
       // sayfa kapansa voiceChannelId Firestore'da kalıyordu.
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, false);
+      const currentStatus = useIdentityStore.getState().identity?.status || 'online';
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, currentStatus);
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
     };
 
@@ -115,7 +117,8 @@ export function Home() {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
       // Bileşen unmount olunca (space değişimi vb.) online ve ses durumunu temizle
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, false).catch(() => {});
+      const currentStatus = useIdentityStore.getState().identity?.status || 'online';
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, currentStatus).catch(() => {});
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
     };
   }, [activeSpaceId, identity?.uid, identity?.username, identity?.avatarColor, voice.isInVoice, broadcastVoiceStatus]);

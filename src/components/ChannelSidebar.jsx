@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Plus, Hash, Users, LogOut, Copy, Check, MoreHorizontal, Edit2, Volume2, UserMinus, Link2 } from 'lucide-react';
 import { useSpaceStore, useIdentityStore, usePeerStore, useUIStore } from '../stores';
-import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace, subscribeToFriends, inviteFriendToServer, getFriends } from '../lib/firestore';
+import { subscribeToChannels, subscribeToMembers, createChannel, deleteChannel, updateChannel, updateSpaceSettings, deleteSpace, subscribeToFriends, inviteFriendToServer, getFriends, updateMemberOnlineStatus } from '../lib/firestore';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CreateChannelModal, ChannelSettingsModal } from './ChannelModals';
@@ -35,9 +35,11 @@ export function ChannelSidebar({
   onOpenStreamStage
 }) {
   const { spaces, channels, activeChannelId, setActiveChannel, setChannels, removeSpace, setActiveSpace } = useSpaceStore();
-  const { identity, clearIdentity } = useIdentityStore();
+  const { identity, clearIdentity, updateIdentity } = useIdentityStore();
   const { setSettingsOpen, addToast } = useUIStore();
   const { peers, voiceChannelId } = usePeerStore();
+
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState('member');
@@ -177,6 +179,12 @@ export function ChannelSidebar({
     } catch (err) {
       useUIStore.getState().addToast({ type: 'error', message: err.message });
     }
+  };
+
+  const handleStatusChange = (newStatus) => {
+    updateIdentity({ status: newStatus });
+    setShowStatusMenu(false);
+    updateMemberOnlineStatus(activeSpaceId, identity.uid, newStatus !== 'offline', newStatus);
   };
 
   const handleDeleteChannelSubmit = async () => {
@@ -370,9 +378,9 @@ export function ChannelSidebar({
                   if (!m.voiceChannelId || m.voiceChannelId !== channel.id) return;
 
                   // Sayfa aniden kapanırsa voiceChannelId veritabanında kalabiliyor (phantom user)
-                  // Bu yüzden lastSeen 60 saniyeden eskiyse gösterme (Home.jsx her 30sn'de güncelliyor)
+                  // Bu yüzden lastSeen 180 saniyeden eskiyse gösterme (Home.jsx her 30sn'de güncelliyor, ancak arka plan sekmeleri yavaşlatılabilir)
                   const lastSeenMs = m.lastSeen?.toMillis ? m.lastSeen.toMillis() : (m.lastSeen?.seconds ? m.lastSeen.seconds * 1000 : Date.now());
-                  if (Date.now() - lastSeenMs > 60000) return;
+                  if (Date.now() - lastSeenMs > 180000) return;
                 }
 
                 const peerMatch = Object.values(peers).find(p => p.uid === m.uid);
@@ -475,7 +483,29 @@ export function ChannelSidebar({
 
       <div className={styles.userPanel}>
         <div className={styles.userInfo}>
-          <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status="online" />
+          <div 
+            style={{ position: 'relative', cursor: 'pointer' }}
+            onClick={() => setShowStatusMenu(!showStatusMenu)}
+          >
+            <Avatar username={identity?.username} color={identity?.avatarColor} size={32} status={identity?.status || 'online'} />
+            
+            {showStatusMenu && (
+              <div className={styles.statusMenu}>
+                <div className={styles.statusOption} onClick={(e) => { e.stopPropagation(); handleStatusChange('online'); }}>
+                  <span className={`${styles.statusDotMenu} ${styles.online}`}></span> Çevrimiçi
+                </div>
+                <div className={styles.statusOption} onClick={(e) => { e.stopPropagation(); handleStatusChange('idle'); }}>
+                  <span className={`${styles.statusDotMenu} ${styles.idle}`}></span> Boşta
+                </div>
+                <div className={styles.statusOption} onClick={(e) => { e.stopPropagation(); handleStatusChange('dnd'); }}>
+                  <span className={`${styles.statusDotMenu} ${styles.dnd}`}></span> Rahatsız Etmeyin
+                </div>
+                <div className={styles.statusOption} onClick={(e) => { e.stopPropagation(); handleStatusChange('offline'); }}>
+                  <span className={`${styles.statusDotMenu} ${styles.offline}`}></span> Görünmez
+                </div>
+              </div>
+            )}
+          </div>
           <div className={styles.userDetails}>
             <span className={styles.userName}>{identity?.username}</span>
             <span className={styles.userStatus} style={{ color: '#FAA61A', fontWeight: '600' }}>

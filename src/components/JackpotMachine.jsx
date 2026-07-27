@@ -28,16 +28,19 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
     }
 
     setPhase('enter');
-
-    const t1 = setTimeout(() => setPhase('spinning'), 300);
-    const t2 = setTimeout(() => setPhase('stopping'), 2000); // 2s spin
-    const t3 = setTimeout(() => setPhase('landed'), 3800); // 1.8s to stop all reels
-    const t4 = setTimeout(() => {
-      if (onComplete) onComplete();
-    }, 6000); // stay visible longer
-
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, [isOpen, isWin]);
+
+  const handlePullLever = () => {
+    if (phase !== 'enter') return;
+    setPhase('pulled');
+
+    setTimeout(() => setPhase('spinning'), 400);
+    setTimeout(() => setPhase('stopping'), 2400); // 2s spin
+    setTimeout(() => setPhase('landed'), 4200); // 1.8s to stop all reels
+    setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 6400); // stay visible longer
+  };
 
   if (!isOpen) return null;
 
@@ -55,6 +58,15 @@ export function JackpotMachine({ isOpen, onComplete, isWin = false }) {
       )}
 
       <div className={`${styles.container} ${isLanded && isWin ? styles.containerWin : ''}`}>
+        
+        {/* Lever Mechanism */}
+        <div className={styles.leverContainer}>
+          <div className={`${styles.leverArm} ${phase !== 'enter' ? styles.leverPulled : ''}`} onClick={handlePullLever}>
+            <div className={styles.leverKnob} />
+          </div>
+          <div className={styles.leverBase} />
+        </div>
+
         <div className={styles.machineBody}>
           <div className={styles.glassPanel}>
             <div className={styles.slotWindow}>

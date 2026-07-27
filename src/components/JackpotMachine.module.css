@@ -42,6 +42,66 @@
     0 0 160px rgba(255, 126, 32, 0.2);
 }
 
+/* Lever Mechanism */
+.leverContainer {
+  position: absolute;
+  right: -50px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.leverBase {
+  width: 30px;
+  height: 60px;
+  background: linear-gradient(90deg, #444, #777, #333);
+  border-radius: 4px;
+  position: absolute;
+  top: 70px;
+  right: 10px;
+  box-shadow: inset -2px 0 5px rgba(0,0,0,0.5), 2px 0 10px rgba(0,0,0,0.8);
+  border: 1px solid #222;
+}
+
+.leverArm {
+  width: 14px;
+  height: 120px;
+  background: linear-gradient(90deg, #aaa, #ddd, #888);
+  position: absolute;
+  top: -30px;
+  right: 18px;
+  transform-origin: bottom center;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  border-radius: 10px;
+  box-shadow: inset -2px 0 4px rgba(0,0,0,0.3);
+}
+
+.leverArm:hover {
+  filter: brightness(1.2);
+}
+
+.leverPulled {
+  transform: rotateX(160deg);
+}
+
+.leverKnob {
+  width: 36px;
+  height: 36px;
+  background: radial-gradient(circle at 30% 30%, #ff4b4b, #b30000);
+  border-radius: 50%;
+  position: absolute;
+  top: -18px;
+  left: -11px;
+  box-shadow: inset -4px -4px 10px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.5);
+}
+
 .machineBody {
   background: linear-gradient(180deg, #b3b3b3 0%, #808080 20%, #4d4d4d 80%, #333333 100%);
   padding: 24px;
