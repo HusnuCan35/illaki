@@ -147,6 +147,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
                 username: identity?.username,
                 avatarColor: identity?.avatarColor,
                 hasVideo: false,
+                voiceChannelId: usePeerStore.getState().voiceChannelId
               },
             });
 
@@ -225,6 +226,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
                   username: identity?.username,
                   avatarColor: identity?.avatarColor,
                   hasVideo: true,
+                  voiceChannelId: usePeerStore.getState().voiceChannelId
                 },
               });
 
@@ -414,7 +416,12 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
               // Kısa gecikme: call.answer() tamamlansın
               try {
                 const retCall = peer.call(call.peer, combinedStream, {
-                  metadata: { username: identity?.username, avatarColor: identity?.avatarColor, hasVideo: true },
+                  metadata: { 
+                    username: identity?.username, 
+                    avatarColor: identity?.avatarColor, 
+                    hasVideo: true,
+                    voiceChannelId: usePeerStore.getState().voiceChannelId
+                  },
                 });
                 if (retCall) {
                   if (callsRef.current[call.peer]) {
@@ -446,7 +453,11 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
     const handleIncoming = (e) => {
       const { call } = e.detail;
       if (call.metadata?.type === 'screen') return; // ekran paylaşımı useScreenShare tarafından ele alınır
-      if (isInVoice) {
+      
+      const myVoiceChannelId = usePeerStore.getState().voiceChannelId;
+      const callerVoiceChannelId = call.metadata?.voiceChannelId;
+      
+      if (isInVoice && myVoiceChannelId && callerVoiceChannelId === myVoiceChannelId) {
         answerCall(call);
       } else {
         call.close();
@@ -515,7 +526,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           const { identity: ident } = useIdentityStore.getState();
           const members = await getSpaceOnlineMembers(activeSpaceId, ident?.uid);
           for (const member of members) {
-            if (member.peerId && !allPeerIds.includes(member.peerId) && member.peerId !== peer.id) {
+            if (member.voiceChannelId === channelId && member.peerId && !allPeerIds.includes(member.peerId) && member.peerId !== peer.id) {
               allPeerIds.push(member.peerId);
             }
           }
@@ -552,6 +563,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
           metadata: {
             username: identity?.username,
             avatarColor: identity?.avatarColor,
+            voiceChannelId: channelId
           },
           sdpTransform: (sdp) => preferOpusHD(sdp),
         });

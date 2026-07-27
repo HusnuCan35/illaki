@@ -366,8 +366,13 @@ export function ChannelSidebar({
                   // Kendimizi sadece bu kanaldaysak ekle
                   if (voiceChannelId !== channel.id) return;
                 } else {
-                  // Sadece voiceChannelId eşleşmesine bak — online alanı stale olabilir
+                  // Sadece voiceChannelId eşleşmesine bak
                   if (!m.voiceChannelId || m.voiceChannelId !== channel.id) return;
+
+                  // Sayfa aniden kapanırsa voiceChannelId veritabanında kalabiliyor (phantom user)
+                  // Bu yüzden lastSeen 60 saniyeden eskiyse gösterme (Home.jsx her 30sn'de güncelliyor)
+                  const lastSeenMs = m.lastSeen?.toMillis ? m.lastSeen.toMillis() : (m.lastSeen?.seconds ? m.lastSeen.seconds * 1000 : Date.now());
+                  if (Date.now() - lastSeenMs > 60000) return;
                 }
 
                 const peerMatch = Object.values(peers).find(p => p.uid === m.uid);
