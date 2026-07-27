@@ -135,22 +135,15 @@ export function MembersPanel({ kickPeer, onClose }) {
       (p.username && p.username === m.username)
     );
 
-    let lastSeenTime = 0;
-    if (m.lastSeen) {
-      if (typeof m.lastSeen.toMillis === 'function') lastSeenTime = m.lastSeen.toMillis();
-      else if (typeof m.lastSeen.seconds === 'number') lastSeenTime = m.lastSeen.seconds * 1000;
-      else if (typeof m.lastSeen === 'number') lastSeenTime = m.lastSeen;
-    }
-
-    const isRecent = lastSeenTime > 0 ? (nowMs - lastSeenTime < 60000) : false;
-    const isTrulyOnline = isPeerConnected || (m.online === true && isRecent);
+    const lastSeenMs = m.lastSeen?.toMillis ? m.lastSeen.toMillis() : (m.lastSeen?.seconds ? m.lastSeen.seconds * 1000 : Date.now());
+    const isTrulyOnline = isPeerConnected || (m.online === true && (Date.now() - lastSeenMs < 180000));
 
     return {
       uid: m.uid,
       peerId: m.uid,
       username: m.username,
       avatarColor: m.avatarColor,
-      status: isTrulyOnline ? 'online' : 'offline',
+      status: isTrulyOnline ? (m.status || 'online') : 'offline',
       isHost: m.role === 'host',
       role: m.role || 'member',
       points: m.points || 0,
@@ -164,7 +157,7 @@ export function MembersPanel({ kickPeer, onClose }) {
     const existing = mergedMembers.find(m => m.uid === peer.uid || m.username === peer.username || m.uid === peerId);
     if (existing) {
       existing.peerId = peerId;
-      existing.status = 'online';
+      existing.status = existing.status !== 'offline' ? existing.status : 'online';
       if (isGenericName(existing.username) && !isGenericName(peer.username)) {
         existing.username = peer.username;
       }
@@ -189,7 +182,7 @@ export function MembersPanel({ kickPeer, onClose }) {
     uid: identity?.uid,
     username: identity?.username || 'Ben',
     avatarColor: identity?.avatarColor || '#FF7E20',
-    status: 'online',
+    status: identity?.status || 'online',
     role: selfRole,
     points: selfPoints
   };

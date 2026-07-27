@@ -398,7 +398,7 @@ export function ChannelSidebar({
                     username: isMe ? `${identity?.username || finalName} (Sen)` : finalName,
                     avatarColor: m.avatarColor || peerMatch?.avatarColor || 'var(--accent)',
                     isSelf: isMe,
-                    status: 'online',
+                    status: isMe ? (identity?.status || 'online') : (m.status || 'online'),
                   });
                 }
               });
@@ -421,7 +421,7 @@ export function ChannelSidebar({
                       username: nameToShow,
                       avatarColor: p.avatarColor || dbMatch?.avatarColor || 'var(--accent)',
                       isSelf: false,
-                      status: 'online',
+                      status: dbMatch?.status || 'online',
                     });
                   }
                 });
