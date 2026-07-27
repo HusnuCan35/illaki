@@ -171,7 +171,9 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
 
           for (const [pId, oldCall] of Object.entries(callsRef.current)) {
             try {
-              // Eski call'ı kapat ama state'i hemen temizleme (yeni call hemen açılacak)
+              // Eski call'ı kapatmadan önce 'isCameraRetoggle' işareti koy
+              // Bu sayede call.on('close') handler katılımcıyı listeden silmez
+              if (oldCall) oldCall._isCameraRetoggle = true;
               try { oldCall?.close(); } catch {}
 
               const newCall = peer.call(pId, combinedStream, {
@@ -212,6 +214,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
             }
           }
         }
+
 
         playCamOn();
         addToast({ type: 'success', message: 'Kamera açıldı 📷' });
@@ -338,13 +341,18 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
         if (el) el.remove();
         delete analysersRef.current[call.peer];
         delete callsRef.current[call.peer];
-        playUserLeaveVoice();
-        setVoiceParticipants(prev => {
-          const next = { ...prev };
-          delete next[call.peer];
-          return next;
-        });
+        // Kamera toggle sırasında kapatılan call'lar (isCameraRetoggle işaretli) için
+        // katılımcıyı listeden SİLME — yeni call hemen açılacak ve listeyi güncelleyecek
+        if (!call._isCameraRetoggle) {
+          playUserLeaveVoice();
+          setVoiceParticipants(prev => {
+            const next = { ...prev };
+            delete next[call.peer];
+            return next;
+          });
+        }
       });
+
 
       // call.peer zaten en üstte set edildi, bu satır gereksiz ama zarar vermez
       callsRef.current[call.peer] = call;

@@ -48,6 +48,21 @@ export function Home() {
     initPeer().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sayfa her yüklenişinde (refresh dahil) kendi ses kanalı kaydını temizle.
+  // Çünkü voice.isInVoice persist edilmez ve Firestore'da stale kayıt kalabilir.
+  useEffect(() => {
+    const { uid } = useIdentityStore.getState().identity || {};
+    const { spaces: allSpaces } = useSpaceStore.getState();
+    if (!uid || !allSpaces?.length) return;
+
+    // Tüm üye olduğumuz space'lerde voiceChannelId'yi null yap
+    allSpaces.forEach(space => {
+      if (space?.id) {
+        updateMemberVoiceStatus(space.id, uid, null).catch(() => {});
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-connect to space P2P network when activeSpaceId changes
   useEffect(() => {
     if (activeSpaceId) {
@@ -64,11 +79,15 @@ export function Home() {
 
     updateMemberOnlineStatus(activeSpaceId, identity.uid, true);
 
-    // Profil bilgilerini senkronize et ve stale ses kanalı kaydını temizle
+    // Profil bilgilerini senkronize et
     syncMemberProfile(activeSpaceId, identity.uid, {
       username: identity.username,
       avatarColor: identity.avatarColor,
     });
+
+    // Sayfa yenilendiğinde (veya ilk açılışta) ses kanalından çıktı olarak işaretle.
+    // voice.isInVoice sıfırdan başlar (persist edilmez) bu yüzden Firestore'daki
+    // stale voiceChannelId'yi temizlememiz gerekiyor.
     if (!voice.isInVoice) {
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
       const { voiceChannelId, setVoiceChannelId } = usePeerStore.getState();
@@ -83,10 +102,11 @@ export function Home() {
     }, 30000);
 
     const handleUnload = () => {
+      // Sayfa kapanırken/yenilenirken ses kanalını HER ZAMAN temizle.
+      // Önceki koşul (if !voice.isInVoice) yanlıştı — ses kanalındayken
+      // sayfa kapansa voiceChannelId Firestore'da kalıyordu.
       updateMemberOnlineStatus(activeSpaceId, identity.uid, false);
-      if (!voice.isInVoice) {
-        updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
-      }
+      updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
     };
 
     window.addEventListener('beforeunload', handleUnload);
@@ -94,12 +114,12 @@ export function Home() {
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
+      // Bileşen unmount olunca (space değişimi vb.) online ve ses durumunu temizle
       updateMemberOnlineStatus(activeSpaceId, identity.uid, false).catch(() => {});
-      if (!voice.isInVoice) {
-        updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
-      }
+      updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
     };
   }, [activeSpaceId, identity?.uid, identity?.username, identity?.avatarColor, voice.isInVoice, broadcastVoiceStatus]);
+
 
   // Real-time Ban & Membership check for current user in activeSpace
   useEffect(() => {
