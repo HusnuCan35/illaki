@@ -218,6 +218,7 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
   const [showActions, setShowActions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(msg.content);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleEditSave = () => {
     if (editContent.trim() && editContent !== msg.content) {
@@ -245,10 +246,12 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
     <div 
       className={styles.msgBubbleWrapper}
       onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      onMouseLeave={() => {
+        if (!showEmojiPicker) setShowActions(false);
+      }}
       onClick={(e) => {
         // On mobile, tap to toggle actions (only if not in select mode)
-        if ('ontouchstart' in window && !isSelectMode) {
+        if ('ontouchstart' in window && !isSelectMode && !showEmojiPicker) {
           e.stopPropagation();
           setShowActions(prev => !prev);
         }
@@ -321,9 +324,49 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
         </div>
       )}
 
-      {showActions && !isEditing && (
+      {showActions && !isEditing && !isSelectMode && (
         <div className={`${styles.msgActions} ${group.own ? styles.msgActionsRight : styles.msgActionsLeft}`}>
-          <button className={styles.actionBtn} onClick={() => onReact(msg.id, '👍')} title="Beğen"><Smile size={14} /></button>
+          <div style={{ position: 'relative' }}>
+            <button className={styles.actionBtn} onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Tepki Ekle"><Smile size={14} /></button>
+            {showEmojiPicker && (
+              <>
+                <div 
+                  style={{ position: 'fixed', inset: 0, zIndex: 40 }} 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setShowEmojiPicker(false); 
+                    setShowActions(false); 
+                  }}
+                />
+                <div 
+                  style={{ 
+                    position: 'absolute', 
+                    bottom: '100%', 
+                    left: '50%', 
+                    transform: 'translateX(-50%)', 
+                    zIndex: 50, 
+                    marginBottom: '8px', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
+                    borderRadius: '8px', 
+                    overflow: 'hidden' 
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <EmojiPicker 
+                    theme="dark" 
+                    onEmojiClick={(emojiData) => {
+                      onReact(msg.id, emojiData.emoji);
+                      setShowEmojiPicker(false);
+                      setShowActions(false);
+                    }}
+                    width={280}
+                    height={350}
+                    previewConfig={{ showPreview: false }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
           <button className={styles.actionBtn} onClick={() => onReply(msg)} title="Yanıtla"><Reply size={14} /></button>
           {group.own && (
             <>

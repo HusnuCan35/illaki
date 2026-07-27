@@ -347,43 +347,65 @@ export function ChannelSidebar({
             )}
           </div>
           <div className={styles.channelList}>
-            {visibleChannels.filter(c => c.type === 'voice').map(channel => {
-              const meInChannel = voiceChannelId === channel.id;
-
-              // Kanaldaki tüm kullanıcıları topla (dbMembers + peers + kendimiz)
-              const participantsMap = new Map();
+            {(() => {
+              // GLOBAL PARTICIPANT MAPPING (Her kullanıcı sadece BİR kanalda olabilir)
+              const voiceParticipants = new Map(); // uid/peerId => { channelId, data }
               const isGenericName = (name) => !name || name === 'Katılımcı' || name === 'Anonim' || name === 'Kullanıcı' || name === 'Üye' || name === 'Bağlanıyor...';
 
-              // 1. Kendimiz bu kanaldaysak ekle
-              if (meInChannel && identity) {
-                participantsMap.set(identity.uid, {
-                  id: identity.uid,
-                  uid: identity.uid,
-                  username: `${identity.username} (Sen)`,
-                  avatarColor: identity.avatarColor,
-                  isSelf: true,
-                  status: identity.status || 'online',
+              // 1. Önce kendimizi ekleyelim
+              if (voiceChannelId && identity) {
+                voiceParticipants.set(identity.uid, {
+                  channelId: voiceChannelId,
+                  data: {
+                    id: identity.uid,
+                    uid: identity.uid,
+                    username: `${identity.username} (Sen)`,
+                    avatarColor: identity.avatarColor,
+                    isSelf: true,
+                    status: identity.status || 'online',
+                  }
                 });
               }
 
-              // 2. Real-time Firestore üyelerini ekle
-              // online===false VEYA voiceChannelId eşleşmiyorsa gösterme
-              (dbMembers || []).forEach(m => {
-                const isMe = m.uid === identity?.uid;
-                if (isMe) {
-                  // Kendimizi sadece bu kanaldaysak ekle
-                  if (voiceChannelId !== channel.id) return;
-                } else {
-                  // Sadece voiceChannelId eşleşmesine bak
-                  if (!m.voiceChannelId || m.voiceChannelId !== channel.id) return;
+              // 2. PeerJS store'unu ekleyelim (çünkü anlık güncellenir)
+              Object.entries(peers).forEach(([pId, p]) => {
+                if (!p.voiceChannelId) return;
+                const dbMatch = (dbMembers || []).find(m => m.uid === p.uid || m.peerId === pId);
+                const key = dbMatch?.uid || p.uid || pId;
+                if (key === identity?.uid) return;
 
-                  // Sayfa aniden kapanırsa voiceChannelId veritabanında kalabiliyor (phantom user)
-                  // Bu yüzden lastSeen 180 saniyeden eskiyse gösterme (Home.jsx her 30sn'de güncelliyor, ancak arka plan sekmeleri yavaşlatılabilir)
-                  const lastSeenMs = m.lastSeen?.toMillis ? m.lastSeen.toMillis() : (m.lastSeen?.seconds ? m.lastSeen.seconds * 1000 : Date.now());
-                  if (Date.now() - lastSeenMs > 180000) return;
-                }
+                const rawName = resolvedNames[p.uid || pId]
+                  || (!isGenericName(p.username) ? p.username : null)
+                  || (!isGenericName(dbMatch?.username) ? dbMatch?.username : null)
+                  || null;
+                const nameToShow = rawName || `Kullanıcı#${pId.slice(-4)}`;
+
+                voiceParticipants.set(key, {
+                  channelId: p.voiceChannelId,
+                  data: {
+                    id: pId,
+                    uid: p.uid || pId,
+                    username: nameToShow,
+                    avatarColor: p.avatarColor || dbMatch?.avatarColor || 'var(--accent)',
+                    isSelf: false,
+                    status: dbMatch?.status || 'online',
+                  }
+                });
+              });
+
+              // 3. Firestore'u ekle (Firestore her zaman son sözü söyler)
+              (dbMembers || []).forEach(m => {
+                if (m.uid === identity?.uid) return;
+                if (!m.voiceChannelId) return;
+
+                const lastSeenMs = m.lastSeen?.toMillis ? m.lastSeen.toMillis() : (m.lastSeen?.seconds ? m.lastSeen.seconds * 1000 : Date.now());
+                if (Date.now() - lastSeenMs > 180000) return;
 
                 const peerMatch = Object.values(peers).find(p => p.uid === m.uid);
+                
+                // Eğer PeerJS bu kullanıcıyı DAHA GÜNCEL bir kanala taşıdıysa ve Firestore henüz güncellenmediyse, 
+                // PeerJS verisini korumak daha akıllıca olabilir. Ama Firestore'un tutarlılığı için ezmek de mantıklı.
+                // Biz burada eğer PeerJS'de varsa ve farklıysa, Firestore'u kullanacağız, ÇÜNKÜ phantomları temizler.
                 const rawName = resolvedNames[m.uid]
                   || (!isGenericName(m.username) ? m.username : null)
                   || (!isGenericName(peerMatch?.username) ? peerMatch?.username : null)
@@ -391,46 +413,25 @@ export function ChannelSidebar({
                   || null;
                 const finalName = rawName || `Kullanıcı#${m.uid.slice(-4)}`;
 
-                if (!participantsMap.has(m.uid)) {
-                  participantsMap.set(m.uid, {
+                voiceParticipants.set(m.uid, {
+                  channelId: m.voiceChannelId,
+                  data: {
                     id: m.peerId || m.uid,
                     uid: m.uid,
-                    username: isMe ? `${identity?.username || finalName} (Sen)` : finalName,
+                    username: finalName,
                     avatarColor: m.avatarColor || peerMatch?.avatarColor || 'var(--accent)',
-                    isSelf: isMe,
-                    status: isMe ? (identity?.status || 'online') : (m.status || 'online'),
-                  });
-                }
-              });
-
-              // 3. PeerJS store'undaki üyeleri de ekle (Firestore gecikmesi durumunda)
-              if (meInChannel) {
-                Object.entries(peers).forEach(([pId, p]) => {
-                  const dbMatch = (dbMembers || []).find(m => m.uid === p.uid || m.peerId === pId);
-                  const key = dbMatch?.uid || p.uid || pId;
-                  if (!participantsMap.has(key) && key !== identity?.uid) {
-                    // Sadece bu kanalda olanları ekle
-                    if (p.voiceChannelId !== channel.id && dbMatch?.voiceChannelId !== channel.id) return;
-                    
-                    const rawName = resolvedNames[p.uid || pId]
-                      || (!isGenericName(p.username) ? p.username : null)
-                      || (!isGenericName(dbMatch?.username) ? dbMatch?.username : null)
-                      || null;
-                    const nameToShow = rawName || `Kullanıcı#${pId.slice(-4)}`;
-
-                    participantsMap.set(key, {
-                      id: pId,
-                      uid: p.uid || pId,
-                      username: nameToShow,
-                      avatarColor: p.avatarColor || dbMatch?.avatarColor || 'var(--accent)',
-                      isSelf: false,
-                      status: dbMatch?.status || 'online',
-                    });
+                    isSelf: false,
+                    status: m.status || 'online',
                   }
                 });
-              }
+              });
 
-              const participantsList = Array.from(participantsMap.values());
+              return visibleChannels.filter(c => c.type === 'voice').map(channel => {
+                const meInChannel = voiceChannelId === channel.id;
+                
+                const participantsList = Array.from(voiceParticipants.values())
+                  .filter(vp => vp.channelId === channel.id)
+                  .map(vp => vp.data);
 
 
               return (
@@ -476,7 +477,7 @@ export function ChannelSidebar({
                   )}
                 </div>
               );
-            })}
+            })})()}
           </div>
         </div>
       </div>
