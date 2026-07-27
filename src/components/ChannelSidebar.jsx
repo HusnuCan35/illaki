@@ -362,7 +362,7 @@ export function ChannelSidebar({
                   username: `${identity.username} (Sen)`,
                   avatarColor: identity.avatarColor,
                   isSelf: true,
-                  status: 'online',
+                  status: identity.status || 'online',
                 });
               }
 

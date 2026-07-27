@@ -167,7 +167,7 @@ export function MembersPanel({ kickPeer, onClose }) {
         peerId,
         username: isGenericName(peer.username) ? 'Üye' : peer.username,
         avatarColor: peer.avatarColor,
-        status: 'online',
+        status: peer.status || 'online',
         isHost: space?.hostPeerId === peerId,
         role: 'member',
         points: 0
@@ -187,7 +187,7 @@ export function MembersPanel({ kickPeer, onClose }) {
     points: selfPoints
   };
 
-  const onlineOthers = mergedMembers.filter(m => m.status === 'online');
+  const onlineOthers = mergedMembers.filter(m => m.status !== 'offline');
   const offlineMembers = mergedMembers.filter(m => m.status === 'offline');
 
   // Rol bazlı gruplama

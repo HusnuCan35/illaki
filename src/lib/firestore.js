@@ -13,11 +13,9 @@ import {
   doc, collection, getDoc, setDoc, updateDoc, deleteDoc,
   addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, arrayUnion, arrayRemove,
-  where, getDocs, writeBatch, runTransaction, increment
+  where, getDocs, writeBatch, runTransaction, increment, deleteField,
 } from 'firebase/firestore';
-import {
-  ref, uploadBytes, getDownloadURL, deleteObject,
-} from 'firebase/storage';
+import { supabase } from './supabase';
 import { db, storage } from './firebase';
 import {
   generateSpaceKey, exportKey, importSpaceKey, encryptMessage, decryptMessage,
@@ -1068,12 +1066,22 @@ export function subscribeToMembers(spaceId, onMembers) {
  * Medya dosyasını Firebase Storage'a yükle
  */
 export async function uploadMedia(spaceId, messageId, blob, path, onProgress) {
-  const storageRef = ref(storage, `spaces/${spaceId}/media/${messageId}/${path}`);
+  const filePath = `spaces/${spaceId}/media/${messageId}/${path}`;
   
-  const uploadTask = uploadBytes(storageRef, blob);
-  const snapshot = await uploadTask;
-  const url = await getDownloadURL(snapshot.ref);
-  return url;
+  const { data, error } = await supabase.storage
+    .from('chat-uploads')
+    .upload(filePath, blob, {
+      cacheControl: '3600',
+      upsert: false
+    });
+    
+  if (error) throw new Error(error.message);
+  
+  const { data: { publicUrl } } = supabase.storage
+    .from('chat-uploads')
+    .getPublicUrl(filePath);
+    
+  return publicUrl;
 }
 
 /**
@@ -1081,15 +1089,22 @@ export async function uploadMedia(spaceId, messageId, blob, path, onProgress) {
  */
 export async function uploadAvatar(uid, file) {
   const ext = file.name.split('.').pop() || 'png';
-  const storageRef = ref(storage, `avatars/${uid}/profile.${ext}`);
-  const uploadTask = uploadBytes(storageRef, file);
-  const snapshot = await uploadTask;
-  const url = await getDownloadURL(snapshot.ref);
+  const filePath = `avatars/${uid}/profile-${Date.now()}.${ext}`;
+  
+  const { error } = await supabase.storage
+    .from('chat-uploads')
+    .upload(filePath, file, { upsert: true });
+    
+  if (error) throw new Error(error.message);
+  
+  const { data: { publicUrl } } = supabase.storage
+    .from('chat-uploads')
+    .getPublicUrl(filePath);
   
   // Profil dökümanını güncelle
-  await updateDoc(doc(db, 'users', uid), { photoURL: url });
+  await updateDoc(doc(db, 'users', uid), { photoURL: publicUrl });
   
-  return url;
+  return publicUrl;
 }
 
 /**
@@ -1097,19 +1112,30 @@ export async function uploadAvatar(uid, file) {
  */
 export async function uploadSpaceWallpaper(spaceId, file) {
   const ext = file.name.split('.').pop() || 'png';
-  const storageRef = ref(storage, `spaces/${spaceId}/wallpaper/bg.${ext}`);
-  const uploadTask = uploadBytes(storageRef, file);
-  const snapshot = await uploadTask;
-  const url = await getDownloadURL(snapshot.ref);
-  return url;
+  const filePath = `spaces/${spaceId}/wallpaper/bg-${Date.now()}.${ext}`;
+  
+  const { error } = await supabase.storage
+    .from('chat-uploads')
+    .upload(filePath, file, { upsert: true });
+    
+  if (error) throw new Error(error.message);
+  
+  const { data: { publicUrl } } = supabase.storage
+    .from('chat-uploads')
+    .getPublicUrl(filePath);
+    
+  return publicUrl;
 }
 
 /**
  * Medyayı sil
  */
 export async function deleteMedia(spaceId, messageId, path) {
-  const storageRef = ref(storage, `spaces/${spaceId}/media/${messageId}/${path}`);
-  await deleteObject(storageRef).catch(() => {});
+  const filePath = `spaces/${spaceId}/media/${messageId}/${path}`;
+  await supabase.storage
+    .from('chat-uploads')
+    .remove([filePath])
+    .catch(() => {});
 }
 
 // ────────────────────────────────────────────────────────────
