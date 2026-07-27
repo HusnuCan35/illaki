@@ -3,7 +3,7 @@ import {
   Send, Paperclip, Smile, Hash, Users, Copy,
   Check, Phone, Video, Lock, Image, FileText,
   Play, X, Upload, Settings, LogOut, Volume2, Music, Menu,
-  Reply, Edit2, Trash2, Dices, Gamepad2, CheckSquare
+  Reply, Edit2, Trash2, Dices, Gamepad2, CheckSquare, Plus
 } from 'lucide-react';
 import { GameZone } from './GameZone';
 import {
@@ -326,8 +326,14 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
 
       {showActions && !isEditing && !isSelectMode && (
         <div className={`${styles.msgActions} ${group.own ? styles.msgActionsRight : styles.msgActionsLeft}`}>
-          <div style={{ position: 'relative' }}>
-            <button className={styles.actionBtn} onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Tepki Ekle"><Smile size={14} /></button>
+          <div style={{ position: 'relative', display: 'flex', gap: '2px', alignItems: 'center' }}>
+            <button className={styles.actionBtn} onClick={() => { onReact(msg.id, '👍'); setShowActions(false); }} title="Beğen">👍</button>
+            <button className={styles.actionBtn} onClick={() => { onReact(msg.id, '❤️'); setShowActions(false); }} title="Kalp">❤️</button>
+            <button className={styles.actionBtn} onClick={() => { onReact(msg.id, '😂'); setShowActions(false); }} title="Gül">😂</button>
+            <button className={styles.actionBtn} onClick={() => { onReact(msg.id, '😮'); setShowActions(false); }} title="Şaşır">😮</button>
+            <button className={styles.actionBtn} onClick={() => { onReact(msg.id, '😢'); setShowActions(false); }} title="Üzül">😢</button>
+
+            <button className={styles.actionBtn} onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Daha fazla..."><Plus size={14} /></button>
             {showEmojiPicker && (
               <>
                 <div 
@@ -367,6 +373,7 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
               </>
             )}
           </div>
+          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
           <button className={styles.actionBtn} onClick={() => onReply(msg)} title="Yanıtla"><Reply size={14} /></button>
           {group.own && (
             <>
@@ -1131,8 +1138,8 @@ export function ChatArea({
               }}
               onReact={async (msgId, emoji) => {
                 try {
-                  const { toggleReaction } = await import('../lib/firestore');
-                  await toggleReaction(activeSpaceId, activeChannelId, msgId, identity.uid, emoji);
+                  const { toggleMessageReaction } = await import('../lib/firestore');
+                  await toggleMessageReaction(activeSpaceId, activeChannelId, msgId, identity.uid, emoji);
                 } catch (err) {
                   console.error('Tepki eklenemedi:', err);
                 }
@@ -1277,9 +1284,14 @@ export function ChatArea({
 function mergeMessages(firebaseMsgs, p2pMsgs) {
   const seen = new Set();
   const all = [...firebaseMsgs];
+  const now = Date.now();
 
   // P2P mesajlarından yalnızca Firebase'de olmayanları ekle
   for (const msg of p2pMsgs) {
+    // 5 saniyeden eski P2P mesajlarını yoksay.
+    // Eğer Firestore'a 5 saniye içinde gelmemişse veya sonradan silinmişse, tekrar görünmesini engeller.
+    if (now - msg.timestamp > 5000) continue;
+
     const key = `${msg.sender}_${msg.content}_${Math.floor(msg.timestamp / 2000)}`;
     if (!seen.has(key) && !firebaseMsgs.some(fm =>
       fm.sender === msg.sender &&
