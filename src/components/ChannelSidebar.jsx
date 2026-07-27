@@ -406,9 +406,9 @@ export function ChannelSidebar({
               // 3. PeerJS store'undaki üyeleri de ekle (Firestore gecikmesi durumunda)
               if (meInChannel) {
                 Object.entries(peers).forEach(([pId, p]) => {
-                  const key = p.uid || pId;
+                  const dbMatch = (dbMembers || []).find(m => m.uid === p.uid || m.peerId === pId);
+                  const key = dbMatch?.uid || p.uid || pId;
                   if (!participantsMap.has(key) && key !== identity?.uid) {
-                    const dbMatch = (dbMembers || []).find(m => m.uid === p.uid);
                     // Sadece bu kanalda olanları ekle
                     if (p.voiceChannelId !== channel.id && dbMatch?.voiceChannelId !== channel.id) return;
                     

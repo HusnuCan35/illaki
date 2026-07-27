@@ -333,8 +333,10 @@
   border-radius: 50%;
   border: 2px solid var(--bg-darkest);
 }
-.online { background-color: #3ba55c; }
+.online { background-color: #10B981; }
 .offline { background-color: #747f8d; }
+.idle { background-color: #FAA61A; }
+.dnd { background-color: #F23F42; }
 
 .userDetails {
   display: flex;

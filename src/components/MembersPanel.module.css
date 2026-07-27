@@ -119,6 +119,8 @@
 
 .statusDot.online { background: #10B981; }
 .statusDot.offline { background: #64748B; }
+.statusDot.idle { background: #FAA61A; }
+.statusDot.dnd { background: #F23F42; }
 
 .info {
   flex: 1;

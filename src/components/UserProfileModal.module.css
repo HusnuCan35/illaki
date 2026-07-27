@@ -114,6 +114,8 @@
 
 .statusBadge.online { background: #10B981; }
 .statusBadge.offline { background: #64748B; }
+.statusBadge.idle { background: #FAA61A; }
+.statusBadge.dnd { background: #F23F42; }
 
 .body {
   padding: 16px 24px 24px;
