@@ -19,6 +19,8 @@ import { DiceRoller } from './DiceRoller';
 import { JackpotMachine } from './JackpotMachine';
 import { DuelModal } from './DuelModal';
 import { BotDuelModal } from './BotDuelModal';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import styles from './ChatArea.module.css';
 
 // Format timestamp
@@ -298,7 +300,29 @@ function MessageBubble({ msg, group, onReply, onDelete, onEdit, onReact, identit
           (msg.type === 'image' || msg.type === 'video' || msg.type === 'file') && msg.mediaUrl ? (
             <MediaBubble msg={msg} />
           ) : (
-            <span>{msg.content}</span>
+            <div className={styles.markdownWrapper}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({node, ...props}) => {
+                    // Mention parsing via regex logic inside text could be complex with AST, 
+                    // a simpler approach is to preprocess the string before passing to ReactMarkdown,
+                    // but for safety let's just render children.
+                    return <p {...props} />
+                  },
+                  a: ({node, href, children, ...props}) => {
+                    if (href?.startsWith('#mention-')) {
+                      const mentionedUser = href.replace('#mention-', '');
+                      const isMe = mentionedUser === identity?.username;
+                      return <span className={`${styles.mentionPill} ${isMe ? styles.mentionMe : ''}`}>{children}</span>;
+                    }
+                    return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+                  }
+                }}
+              >
+                {msg.content.replace(/@([a-zA-Z0-9_.-]+)/g, '[@$1](#mention-$1)')}
+              </ReactMarkdown>
+            </div>
           )
         )}
         <div className={styles.msgMetaInfo}>
