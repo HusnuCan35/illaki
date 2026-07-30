@@ -14,6 +14,7 @@ import { SettingsModal } from './Settings';
 import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
+import { useRingtone } from '../hooks/useRingtone';
 import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore, useDmStore } from '../stores';
 import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile, createOrGetDm, subscribeToDms } from '../lib/firestore';
 import { DmSidebar } from '../components/DmSidebar';
@@ -176,6 +177,7 @@ export function Home() {
 
   // --- DM Ringing Listener ---
   const [incomingCall, setIncomingCall] = useState(null);
+  useRingtone(!!incomingCall);
   
   useEffect(() => {
     if (!identity?.uid) return;
