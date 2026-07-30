@@ -4,7 +4,7 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useSpaceStore, useIdentityStore, useUIStore, usePeerStore } from '../stores';
 import { codeFromPeerId, peerIdFromCode } from '../lib/peerUtils';
-import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace, uploadSpaceWallpaper, subscribeToMembers, updateMemberRole } from '../lib/firestore';
+import { createSpace, joinSpace, getSpaceKey, grantSpaceAccess, updateSpaceSettings, deleteSpace, leaveSpace, uploadSpaceWallpaper, subscribeToMembers, updateMemberRole, updateMemberRolesArray, subscribeToRoles } from '../lib/firestore';
 import { cacheSpaceKey } from '../lib/crypto';
 import styles from './SpaceModals.module.css';
 
@@ -339,6 +339,18 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
   const [members, setMembers] = useState([]);
   const [bans, setBans] = useState([]);
   const [name, setName] = useState(space?.name || '');
+  const [customRoles, setCustomRoles] = useState([]);
+
+  useEffect(() => {
+    if (!isOpen || !space?.id) return;
+    const unsub = subscribeToMembers(space.id, (m) => setMembers(m));
+    const unsubRoles = subscribeToRoles(space.id, (r) => setCustomRoles(r));
+    return () => {
+      unsub();
+      unsubRoles();
+    };
+  }, [isOpen, space?.id]);
+
   const [description, setDescription] = useState(space?.description || '');
   const [icon, setIcon] = useState(space?.icon || '💬');
   const [themeColor, setThemeColor] = useState(space?.themeColor || '#FF7E20');
@@ -619,15 +631,23 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                     placeholder="Rol Adı (örn: Moderatör, VIP)..."
                     style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: '12px' }}
                   />
+                  <input 
+                    type="color" 
+                    id="new-role-color"
+                    defaultValue="#FF7E20"
+                    style={{ width: '36px', height: '36px', padding: '2px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  />
                   <Button
                     type="button"
                     onClick={async () => {
                       const inputEl = document.getElementById('new-role-name');
+                      const colorEl = document.getElementById('new-role-color');
                       const roleName = inputEl?.value?.trim();
+                      const roleColor = colorEl?.value || '#FF7E20';
                       if (!roleName) return;
                       try {
                         const { createCustomRole } = await import('../lib/firestore');
-                        await createCustomRole(space.id, identity.uid, { name: roleName, color: '#FF7E20' });
+                        await createCustomRole(space.id, identity.uid, { name: roleName, color: roleColor });
                         inputEl.value = '';
                         addToast({ type: 'success', message: `"${roleName}" rolü oluşturuldu.` });
                       } catch (err) {
@@ -642,6 +662,39 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                 <div style={{ fontSize: '11px', color: '#94A3B8' }}>Varsayılan izinler: Mesaj Okuma/Gönderme, Sese Katılma.</div>
               </div>
 
+              {/* Mevcut Özel Roller */}
+              {customRoles.length > 0 && (
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '14px' }}>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#FFF', fontWeight: '700' }}>Mevcut Özel Roller</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {customRoles.map(r => (
+                      <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: 12, height: 12, borderRadius: '50%', background: r.color }}></div>
+                          <span style={{ fontSize: '12px', color: '#FFF' }}>{r.name}</span>
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--dnd)' }}
+                          onClick={async () => {
+                             try {
+                               const { deleteCustomRole } = await import('../lib/firestore');
+                               await deleteCustomRole(space.id, identity.uid, r.id);
+                               addToast({ type: 'success', message: 'Rol silindi.' });
+                             } catch(err) {
+                               addToast({ type: 'error', message: err.message });
+                             }
+                          }}
+                        >
+                          Sil
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Üyeler ve Rol Atamaları */}
               <h4 style={{ margin: '8px 0 4px 0', fontSize: '13px', color: '#FFF', fontWeight: '700' }}>Üye Yetkileri & Rol Atama</h4>
               {members.map(m => (
@@ -654,44 +707,75 @@ export function SpaceSettingsModal({ isOpen, onClose }) {
                     </span>
                   </div>
                   {m.uid !== identity?.uid && (
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      {[
-                        { val: 'member', label: 'Üye' },
-                        { val: 'mod', label: 'Mod' },
-                        { val: 'admin', label: 'Admin' },
-                      ].map(r => (
-                        <button
-                          key={r.val}
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await updateMemberRole(space.id, identity.uid, m.uid, r.val);
-                              addToast({ type: 'success', message: `${m.username} yetkisi güncellendi.` });
-                            } catch (err) {
-                              addToast({ type: 'error', message: err.message });
-                            }
-                          }}
-                          style={{
-                            padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
-                            background: (m.role || 'member') === r.val ? 'var(--accent)' : 'rgba(255,255,255,0.08)',
-                            color: (m.role || 'member') === r.val ? '#fff' : 'var(--text-secondary)'
-                          }}
-                        >
-                          {r.label}
-                        </button>
-                      ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        {[
+                          { val: 'member', label: 'Üye' },
+                          { val: 'mod', label: 'Mod' },
+                          { val: 'admin', label: 'Admin' },
+                        ].map(r => (
+                          <button
+                            key={r.val}
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await updateMemberRole(space.id, identity.uid, m.uid, r.val);
+                                addToast({ type: 'success', message: `${m.username} yetkisi güncellendi.` });
+                              } catch (err) {
+                                addToast({ type: 'error', message: err.message });
+                              }
+                            }}
+                            style={{
+                              padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                              background: (m.role || 'member') === r.val ? 'var(--accent)' : 'rgba(255,255,255,0.08)',
+                              color: (m.role || 'member') === r.val ? '#fff' : 'var(--text-secondary)'
+                            }}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
 
-                      <button
-                        type="button"
-                        onClick={() => handleKickUser(m.uid, m.username)}
-                        style={{
-                          padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.4)',
-                          background: 'rgba(239,68,68,0.15)', color: '#FF4D4D', cursor: 'pointer', fontSize: '11px', fontWeight: 700
-                        }}
-                        title="Sunucudan At"
-                      >
-                        At
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleKickUser(m.uid, m.username)}
+                          style={{
+                            padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.4)',
+                            background: 'rgba(239,68,68,0.15)', color: '#FF4D4D', cursor: 'pointer', fontSize: '11px', fontWeight: 700
+                          }}
+                          title="Sunucudan At"
+                        >
+                          At
+                        </button>
+                      </div>
+                      
+                      {customRoles.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: '4px' }}>
+                          {customRoles.map(cr => {
+                            const hasRole = m.roles?.includes(cr.id);
+                            return (
+                              <label key={cr.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: hasRole ? '#FFF' : '#94A3B8', cursor: 'pointer', background: hasRole ? cr.color : 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '6px', border: `1px solid ${hasRole ? 'transparent' : 'rgba(255,255,255,0.1)'}` }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={hasRole || false} 
+                                  onChange={async (e) => {
+                                    try {
+                                      const newRoles = e.target.checked 
+                                        ? [...(m.roles || []), cr.id] 
+                                        : (m.roles || []).filter(id => id !== cr.id);
+                                      await updateMemberRolesArray(space.id, identity.uid, m.uid, newRoles);
+                                      addToast({ type: 'success', message: 'Roller güncellendi' });
+                                    } catch(err) {
+                                      addToast({ type: 'error', message: err.message });
+                                    }
+                                  }}
+                                  style={{ display: 'none' }}
+                                />
+                                {cr.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

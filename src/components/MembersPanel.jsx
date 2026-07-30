@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { usePeerStore, useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { UserProfileModal } from './UserProfileModal';
 import { 
-  subscribeToMembers, sendFriendRequest, subscribeToFriends 
+  subscribeToMembers, sendFriendRequest, subscribeToFriends, subscribeToRoles 
 } from '../lib/firestore';
 import styles from './MembersPanel.module.css';
 
@@ -101,7 +101,13 @@ export function MembersPanel({ kickPeer, onClose }) {
     const unsubscribe = subscribeToMembers(activeSpaceId, (members) => {
       setDbMembers(members);
     });
-    return () => unsubscribe();
+    const unsubRoles = subscribeToRoles(activeSpaceId, (roles) => {
+      setCustomRoles(roles);
+    });
+    return () => {
+      unsubscribe();
+      unsubRoles();
+    };
   }, [activeSpaceId]);
 
   useEffect(() => {
@@ -151,6 +157,7 @@ export function MembersPanel({ kickPeer, onClose }) {
       status: isTrulyOnline ? (m.status || 'online') : 'offline',
       isHost: m.role === 'host',
       role: m.role || 'member',
+      roles: m.roles || [], // Custom roles array
       points: m.points || 0,
       bio: m.bio || '',
       banner: m.banner || '',
@@ -182,8 +189,10 @@ export function MembersPanel({ kickPeer, onClose }) {
     }
   });
 
-  const selfRole = space?.isHost ? 'host' : (dbMembers.find(m => m.uid === identity?.uid)?.role || 'member');
-  const selfPoints = dbMembers.find(m => m.uid === identity?.uid)?.points || 0;
+  const selfDbMember = dbMembers.find(m => m.uid === identity?.uid);
+  const selfRole = space?.isHost ? 'host' : (selfDbMember?.role || 'member');
+  const selfPoints = selfDbMember?.points || 0;
+  const selfRoles = selfDbMember?.roles || [];
 
   const selfMember = {
     uid: identity?.uid,
@@ -192,19 +201,37 @@ export function MembersPanel({ kickPeer, onClose }) {
     status: identity?.status || 'online',
     customStatus: identity?.customStatus || '',
     role: selfRole,
+    roles: selfRoles,
     points: selfPoints
   };
 
   const onlineOthers = mergedMembers.filter(m => m.status !== 'offline');
   const offlineMembers = mergedMembers.filter(m => m.status === 'offline');
 
-  // Rol bazlı gruplama
-  const onlineHosts = [selfMember, ...onlineOthers].filter(m => m.role === 'host');
-  const onlineAdmins = [selfMember, ...onlineOthers].filter(m => m.role === 'admin');
-  const onlineMods = [selfMember, ...onlineOthers].filter(m => m.role === 'mod');
-  const onlineNormal = [selfMember, ...onlineOthers].filter(m => m.role !== 'host' && m.role !== 'admin' && m.role !== 'mod');
+  const allOnline = [selfMember, ...onlineOthers];
 
-  const totalOnlineCount = 1 + onlineOthers.length;
+  // Mark grouped property so a user isn't shown multiple times
+  allOnline.forEach(m => m.grouped = false);
+
+  const onlineHosts = allOnline.filter(m => !m.grouped && m.role === 'host');
+  onlineHosts.forEach(m => m.grouped = true);
+
+  const onlineAdmins = allOnline.filter(m => !m.grouped && m.role === 'admin');
+  onlineAdmins.forEach(m => m.grouped = true);
+
+  const onlineMods = allOnline.filter(m => !m.grouped && m.role === 'mod');
+  onlineMods.forEach(m => m.grouped = true);
+
+  // Group by custom roles (in order of customRoles array)
+  const customRoleGroups = customRoles.map(cr => {
+    const groupMembers = allOnline.filter(m => !m.grouped && m.roles?.includes(cr.id));
+    groupMembers.forEach(m => m.grouped = true);
+    return { role: cr, members: groupMembers };
+  }).filter(g => g.members.length > 0);
+
+  const onlineNormal = allOnline.filter(m => !m.grouped);
+
+  const totalOnlineCount = allOnline.length;
   const totalCount = mergedMembers.length + 1;
 
   return (
@@ -286,10 +313,29 @@ export function MembersPanel({ kickPeer, onClose }) {
           </div>
         )}
 
+        {/* ÖZEL ROLLER */}
+        {customRoleGroups.map(group => (
+          <div key={group.role.id} className={styles.roleGroup}>
+            <div className={styles.roleHeader} style={{ color: group.role.color || '#FFF' }}>
+              {group.role.name.toUpperCase()} — {group.members.length}
+            </div>
+            {group.members.map((m) => (
+              <MemberItem
+                key={m.uid}
+                peer={m}
+                isSelf={m.uid === identity?.uid}
+                isFriend={m.uid !== identity?.uid && isUserFriend(m.uid)}
+                onAddFriend={handleAddFriend}
+                onClick={() => setSelectedUser(m)}
+              />
+            ))}
+          </div>
+        ))}
+
         {/* 👤 ÇEVRİMİÇİ ÜYELER */}
         {onlineNormal.length > 0 && (
           <div className={styles.roleGroup}>
-            { (onlineHosts.length > 0 || onlineAdmins.length > 0 || onlineMods.length > 0) && (
+            { (onlineHosts.length > 0 || onlineAdmins.length > 0 || onlineMods.length > 0 || customRoleGroups.length > 0) && (
               <div className={styles.roleHeader} style={{ color: '#94A3B8' }}>
                 👤 ÜYELER — {onlineNormal.length}
               </div>
