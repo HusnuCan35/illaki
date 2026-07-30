@@ -65,6 +65,12 @@ export function Home() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!identity?.uid) return;
+    const unsub = subscribeToDms(identity.uid, setDms);
+    return () => unsub();
+  }, [identity?.uid, setDms]);
+
   // Auto-connect to space P2P network when activeSpaceId changes
   useEffect(() => {
     if (activeSpaceId) {

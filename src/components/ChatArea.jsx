@@ -603,8 +603,9 @@ export function ChatArea({
 
   // Duels dinleyicisi
   useEffect(() => {
-    if (!activeSpaceId || !identity?.uid) return;
-    const unsub = subscribeToDuels(activeSpaceId, (dList) => {
+    const contextId = activeSpaceId || dmId;
+    if (!contextId || !identity?.uid) return;
+    const unsub = subscribeToDuels(contextId, isDm, (dList) => {
       setDuels(dList);
       // En yeni aktif (pending / accepted) veya canlı takip edilen düelloyu seç
       const myDuels = dList
@@ -790,7 +791,12 @@ export function ChatArea({
             addToast({ type: 'warning', message: 'Şifreleme anahtarı bekleniyor...' });
             return;
           }
-          await sendDmMessage(dmId, sharedKey, identity.uid, content, currentReply, null);
+          try {
+            await sendDmMessage(dmId, sharedKey, identity.uid, content, currentReply, null);
+          } catch (err) {
+            console.error("sendDmMessage failed:", err);
+            addToast({ type: 'error', message: 'Mesaj gönderilemedi: ' + err.message });
+          }
         } else {
           // Normal mesaj
           await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text', null, currentReply);
@@ -1180,7 +1186,7 @@ export function ChatArea({
                     key={m.uid}
                     onClick={async () => {
                       try {
-                        await createDuel(activeSpaceId, identity, { uid: m.uid, username: m.username });
+                        await createDuel(activeSpaceId, false, identity, { uid: m.uid, username: m.username });
                         addToast({ type: 'success', message: `${m.username} kullanıcısına 1v1 düello teklifi gönderildi!` });
                         setShowMemberSelectDuel(false);
                       } catch (err) {

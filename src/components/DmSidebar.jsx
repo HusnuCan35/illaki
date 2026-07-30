@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, MessageSquare } from 'lucide-react';
 import { useDmStore, useIdentityStore } from '../stores';
-import { subscribeToDms, getUserProfile } from '../lib/firestore';
+import { getUserProfile } from '../lib/firestore';
 import styles from './DmSidebar.module.css';
 
 export function DmSidebar({ onSelectFriends, voiceSlot }) {
@@ -10,10 +10,8 @@ export function DmSidebar({ onSelectFriends, voiceSlot }) {
   const [dmProfiles, setDmProfiles] = useState({});
 
   useEffect(() => {
-    if (!identity?.uid) return;
-    const unsub = subscribeToDms(identity.uid, setDms);
-    return () => unsub();
-  }, [identity?.uid, setDms]);
+    // dms are now subscribed globally in Home.jsx
+  }, [identity?.uid]);
 
   useEffect(() => {
     const fetchProfiles = async () => {
