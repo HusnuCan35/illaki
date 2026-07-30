@@ -16,7 +16,7 @@ import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
 import { useRingtone } from '../hooks/useRingtone';
 import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore, useDmStore } from '../stores';
-import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile, createOrGetDm, subscribeToDms } from '../lib/firestore';
+import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile, createOrGetDm, subscribeToDms, updateDmCallStatus } from '../lib/firestore';
 import { DmSidebar } from '../components/DmSidebar';
 import styles from './Home.module.css';
 
@@ -199,15 +199,18 @@ export function Home() {
     if (incomingCall) {
       const dmId = incomingCall.id;
       const withVideo = incomingCall.activeCall?.hasVideo || false;
-      import('../lib/firestore').then(({ updateDmCallStatus }) => {
-        updateDmCallStatus(dmId, 'accepted', incomingCall.activeCall.caller);
-      });
+      
+      try {
+        await updateDmCallStatus(dmId, 'accepted', incomingCall.activeCall.caller);
+      } catch (err) {
+        console.error("Arama durumu güncellenirken hata:", err);
+      }
+      
       setActiveSpace(null);
       setActiveDm(dmId);
       
-      const { peers } = usePeerStore.getState();
-      const currentConnectedPeers = Object.keys(peers);
-      voice.joinVoice(dmId, currentConnectedPeers, true, withVideo);
+      // Dispatch event to join voice, consistent with ChatArea
+      window.dispatchEvent(new CustomEvent('illaki:join-dm-voice', { detail: { dmId, withVideo } }));
       
       setIncomingCall(null);
     }
@@ -216,9 +219,11 @@ export function Home() {
   const handleRejectCall = async () => {
     if (incomingCall) {
       const dmId = incomingCall.id;
-      import('../lib/firestore').then(({ updateDmCallStatus }) => {
-        updateDmCallStatus(dmId, 'rejected', incomingCall.activeCall.caller);
-      });
+      try {
+        await updateDmCallStatus(dmId, 'rejected', incomingCall.activeCall.caller);
+      } catch (err) {
+        console.error("Arama durumu güncellenirken hata:", err);
+      }
       setIncomingCall(null);
     }
   };
