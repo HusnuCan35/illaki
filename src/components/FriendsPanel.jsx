@@ -160,8 +160,14 @@ export function FriendsPanel({ onJoinSpace, onStartDm }) {
                   <span>{friend.username}</span>
                 </div>
                 <div className={styles.actions}>
-                  <button className={styles.acceptBtn} onClick={() => {
-                    if (onStartDm) onStartDm(friend.uid);
+                  <button className={styles.acceptBtn} onClick={async () => {
+                    if (onStartDm) {
+                      try {
+                        await onStartDm(friend.uid);
+                      } catch (err) {
+                        addToast({ type: 'error', message: 'Sohbet başlatılamadı: ' + err.message });
+                      }
+                    }
                   }} title="Mesaj Gönder" style={{ marginRight: '8px' }}>
                     <MessageSquare size={16} />
                   </button>

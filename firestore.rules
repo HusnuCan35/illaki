@@ -24,6 +24,17 @@ service cloud.firestore {
       }
     }
 
+    // ── DMs (Direkt Mesajlar) ──────────────────────────────────────────────────
+    match /dms/{dmId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+      allow update: if request.auth != null && request.auth.uid in resource.data.participants;
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+      }
+    }
+
     // ── Kullanıcı ECDH Public Keyleri ─────────────────────────────────────────
     match /userKeys/{uid} {
       // Herkes okuyabilir (anahtar değişimi için), sadece kendi key'ini yazabilir
@@ -106,6 +117,15 @@ service cloud.firestore {
         allow delete: if request.auth != null && (
           request.auth.uid == uid ||
           get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid
+        );
+      }
+
+      // ── Özel Roller ────────────────────────────────────────────────────────
+      match /roles/{roleId} {
+        allow read: if request.auth != null && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+        allow write: if request.auth != null && (
+          get(/databases/$(database)/documents/spaces/$(spaceId)).data.hostUid == request.auth.uid ||
+          get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid)).data.role in ['admin', 'mod']
         );
       }
     }
