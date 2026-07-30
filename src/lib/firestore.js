@@ -1605,57 +1605,59 @@ export function subscribeToDmMessages(dmId, sharedKey, callback) {
   if (!dmId || !sharedKey) return () => {};
   const q = query(
     collection(db, 'dms', dmId, 'messages'),
-    orderBy('timestamp', 'asc')
+    orderBy('timestamp', 'asc'),
+    limit(100)
   );
   return onSnapshot(q, async (snap) => {
     try {
-      const messages = [];
-      for (const change of snap.docChanges()) {
-        const data = change.doc.data();
-        let content = '';
-        let mediaUrl = null;
-        let thumbnailUrl = null;
-        
-        try {
-          if (data.encryptedContent && data.iv) {
-            content = await decryptMessage(sharedKey, data.encryptedContent, data.iv);
-          }
-          if (data.encryptedMediaUrl) {
-            mediaUrl = await decryptMessage(sharedKey, data.encryptedMediaUrl.ciphertext, data.encryptedMediaUrl.iv);
-          }
-          if (data.encryptedThumbnailUrl) {
-            thumbnailUrl = await decryptMessage(sharedKey, data.encryptedThumbnailUrl.ciphertext, data.encryptedThumbnailUrl.iv);
-          }
+      const messages = await Promise.all(
+        snap.docs.map(async (d) => {
+          const data = d.data();
+          let content = '';
+          let mediaUrl = null;
+          let thumbnailUrl = null;
           
-          let decryptedReplyTo = null;
-          if (data.replyTo && data.replyTo.encryptedContent) {
-            try {
-              const replyContent = await decryptMessage(sharedKey, data.replyTo.encryptedContent, data.replyTo.iv);
-              decryptedReplyTo = { ...data.replyTo, content: replyContent };
-            } catch (err) {
-              console.error('DM Reply decryption error', err);
+          try {
+            if (data.encryptedContent && data.iv) {
+              content = await decryptMessage(sharedKey, data.encryptedContent, data.iv);
             }
+            if (data.encryptedMediaUrl) {
+              mediaUrl = await decryptMessage(sharedKey, data.encryptedMediaUrl.ciphertext, data.encryptedMediaUrl.iv);
+            }
+            if (data.encryptedThumbnailUrl) {
+              thumbnailUrl = await decryptMessage(sharedKey, data.encryptedThumbnailUrl.ciphertext, data.encryptedThumbnailUrl.iv);
+            }
+            
+            let decryptedReplyTo = null;
+            if (data.replyTo && data.replyTo.encryptedContent) {
+              try {
+                const replyContent = await decryptMessage(sharedKey, data.replyTo.encryptedContent, data.replyTo.iv);
+                decryptedReplyTo = { ...data.replyTo, content: replyContent };
+              } catch (err) {
+                console.error('DM Reply decryption error', err);
+              }
+            }
+            
+            return {
+              id: d.id,
+              ...data,
+              content,
+              mediaUrl,
+              thumbnailUrl,
+              replyTo: decryptedReplyTo,
+              isDecrypted: true
+            };
+          } catch (err) {
+            console.error('DM Decryption error:', err);
+            return {
+              id: d.id,
+              ...data,
+              content: '--- Şifreli Mesaj (Çözülemedi) ---',
+              isDecrypted: false
+            };
           }
-          
-          messages.push({
-            id: change.doc.id,
-            ...data,
-            content,
-            mediaUrl,
-            thumbnailUrl,
-            replyTo: decryptedReplyTo,
-            isDecrypted: true
-          });
-        } catch (err) {
-          console.error('DM Decryption error:', err);
-          messages.push({
-            id: change.doc.id,
-            ...data,
-            content: '--- Şifreli Mesaj (Çözülemedi) ---',
-            isDecrypted: false
-          });
-        }
-      }
+        })
+      );
       callback(messages);
     } catch (e) {
       console.error(e);
