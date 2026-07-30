@@ -321,6 +321,8 @@ export function Home() {
             onToggleSidebar={toggleSidebar}
             screenShare={screenShare}
             voice={voice}
+            onToggleMusic={() => setRightPanel(p => p === 'music' ? null : 'music')}
+            rightPanel={rightPanel}
           />
         ) : (
           <div style={{ display: 'flex', height: '100%', width: '100%' }}>

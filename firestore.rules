@@ -34,6 +34,12 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
       }
+      match /music/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+      }
+      match /duels/{duelId} {
+        allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+      }
     }
 
     // ── Kullanıcı ECDH Public Keyleri ─────────────────────────────────────────

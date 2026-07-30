@@ -517,9 +517,6 @@ export function ChatArea({
         const profile = await getUserProfile(otherUid);
         if (profile) setDmTargetProfile(profile);
         
-        // Use userKeys logic or maybe publicKey is not in profile.
-        // Wait, in my previous thought I saw getUserPublicKey but it might be easier to just use getUserProfile if publicKey is there.
-        // I will import getUserPublicKey just in case.
         const { getUserPublicKey } = await import('../lib/firestore');
         const pubKey = await getUserPublicKey(otherUid);
         if (!pubKey) {

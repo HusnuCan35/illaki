@@ -468,7 +468,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   }, [isInVoice, answerCall]);
 
   // ── Ses Kanalına Katıl ────────────────────────────────────────────────────
-  const joinVoice = useCallback(async (channelId, connectedPeerIds = [], isDm = false) => {
+  const joinVoice = useCallback(async (channelId, connectedPeerIds = [], isDm = false, withVideo = false) => {
     try {
       const { activeSpaceId } = useSpaceStore.getState();
       if (!isDm && activeSpaceId && identity?.uid) {

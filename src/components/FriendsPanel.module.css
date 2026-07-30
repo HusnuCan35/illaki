@@ -10,14 +10,15 @@
 .header {
   padding: 30px;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  border-bottom: 1px solid rgba(69, 162, 158, 0.1);
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 126, 32, 0.1);
   background: rgba(255, 255, 255, 0.01);
 }
 
 .headerTitle {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -27,8 +28,8 @@
 }
 
 .headerTitle svg {
-  color: #45A29E;
-  filter: drop-shadow(0 0 8px rgba(69, 162, 158, 0.5));
+  color: #ff7e20;
+  filter: drop-shadow(0 0 8px rgba(255, 126, 32, 0.5));
 }
 
 .segmentedControl {
@@ -63,23 +64,23 @@
 }
 
 .pillBtnActive {
-  background: #45A29E;
+  background: #ff7e20;
   color: #000;
-  box-shadow: 0 4px 15px rgba(69, 162, 158, 0.4);
+  box-shadow: 0 4px 15px rgba(255, 126, 32, 0.4);
 }
 
 .pillBtnActive:hover {
-  background: #5cdb95;
+  background: #ff9142;
   color: #000;
 }
 
 .addBtnPill {
-  background: linear-gradient(135deg, #45A29E 0%, #1f2833 100%);
+  background: linear-gradient(135deg, #ff7e20 0%, #1f2833 100%);
   color: #fff;
-  border: 1px solid rgba(69, 162, 158, 0.3);
+  border: 1px solid rgba(255, 126, 32, 0.3);
 }
 .addBtnPill:hover {
-  background: linear-gradient(135deg, #5cdb95 0%, #45A29E 100%);
+  background: linear-gradient(135deg, #ff9142 0%, #ff7e20 100%);
   transform: translateY(-1px);
 }
 
@@ -110,7 +111,7 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 700;
-  color: #45A29E;
+  color: #ff7e20;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -119,7 +120,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(69, 162, 158, 0.3) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgba(255, 126, 32, 0.3) 0%, transparent 100%);
 }
 
 .grid {
@@ -146,7 +147,7 @@
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #45A29E, transparent);
+  background: linear-gradient(90deg, #ff7e20, transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -154,7 +155,7 @@
 .card:hover {
   transform: translateY(-4px);
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(69, 162, 158, 0.3);
+  border-color: rgba(255, 126, 32, 0.3);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
@@ -247,11 +248,11 @@
 }
 
 .primaryBtn {
-  background: rgba(69, 162, 158, 0.15);
-  color: #45A29E;
+  background: rgba(255, 126, 32, 0.15);
+  color: #ff7e20;
 }
 .primaryBtn:hover {
-  background: #45A29E;
+  background: #ff7e20;
   color: #000;
 }
 
@@ -280,7 +281,7 @@
   font-size: 32px;
   font-weight: 800;
   margin-bottom: 10px;
-  background: linear-gradient(to right, #fff, #45A29E);
+  background: linear-gradient(to right, #fff, #ff7e20);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -315,7 +316,7 @@
 }
 
 .submitBtn {
-  background: #45A29E;
+  background: #ff7e20;
   color: #000;
   border: none;
   padding: 0 25px;
@@ -325,8 +326,8 @@
   transition: all 0.3s;
 }
 .submitBtn:hover:not(:disabled) {
-  background: #5cdb95;
-  box-shadow: 0 0 20px rgba(92, 219, 149, 0.4);
+  background: #ff9142;
+  box-shadow: 0 0 20px rgba(255, 126, 32, 0.4);
 }
 .submitBtn:disabled {
   opacity: 0.5;
@@ -336,7 +337,7 @@
 .idBox {
   margin-top: 60px;
   background: rgba(0, 0, 0, 0.3);
-  border: 1px dashed rgba(69, 162, 158, 0.3);
+  border: 1px dashed rgba(255, 126, 32, 0.3);
   padding: 25px;
   border-radius: 20px;
 }
@@ -355,14 +356,14 @@
   width: 100px;
   height: 100px;
   border-radius: 30px;
-  background: linear-gradient(135deg, rgba(69, 162, 158, 0.1), rgba(69, 162, 158, 0.02));
-  border: 1px solid rgba(69, 162, 158, 0.2);
+  background: linear-gradient(135deg, rgba(255, 126, 32, 0.1), rgba(255, 126, 32, 0.02));
+  border: 1px solid rgba(255, 126, 32, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 25px;
-  color: #45A29E;
-  box-shadow: 0 10px 30px rgba(69, 162, 158, 0.1);
+  color: #ff7e20;
+  box-shadow: 0 10px 30px rgba(255, 126, 32, 0.1);
 }
 
 .emptyState h3 {

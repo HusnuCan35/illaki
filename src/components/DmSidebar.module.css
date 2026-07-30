@@ -1,157 +1,187 @@
 .sidebar {
-  width: 240px;
-  background-color: #2f3136;
+  width: 260px;
+  background: linear-gradient(145deg, #090a0f 0%, #0f1115 100%);
   display: flex;
   flex-direction: column;
   height: 100%;
+  border-right: 1px solid rgba(255, 126, 32, 0.05);
+  font-family: 'Inter', sans-serif;
 }
 
 .header {
-  height: 48px;
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  z-index: 2;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
 }
 
 .searchBar {
-  width: 100%;
-  background: #202225;
-  border-radius: 4px;
-  padding: 4px 8px;
+  background: rgba(255, 126, 32, 0.05);
+  border: 1px solid rgba(255, 126, 32, 0.1);
+  border-radius: 100px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.searchBar:focus-within {
+  border-color: rgba(255, 126, 32, 0.3);
+  box-shadow: 0 0 10px rgba(255, 126, 32, 0.1);
 }
 
 .searchInput {
   width: 100%;
   background: transparent;
   border: none;
-  color: #dcddde;
+  color: #fff;
   font-size: 13px;
   outline: none;
+}
+.searchInput::placeholder {
+  color: #64748b;
 }
 
 .content {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-/* Scrollbar */
 .content::-webkit-scrollbar {
   width: 4px;
 }
 .content::-webkit-scrollbar-thumb {
-  background-color: #202225;
+  background-color: rgba(255, 126, 32, 0.2);
   border-radius: 4px;
 }
 
+/* Pill Button */
 .navItem {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 10px 12px;
-  background: transparent;
-  border: none;
-  color: #8e9297;
-  font-size: 15px;
-  font-weight: 500;
-  border-radius: 4px;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  color: #94A3B8;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 100px;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .navItem:hover {
-  background-color: rgba(79, 84, 92, 0.16);
-  color: #dcddde;
+  background: rgba(255, 126, 32, 0.05);
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .navItem.active {
-  background-color: rgba(79, 84, 92, 0.32);
-  color: #fff;
+  background: #ff7e20;
+  color: #000;
+  border-color: #ff7e20;
+  box-shadow: 0 4px 15px rgba(255, 126, 32, 0.3);
 }
 
 .navIcon {
   color: inherit;
 }
 
+.dmSection {
+  display: flex;
+  flex-direction: column;
+}
+
 .dmSectionHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff7e20;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  padding-left: 5px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 18px 8px 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #8e9297;
-  text-transform: uppercase;
+  gap: 10px;
+}
+.dmSectionHeader::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 126, 32, 0.2) 0%, transparent 100%);
 }
 
 .dmList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 8px;
+  gap: 8px;
 }
 
+/* Glassmorphism DM Cards */
 .dmItem {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 8px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #8e9297;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
 }
 
 .dmItem:hover {
-  background-color: rgba(79, 84, 92, 0.16);
-  color: #dcddde;
+  background: rgba(255, 126, 32, 0.04);
+  border-color: rgba(255, 126, 32, 0.2);
+  transform: translateX(3px);
 }
 
 .dmItem.active {
-  background-color: rgba(79, 84, 92, 0.32);
-  color: #fff;
+  background: rgba(255, 126, 32, 0.1);
+  border-color: rgba(255, 126, 32, 0.3);
+  box-shadow: inset 0 0 20px rgba(255, 126, 32, 0.05);
 }
 
 .avatarWrapper {
   position: relative;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
 }
 
 .avatar {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
   font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .statusDot {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
+  bottom: -3px;
+  right: -3px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2.5px solid #2f3136;
+  border: 2px solid #0f1115;
 }
 
-.statusDot.online { background-color: #23a559; }
-.statusDot.idle { background-color: #f0b232; }
-.statusDot.dnd { background-color: #f23f43; }
-.statusDot.offline { background-color: #80848e; }
+.statusDot.online { background-color: #10B981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+.statusDot.idle { background-color: #F59E0B; }
+.statusDot.dnd { background-color: #EF4444; }
+.statusDot.offline { background-color: #6B7280; }
 
 .dmInfo {
   display: flex;
@@ -162,8 +192,9 @@
 }
 
 .dmName {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,9 +202,13 @@
   text-align: left;
 }
 
+.dmItem.active .dmName {
+  color: #ff7e20;
+}
+
 .dmStatusText {
   font-size: 11px;
-  color: #b9bbbe;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,11 +217,12 @@
 }
 
 .unreadBadge {
-  background-color: #f23f43;
-  color: white;
+  background-color: #ff7e20;
+  color: #000;
   font-size: 11px;
   font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 8px;
+  padding: 2px 8px;
+  border-radius: 100px;
   margin-left: auto;
+  box-shadow: 0 0 10px rgba(255, 126, 32, 0.4);
 }
