@@ -692,7 +692,7 @@ export function ChatArea({
 
   const handleSend = useCallback(async (overrideText) => {
     let content = (typeof overrideText === 'string' ? overrideText : input).trim();
-    if (!content || !activeSpaceId || !identity) return;
+    if (!content || (!activeSpaceId && !dmId) || !identity) return;
 
     setSending(true);
     if (typeof overrideText !== 'string') {
@@ -812,7 +812,7 @@ export function ChatArea({
       setSending(false);
       inputRef.current?.focus();
     }
-  }, [input, replyingTo, activeSpaceId, activeChannelId, identity, sendP2PMessage, addToast]);
+  }, [input, replyingTo, activeSpaceId, activeChannelId, identity, sendP2PMessage, addToast, isDm, dmId, sharedKey]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -823,7 +823,7 @@ export function ChatArea({
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !activeSpaceId || !identity) return;
+    if (!file || (!activeSpaceId && !dmId) || !identity) return;
 
     // 50MB limit
     if (file.size > 50 * 1024 * 1024) {
@@ -848,7 +848,7 @@ export function ChatArea({
       if (processed.type === 'image' || processed.type === 'video') {
         // Ana dosyayı yükle
         mediaUrl = await uploadMedia(
-          activeSpaceId, messageId,
+          activeSpaceId || dmId, messageId,
           processed.compressedBlob,
           processed.type === 'image' ? 'original.webp' : `original.${file.name.split('.').pop()}`
         );
@@ -857,7 +857,7 @@ export function ChatArea({
         // Thumbnail yükle
         if (processed.thumbnailBlob) {
           thumbnailUrl = await uploadMedia(
-            activeSpaceId, messageId,
+            activeSpaceId || dmId, messageId,
             processed.thumbnailBlob,
             'thumbnail.webp'
           );
@@ -865,42 +865,32 @@ export function ChatArea({
         setUploadProgress(p => ({ ...p, progress: 90 }));
       } else {
         // Diğer dosyalar — doğrudan yükle
-        mediaUrl = await uploadMedia(activeSpaceId, messageId, file, file.name);
+        mediaUrl = await uploadMedia(activeSpaceId || dmId, messageId, file, file.name);
         setUploadProgress(p => ({ ...p, progress: 90 }));
       }
 
       if (isDm) {
         if (!sharedKey) {
-          addToast({ type: 'error', message: 'Şifreleme anahtarı eksik' });
+          addToast({ type: 'warning', message: 'Şifreleme anahtarı bekleniyor...' });
           return;
         }
-        await sendDmMessage(
-          dmId, sharedKey, identity.uid, file.name, null,
-          {
+        try {
+          await sendDmMessage(dmId, sharedKey, identity.uid, 'Sistem: Dosya gönderdi', null, {
             url: mediaUrl,
             thumbnailUrl,
             type: file.type,
-            size: file.size,
-            name: file.name,
-            duration: processed.duration,
-            dimensions: processed.dimensions,
-          }
-        );
+            fileName: file.name,
+            fileSize: file.size
+          });
+        } catch (err) {
+          console.error("sendDmMessage failed for media:", err);
+          addToast({ type: 'error', message: 'Medya mesajı gönderilemedi: ' + err.message });
+        }
       } else {
-        // Firebase'e şifreli mesaj yaz
         await sendEncryptedMessage(
           activeSpaceId, activeChannelId, identity.uid, identity.username,
-          file.name, // content = dosya adı
-          processed.type,
-          {
-            url: mediaUrl,
-            thumbnailUrl,
-            type: file.type,
-            size: file.size,
-            name: file.name,
-            duration: processed.duration,
-            dimensions: processed.dimensions,
-          }
+          'Sistem: Dosya gönderdi', file.type,
+          { url: mediaUrl, thumbnailUrl, type: file.type, fileName: file.name, fileSize: file.size }
         );
       }
 
