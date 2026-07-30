@@ -1641,6 +1641,7 @@ export function subscribeToDmMessages(dmId, sharedKey, callback) {
             return {
               id: d.id,
               ...data,
+              timestamp: data.timestamp?.toMillis() || Date.now(),
               content,
               mediaUrl,
               thumbnailUrl,
@@ -1652,6 +1653,7 @@ export function subscribeToDmMessages(dmId, sharedKey, callback) {
             return {
               id: d.id,
               ...data,
+              timestamp: data.timestamp?.toMillis() || Date.now(),
               content: '--- Şifreli Mesaj (Çözülemedi) ---',
               isDecrypted: false
             };
