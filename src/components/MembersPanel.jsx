@@ -93,6 +93,7 @@ export function MembersPanel({ kickPeer, onClose }) {
   const [dbMembers, setDbMembers] = useState([]);
   const [friendsList, setFriendsList] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [customRoles, setCustomRoles] = useState([]);
 
   const space = getActiveSpace();
 
