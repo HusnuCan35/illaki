@@ -77,6 +77,33 @@ export const useSpaceStore = create(
   )
 );
 
+export const useDmStore = create(
+  persist(
+    (set, get) => ({
+      dms: [],
+      activeDmId: null,
+      setActiveDm: (id) => set({ activeDmId: id }),
+      setDms: (dms) => set({ dms }),
+      addDm: (dm) => set((s) => {
+        if (s.dms.some(x => x.id === dm.id)) return s;
+        return { dms: [...s.dms, dm] };
+      }),
+      updateDm: (id, updates) => set((s) => ({
+        dms: s.dms.map(x => x.id === id ? { ...x, ...updates } : x)
+      })),
+      incrementUnread: (id) => set((s) => ({
+        dms: s.dms.map(d =>
+          d.id === id ? { ...d, unread: (d.unread || 0) + 1 } : d,
+        ),
+      })),
+      clearUnread: (id) => set((s) => ({
+        dms: s.dms.map(d => d.id === id ? { ...d, unread: 0 } : d),
+      })),
+    }),
+    { name: 'illaki-dms' }
+  )
+);
+
 // Messages store (per space/channel)
 export const useMessageStore = create((set, get) => ({
   messages: {}, // { [spaceId_channelId]: [{ id, content, sender, timestamp, type }] }

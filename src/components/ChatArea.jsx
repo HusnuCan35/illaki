@@ -10,8 +10,9 @@ import {
   useMessageStore, useSpaceStore, useIdentityStore,
   usePeerStore, useUIStore,
 } from '../stores';
-import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel, subscribeToMembers } from '../lib/firestore';
+import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel, subscribeToMembers, subscribeToDmMessages, sendDmMessage, getUserProfile } from '../lib/firestore';
 import { processMediaFile, formatFileSize } from '../lib/mediaProcessor';
+import { loadUserKeyPair, deriveSharedKey } from '../lib/crypto';
 import EmojiPicker from 'emoji-picker-react';
 import { UserProfileModal } from './UserProfileModal';
 import { CameraGrid } from './CameraGrid';
@@ -477,7 +478,9 @@ export function ChatArea({
   voice,
   onOpenSettings, 
   onToggleSidebar,
-  onOpenStreamStage
+  onOpenStreamStage,
+  isDm,
+  dmId
 }) {
   const { addMessage, getMessages } = useMessageStore();
   const { activeSpaceId, getActiveSpace, activeChannelId, channels } = useSpaceStore();
@@ -503,6 +506,38 @@ export function ChatArea({
   const [dbMembers, setDbMembers] = useState([]);
   const [replyingTo, setReplyingTo] = useState(null);
   const [myTimeoutInfo, setMyTimeoutInfo] = useState(null);
+  const [sharedKey, setSharedKey] = useState(null);
+  const [dmTargetProfile, setDmTargetProfile] = useState(null);
+
+  useEffect(() => {
+    if (!isDm || !dmId || !identity?.uid) return;
+    const initDmKey = async () => {
+      try {
+        const otherUid = dmId.split('_').find(u => u !== identity.uid);
+        const profile = await getUserProfile(otherUid);
+        if (profile) setDmTargetProfile(profile);
+        
+        // Use userKeys logic or maybe publicKey is not in profile.
+        // Wait, in my previous thought I saw getUserPublicKey but it might be easier to just use getUserProfile if publicKey is there.
+        // I will import getUserPublicKey just in case.
+        const { getUserPublicKey } = await import('../lib/firestore');
+        const pubKey = await getUserPublicKey(otherUid);
+        if (!pubKey) {
+          console.warn('Target public key not found');
+          return;
+        }
+        
+        const myKeyPair = await loadUserKeyPair(identity.uid);
+        if (!myKeyPair) return;
+        
+        const key = await deriveSharedKey(myKeyPair.privateKey, pubKey);
+        setSharedKey(key);
+      } catch (err) {
+        console.error('Error init DM key:', err);
+      }
+    };
+    initDmKey();
+  }, [isDm, dmId, identity?.uid]);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -605,27 +640,34 @@ export function ChatArea({
 
   // Firebase real-time mesaj dinleyicisi
   useEffect(() => {
-    if (!activeSpaceId || !identity?.uid) return;
-
-    // Hemen ekranı temizle ki eski sunucunun mesajları görünmesin
+    if (!identity?.uid) return;
+    
     setFirebaseMessages([]);
 
-    // Önceki dinleyiciyi temizle
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
     }
 
-    try {
-      const unsubscribe = subscribeToMessages(
-        activeSpaceId,
-        activeChannelId,
-        identity.uid,
-        (msgs) => setFirebaseMessages(msgs)
-      );
-      unsubscribeRef.current = unsubscribe;
-    } catch (err) {
-      console.error('Firebase mesaj dinleyici hatası:', err);
+    if (isDm) {
+      if (!dmId || !sharedKey) return;
+      try {
+        unsubscribeRef.current = subscribeToDmMessages(dmId, sharedKey, setFirebaseMessages);
+      } catch (err) {
+        console.error('DM mesaj dinleyici hatası:', err);
+      }
+    } else {
+      if (!activeSpaceId) return;
+      try {
+        unsubscribeRef.current = subscribeToMessages(
+          activeSpaceId,
+          activeChannelId,
+          identity.uid,
+          setFirebaseMessages
+        );
+      } catch (err) {
+        console.error('Firebase mesaj dinleyici hatası:', err);
+      }
     }
 
     return () => {
@@ -634,10 +676,10 @@ export function ChatArea({
         unsubscribeRef.current = null;
       }
     };
-  }, [activeSpaceId, activeChannelId, identity?.uid]);
+  }, [isDm, dmId, sharedKey, activeSpaceId, activeChannelId, identity?.uid]);
 
   // P2P mesajlarını Firebase mesajlarıyla birleştir (duplikat engelle)
-  const p2pMessages = activeSpaceId ? getMessages(activeSpaceId, activeChannelId) : [];
+  const p2pMessages = (!isDm && activeSpaceId) ? getMessages(activeSpaceId, activeChannelId) : [];
   const allMessages = mergeMessages(firebaseMessages, p2pMessages);
   const groups = groupMessages(allMessages);
 
@@ -740,10 +782,18 @@ export function ChatArea({
           });
         }
       } else {
-        // Normal mesaj
-        await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text', null, currentReply);
-        // P2P'ye sadece normal mesajlar gitsin
-        sendP2PMessage(activeSpaceId, activeChannelId, content);
+        if (isDm) {
+          if (!sharedKey) {
+            addToast({ type: 'warning', message: 'Şifreleme anahtarı bekleniyor...' });
+            return;
+          }
+          await sendDmMessage(dmId, sharedKey, identity.uid, content, currentReply, null);
+        } else {
+          // Normal mesaj
+          await sendEncryptedMessage(activeSpaceId, activeChannelId, identity.uid, identity.username, content, 'text', null, currentReply);
+          // P2P'ye sadece normal mesajlar gitsin
+          if (sendP2PMessage) sendP2PMessage(activeSpaceId, activeChannelId, content);
+        }
       }
       
     } catch (err) {
@@ -810,21 +860,40 @@ export function ChatArea({
         setUploadProgress(p => ({ ...p, progress: 90 }));
       }
 
-      // Firebase'e şifreli mesaj yaz
-      await sendEncryptedMessage(
-        activeSpaceId, activeChannelId, identity.uid, identity.username,
-        file.name, // content = dosya adı
-        processed.type,
-        {
-          url: mediaUrl,
-          thumbnailUrl,
-          type: file.type,
-          size: file.size,
-          name: file.name,
-          duration: processed.duration,
-          dimensions: processed.dimensions,
+      if (isDm) {
+        if (!sharedKey) {
+          addToast({ type: 'error', message: 'Şifreleme anahtarı eksik' });
+          return;
         }
-      );
+        await sendDmMessage(
+          dmId, sharedKey, identity.uid, file.name, null,
+          {
+            url: mediaUrl,
+            thumbnailUrl,
+            type: file.type,
+            size: file.size,
+            name: file.name,
+            duration: processed.duration,
+            dimensions: processed.dimensions,
+          }
+        );
+      } else {
+        // Firebase'e şifreli mesaj yaz
+        await sendEncryptedMessage(
+          activeSpaceId, activeChannelId, identity.uid, identity.username,
+          file.name, // content = dosya adı
+          processed.type,
+          {
+            url: mediaUrl,
+            thumbnailUrl,
+            type: file.type,
+            size: file.size,
+            name: file.name,
+            duration: processed.duration,
+            dimensions: processed.dimensions,
+          }
+        );
+      }
 
       setUploadProgress(p => ({ ...p, progress: 100 }));
       setTimeout(() => setUploadProgress(null), 1000);
@@ -859,7 +928,7 @@ export function ChatArea({
     }),
   };
 
-  if (!activeSpaceId) {
+  if (!isDm && !activeSpaceId) {
     return (
       <div className={styles.noSpace}>
         <div className={styles.noSpaceIcon}><Hash size={40} /></div>
@@ -869,7 +938,7 @@ export function ChatArea({
     );
   }
 
-  if (activeSpaceId && !activeSpace) {
+  if (!isDm && activeSpaceId && !activeSpace) {
     return (
       <div className={styles.noSpace}>
         <div className={styles.noSpaceIcon}><Hash size={40} /></div>
@@ -895,20 +964,25 @@ export function ChatArea({
             <Menu size={20} />
           </button>
           <div className={styles.headerIcon}>
-            <span style={{ fontSize: '1rem' }}>{activeChannel?.type === 'voice' ? <Volume2 size={16} /> : '#'}</span>
+            <span style={{ fontSize: '1rem' }}>{isDm ? '@' : activeChannel?.type === 'voice' ? <Volume2 size={16} /> : '#'}</span>
           </div>
           <div>
-            <div className={styles.headerName}>{activeChannel?.name || 'genel'}</div>
+            <div className={styles.headerName}>{isDm ? (dmTargetProfile?.username || 'Yükleniyor...') : (activeChannel?.name || 'genel')}</div>
             <div className={styles.headerMeta}>
               <span className={styles.e2eBadge}>
                 <Lock size={10} /> E2E
               </span>
+              {isDm && dmTargetProfile?.customStatus && (
+                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#8e9297' }}>
+                  {dmTargetProfile.customStatus}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         <div className={styles.headerActions}>
-          {isPrivileged && (
+          {!isDm && isPrivileged && (
             <button
               className={`${styles.headerBtn} ${isSelectMode ? styles.headerBtnActive : ''}`}
               onClick={() => {
@@ -920,75 +994,49 @@ export function ChatArea({
               <CheckSquare size={16} />
             </button>
           )}
-          <button
-            className={`${styles.headerBtn} ${rightPanel === 'music' ? styles.headerBtnActive : ''}`}
-            onClick={onToggleMusic}
-            title="Müzik Botu"
-          >
-            <Music size={16} />
-          </button>
-          <button className={styles.codeButton} onClick={copyCode} title="Oda kodunu kopyala">
-            <code>{activeSpace?.code}</code>
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-          </button>
-          <button
-            className={`${styles.headerBtn} ${rightPanel === 'members' ? styles.headerBtnActive : ''}`}
-            onClick={onToggleMembers}
-            title="Üyeler"
-            aria-label="Üyeleri Gizle/Göster"
-            aria-pressed={rightPanel === 'members'}
-          >
-            <Users size={16} />
-          </button>
-          <button
-            className={styles.headerBtn}
-            onClick={onOpenSettings}
-            title={activeSpace?.isHost ? 'Oda Ayarları' : 'Odadan Ayrıl'}
-          >
-            {activeSpace?.isHost ? <Settings size={16} /> : <LogOut size={16} />}
-          </button>
+          {!isDm && (
+            <button
+              className={`${styles.headerBtn} ${rightPanel === 'music' ? styles.headerBtnActive : ''}`}
+              onClick={onToggleMusic}
+              title="Müzik Botu"
+            >
+              <Music size={16} />
+            </button>
+          )}
+          {!isDm && (
+            <button
+              className={`${styles.headerBtn} ${rightPanel === 'members' ? styles.headerBtnActive : ''}`}
+              onClick={onToggleMembers}
+              title="Üyeler"
+            >
+              <Users size={16} />
+            </button>
+          )}
+          {!isDm && (
+            <button
+              className={styles.headerBtn}
+              onClick={onOpenSettings}
+              title="Sunucu Ayarları"
+            >
+              <Settings size={16} />
+            </button>
+          )}
         </div>
       </header>
 
       {/* Bulk Delete Toolbar */}
       {isSelectMode && (
-        <div style={{
-          background: 'rgba(15, 23, 42, 0.95)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          padding: '10px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          zIndex: 10
-        }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF' }}>
-            {selectedMsgIds.size} mesaj seçildi
-          </div>
+        <div className={styles.bulkActionsBar}>
+          <span className={styles.bulkCount}>{selectedMsgIds.size} mesaj seçildi</span>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              onClick={() => {
-                const allIds = new Set(allMessages.map(m => m.id));
-                setSelectedMsgIds(allIds);
-              }}
-              style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: '#FFF', fontSize: '12px', cursor: 'pointer' }}
-            >
-              Tümünü Seç
-            </button>
-            <button
-              disabled={selectedMsgIds.size === 0}
-              onClick={handleBulkDeleteSelected}
-              style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', background: selectedMsgIds.size > 0 ? '#EF4444' : '#64748B', color: '#FFF', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
-            >
-              Seçilenleri Sil ({selectedMsgIds.size})
-            </button>
-            <button
+              className={styles.bulkClearBtn}
               onClick={handleClearChannel}
-              style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #EF4444', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
             >
+              <Trash2 size={16} style={{ marginRight: '6px' }} />
               Tüm Kanalı Temizle
             </button>
             <button
-              onClick={() => { setIsSelectMode(false); setSelectedMsgIds(new Set()); }}
               style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: 'transparent', color: '#94A3B8', fontSize: '12px', cursor: 'pointer' }}
             >
               Kapat

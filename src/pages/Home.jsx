@@ -14,8 +14,9 @@ import { SettingsModal } from './Settings';
 import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
-import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore } from '../stores';
-import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile } from '../lib/firestore';
+import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore, useDmStore } from '../stores';
+import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile, createOrGetDm } from '../lib/firestore';
+import { DmSidebar } from '../components/DmSidebar';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -30,6 +31,7 @@ export function Home() {
   const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar, addToast } = useUIStore();
   const { identity } = useIdentityStore();
   const { activeSpaceId, spaces, setActiveSpace, removeSpace } = useSpaceStore();
+  const { activeDmId, setActiveDm } = useDmStore();
 
   const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, kickFromVoice, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
   const voice = useVoice(getPeer, broadcastVoiceStatus);
@@ -195,7 +197,7 @@ export function Home() {
           onDiscover={() => setDiscoverOpen(true)}
         />
 
-        {activeSpaceId && (
+        {activeSpaceId ? (
           <ChannelSidebar
             activeSpaceId={activeSpaceId}
             onOpenSettings={() => setSpaceSettingsOpen(true)}
@@ -220,6 +222,8 @@ export function Home() {
               />
             }
           />
+        ) : (
+          <DmSidebar onSelectFriends={() => setActiveDm(null)} />
         )}
       </div>
 
@@ -236,9 +240,18 @@ export function Home() {
             onToggleSidebar={toggleSidebar}
             onOpenStreamStage={() => setStreamStageOpen(true)}
           />
+        ) : activeDmId ? (
+          <ChatArea
+            isDm={true}
+            dmId={activeDmId}
+            sendMessage={sendMessage}
+            onToggleSidebar={toggleSidebar}
+            screenShare={screenShare}
+            voice={voice}
+          />
         ) : (
           <div style={{ display: 'flex', height: '100%', width: '100%' }}>
-            <div className={styles.welcomeScreen} style={{ flex: 1 }}>
+            <div className={styles.welcomeScreen} style={{ flex: 1, display: window.innerWidth <= 768 ? 'flex' : 'none' }}>
               <button
                 className={styles.mobileMenuBtnWelcome}
                 onClick={(e) => {
@@ -248,10 +261,17 @@ export function Home() {
               >
                 ☰ Menü
               </button>
-              <h2>illaki'ye Hoş Geldiniz</h2>
-              <p>Başlamak için sol menüden bir sunucu seçin veya yeni bir tane oluşturun.</p>
+              <h2>Arkadaşlar</h2>
             </div>
-            {window.innerWidth > 768 && <FriendsPanel onJoinSpace={(code, id) => connectToPeer(code, id)} />}
+            <FriendsPanel 
+              onJoinSpace={(code, id) => connectToPeer(code, id)} 
+              onStartDm={async (friendUid) => {
+                if (!identity?.uid) return;
+                const dmId = await createOrGetDm(identity.uid, friendUid);
+                setActiveDm(dmId);
+                if (window.innerWidth <= 768) toggleSidebar();
+              }}
+            />
           </div>
         )}
       </div>

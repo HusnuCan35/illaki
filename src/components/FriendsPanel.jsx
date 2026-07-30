@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, UserX, Check, X, LogIn } from 'lucide-react';
+import { Users, UserPlus, UserX, Check, X, LogIn, MessageSquare } from 'lucide-react';
 import { useIdentityStore, useSpaceStore, useUIStore } from '../stores';
 import { subscribeToFriends, subscribeToFriendRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend, subscribeToServerInvites, acceptServerInvite, rejectServerInvite } from '../lib/firestore';
 import styles from './FriendsPanel.module.css';
 
-export function FriendsPanel({ onJoinSpace }) {
+export function FriendsPanel({ onJoinSpace, onStartDm }) {
   const { identity } = useIdentityStore();
   const { spaces } = useSpaceStore();
   const { addToast } = useUIStore();
@@ -160,6 +160,11 @@ export function FriendsPanel({ onJoinSpace }) {
                   <span>{friend.username}</span>
                 </div>
                 <div className={styles.actions}>
+                  <button className={styles.acceptBtn} onClick={() => {
+                    if (onStartDm) onStartDm(friend.uid);
+                  }} title="Mesaj Gönder" style={{ marginRight: '8px' }}>
+                    <MessageSquare size={16} />
+                  </button>
                   <button className={styles.rejectBtn} onClick={() => {
                     if (window.confirm('Arkadaşlıktan çıkarmak istediğine emin misin?')) {
                       removeFriend(identity.uid, friend.uid);

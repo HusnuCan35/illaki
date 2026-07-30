@@ -1524,3 +1524,155 @@ export function subscribeToDuels(spaceId, onDuels) {
     onDuels(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   });
 }
+
+// ────────────────────────────────────────────────────────────
+// Direct Messages (DMs) Yönetimi
+// ────────────────────────────────────────────────────────────
+
+export function getDmId(uid1, uid2) {
+  return [uid1, uid2].sort().join('_');
+}
+
+export async function createOrGetDm(uid1, uid2) {
+  const dmId = getDmId(uid1, uid2);
+  const dmRef = doc(db, 'dms', dmId);
+  const dmSnap = await getDoc(dmRef);
+  if (!dmSnap.exists()) {
+    await setDoc(dmRef, {
+      participants: [uid1, uid2],
+      createdAt: serverTimestamp(),
+      lastMessage: null,
+      updatedAt: serverTimestamp()
+    });
+  }
+  return dmId;
+}
+
+export function subscribeToDms(uid, callback) {
+  if (!uid) return () => {};
+  const q = query(
+    collection(db, 'dms'),
+    where('participants', 'array-contains', uid),
+    orderBy('updatedAt', 'desc')
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export function subscribeToDmMessages(dmId, sharedKey, callback) {
+  if (!dmId || !sharedKey) return () => {};
+  const q = query(
+    collection(db, 'dms', dmId, 'messages'),
+    orderBy('timestamp', 'asc')
+  );
+  return onSnapshot(q, async (snap) => {
+    try {
+      const messages = [];
+      for (const change of snap.docChanges()) {
+        const data = change.doc.data();
+        let content = '';
+        let mediaUrl = null;
+        let thumbnailUrl = null;
+        
+        try {
+          if (data.encryptedContent && data.iv) {
+            content = await decryptMessage(sharedKey, data.encryptedContent, data.iv);
+          }
+          if (data.encryptedMediaUrl) {
+            mediaUrl = await decryptMessage(sharedKey, data.encryptedMediaUrl.ciphertext, data.encryptedMediaUrl.iv);
+          }
+          if (data.encryptedThumbnailUrl) {
+            thumbnailUrl = await decryptMessage(sharedKey, data.encryptedThumbnailUrl.ciphertext, data.encryptedThumbnailUrl.iv);
+          }
+          
+          let decryptedReplyTo = null;
+          if (data.replyTo && data.replyTo.encryptedContent) {
+            try {
+              const replyContent = await decryptMessage(sharedKey, data.replyTo.encryptedContent, data.replyTo.iv);
+              decryptedReplyTo = { ...data.replyTo, content: replyContent };
+            } catch (err) {
+              console.error('DM Reply decryption error', err);
+            }
+          }
+          
+          messages.push({
+            id: change.doc.id,
+            ...data,
+            content,
+            mediaUrl,
+            thumbnailUrl,
+            replyTo: decryptedReplyTo,
+            isDecrypted: true
+          });
+        } catch (err) {
+          console.error('DM Decryption error:', err);
+          messages.push({
+            id: change.doc.id,
+            ...data,
+            content: '--- Şifreli Mesaj (Çözülemedi) ---',
+            isDecrypted: false
+          });
+        }
+      }
+      callback(messages);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
+
+export async function sendDmMessage(dmId, sharedKey, senderUid, content, replyTo = null, mediaData = null) {
+  if (!dmId || !sharedKey || !senderUid) return;
+  const { ciphertext, iv } = await encryptMessage(sharedKey, content || '');
+  
+  let encryptedMediaUrl = null;
+  let encryptedThumbnailUrl = null;
+  
+  if (mediaData) {
+    if (mediaData.url) {
+      encryptedMediaUrl = await encryptMessage(sharedKey, mediaData.url);
+    }
+    if (mediaData.thumbnailUrl) {
+      encryptedThumbnailUrl = await encryptMessage(sharedKey, mediaData.thumbnailUrl);
+    }
+  }
+
+  let encryptedReplyTo = null;
+  if (replyTo) {
+    const { ciphertext: replyContent, iv: replyIv } = await encryptMessage(sharedKey, replyTo.content || '');
+    encryptedReplyTo = {
+      messageId: replyTo.id,
+      senderUid: replyTo.sender,
+      encryptedContent: replyContent,
+      iv: replyIv
+    };
+  }
+
+  const msgData = {
+    sender: senderUid,
+    timestamp: serverTimestamp(),
+    encryptedContent: ciphertext,
+    iv,
+    encryptedMediaUrl,
+    encryptedThumbnailUrl,
+    mediaType: mediaData?.type || null,
+    fileName: mediaData?.fileName || null,
+    fileSize: mediaData?.fileSize || null,
+    replyTo: encryptedReplyTo,
+    type: 'dm'
+  };
+
+  const msgRef = await addDoc(collection(db, 'dms', dmId, 'messages'), msgData);
+  
+  await updateDoc(doc(db, 'dms', dmId), {
+    lastMessage: {
+      content: 'Mesaj',
+      sender: senderUid,
+      timestamp: serverTimestamp()
+    },
+    updatedAt: serverTimestamp()
+  });
+  
+  return msgRef.id;
+}
