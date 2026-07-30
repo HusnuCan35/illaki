@@ -5,9 +5,13 @@ import { persist } from 'zustand/middleware';
 export const useIdentityStore = create(
   persist(
     (set) => ({
-      identity: null, // { id, uid, username, avatarColor, bio, banner, createdAt }
-      setIdentity: (identity) => set({ identity }),
-      updateIdentity: (updates) => set((s) => ({ identity: s.identity ? { ...s.identity, ...updates } : null })),
+      identity: null, // { id, uid, username, avatarColor, bio, banner, createdAt, status, customStatus }
+      setIdentity: (identity) => set({ 
+        identity: identity ? { status: 'online', customStatus: '', ...identity } : null 
+      }),
+      updateIdentity: (updates) => set((s) => ({ 
+        identity: s.identity ? { ...s.identity, ...updates } : null 
+      })),
       clearIdentity: () => set({ identity: null }),
     }),
     { name: 'illaki-identity' }

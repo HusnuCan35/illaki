@@ -56,6 +56,11 @@ function MemberItem({
             </span>
           )}
         </span>
+        {peer.customStatus && (
+          <span className={styles.customStatus}>
+            {peer.customStatus}
+          </span>
+        )}
       </div>
 
       <div className={styles.actions} onClick={e => e.stopPropagation()}>
@@ -149,6 +154,7 @@ export function MembersPanel({ kickPeer, onClose }) {
       points: m.points || 0,
       bio: m.bio || '',
       banner: m.banner || '',
+      customStatus: m.customStatusText || '',
       timeoutUntil: m.timeoutUntil || null
     };
   });
@@ -170,6 +176,7 @@ export function MembersPanel({ kickPeer, onClose }) {
         status: peer.status || 'online',
         isHost: space?.hostPeerId === peerId,
         role: 'member',
+        customStatus: peer.customStatus || '',
         points: 0
       });
     }
@@ -183,6 +190,7 @@ export function MembersPanel({ kickPeer, onClose }) {
     username: identity?.username || 'Ben',
     avatarColor: identity?.avatarColor || '#FF7E20',
     status: identity?.status || 'online',
+    customStatus: identity?.customStatus || '',
     role: selfRole,
     points: selfPoints
   };

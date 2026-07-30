@@ -101,16 +101,16 @@ export function Home() {
     if (!activeSpaceId || !identity?.uid) return;
 
     const currentStatus = useIdentityStore.getState().identity?.status || 'online';
-    updateMemberOnlineStatus(activeSpaceId, identity.uid, currentStatus !== 'offline', currentStatus);
+    updateMemberOnlineStatus(activeSpaceId, identity.uid, currentStatus !== 'offline', currentStatus, identity.customStatus || '');
 
     const interval = setInterval(() => {
       const status = useIdentityStore.getState().identity?.status || 'online';
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, status !== 'offline', status);
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, status !== 'offline', status, identity.customStatus || '');
     }, 30000);
 
     const handleUnload = () => {
       const status = useIdentityStore.getState().identity?.status || 'online';
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, status);
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, status, identity.customStatus || '');
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null);
     };
 
@@ -121,7 +121,7 @@ export function Home() {
       window.removeEventListener('beforeunload', handleUnload);
       // Sadece activeSpaceId değiştiğinde eski space'ten çıkış yap
       const status = useIdentityStore.getState().identity?.status || 'online';
-      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, status).catch(() => {});
+      updateMemberOnlineStatus(activeSpaceId, identity.uid, false, status, identity.customStatus || '').catch(() => {});
       updateMemberVoiceStatus(activeSpaceId, identity.uid, null).catch(() => {});
     };
   }, [activeSpaceId, identity?.uid]);

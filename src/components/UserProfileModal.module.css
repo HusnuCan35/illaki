@@ -137,9 +137,17 @@
 
 .customId {
   font-size: 13px;
-  color: #94A3B8;
-  display: block;
+  color: var(--text-muted);
   margin-top: 2px;
+  display: block;
+}
+
+.customStatusText {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-style: italic;
+  display: block;
 }
 
 .editBtn {

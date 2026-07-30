@@ -126,6 +126,7 @@ export function UserProfileModal({ isOpen, onClose, user }) {
   const points = user.points !== undefined ? user.points : (profileData?.points || 0);
   const role = user.role || 'member';
   const status = user.status || (user.online ? 'online' : 'offline');
+  const customStatusText = user.customStatus || profileData?.customStatus || (isSelf ? identity?.customStatus : null);
 
   const bannerKey = isSelf ? (profileData?.banner || identity?.banner || 'tr_flag') : (profileData?.banner || user.banner || 'tr_flag');
   const selectedPreset = PRESET_BANNERS.find(b => b.id === bannerKey);
@@ -167,6 +168,11 @@ export function UserProfileModal({ isOpen, onClose, user }) {
             <div>
               <h3 className={styles.username}>{username}</h3>
               {customId && <span className={styles.customId}>@{customId}</span>}
+              {customStatusText && (
+                <div className={styles.customStatusText}>
+                  {customStatusText}
+                </div>
+              )}
             </div>
 
             {isSelf && !isEditing && (

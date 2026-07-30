@@ -565,13 +565,14 @@ export async function updateMemberPeerId(spaceId, uid, peerId, profile = {}) {
 /**
  * Üyenin online/offline durumunu güncelle
  */
-export async function updateMemberOnlineStatus(spaceId, uid, isOnline, customStatus = 'online') {
+export async function updateMemberOnlineStatus(spaceId, uid, isOnline, customStatus = 'online', customStatusText = '') {
   if (!spaceId || !uid) return;
   try {
     const memberRef = doc(db, 'spaces', spaceId, 'members', uid);
     await setDoc(memberRef, { 
       online: isOnline,
       status: customStatus,
+      customStatusText: customStatusText,
       lastSeen: serverTimestamp() 
     }, { merge: true });
   } catch (err) {

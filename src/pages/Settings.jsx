@@ -33,6 +33,8 @@ export function SettingsModal({ isOpen, onClose }) {
   const [username, setUsername] = useState(identity?.username || '');
   const [customId, setCustomId] = useState(identity?.customId || '');
   const [bio, setBio] = useState(identity?.bio || '');
+  const [status, setStatus] = useState(identity?.status || 'online');
+  const [customStatus, setCustomStatus] = useState(identity?.customStatus || '');
   const [banner, setBanner] = useState(identity?.banner || 'tr_flag');
   const [customBannerUrl, setCustomBannerUrl] = useState(identity?.banner?.startsWith('http') ? identity.banner : '');
   const [accentColor, setAccentColor] = useState(
@@ -74,6 +76,8 @@ export function SettingsModal({ isOpen, onClose }) {
       await updateUserProfileDetails(identity.uid, {
         bio: bio.trim(),
         banner: finalBanner,
+        status: status,
+        customStatus: customStatus.trim(),
       });
 
       setIdentity({
@@ -82,6 +86,8 @@ export function SettingsModal({ isOpen, onClose }) {
         customId: finalCustomId,
         bio: bio.trim(),
         banner: finalBanner,
+        status: status,
+        customStatus: customStatus.trim(),
       });
 
       document.documentElement.style.setProperty('--accent', accentColor);
@@ -209,6 +215,35 @@ export function SettingsModal({ isOpen, onClose }) {
                   className={styles.input}
                 />
                 <span className={styles.hint}>Sadece küçük harf, rakam ve nokta/tire/alt çizgi içerebilir. Arkadaşların seni bu ID ile ekleyebilir.</span>
+              </div>
+
+              <div className={styles.field} style={{ marginTop: '16px' }}>
+                <label htmlFor="settings-status" className={styles.label}>Durum</label>
+                <select
+                  id="settings-status"
+                  value={status}
+                  onChange={e => setStatus(e.target.value)}
+                  className={styles.select}
+                >
+                  <option value="online">🟢 Çevrimiçi</option>
+                  <option value="idle">🌙 Boşta</option>
+                  <option value="dnd">🔴 Rahatsız Etmeyin</option>
+                  <option value="invisible">⚪ Görünmez</option>
+                </select>
+              </div>
+
+              <div className={styles.field} style={{ marginTop: '16px' }}>
+                <label htmlFor="settings-custom-status" className={styles.label}>Özel Durum (Custom Status)</label>
+                <input
+                  id="settings-custom-status"
+                  type="text"
+                  value={customStatus}
+                  onChange={e => setCustomStatus(e.target.value)}
+                  maxLength={50}
+                  placeholder="Şu an ne yapıyorsun?"
+                  className={styles.input}
+                />
+                <span className={styles.hint}>Örn: Müzik dinliyor 🎵</span>
               </div>
 
               <div className={styles.field} style={{ marginTop: '16px' }}>

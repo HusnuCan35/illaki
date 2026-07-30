@@ -184,7 +184,7 @@ export function ChannelSidebar({
   const handleStatusChange = (newStatus) => {
     updateIdentity({ status: newStatus });
     setShowStatusMenu(false);
-    updateMemberOnlineStatus(activeSpaceId, identity.uid, newStatus !== 'offline', newStatus);
+    updateMemberOnlineStatus(activeSpaceId, identity.uid, newStatus !== 'offline', newStatus, identity.customStatus || '');
   };
 
   const handleDeleteChannelSubmit = async () => {

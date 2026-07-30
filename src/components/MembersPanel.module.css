@@ -150,6 +150,16 @@
   margin-top: 1px;
 }
 
+.customStatus {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .selfTag {
   font-size: 10px;
   font-weight: 700;
