@@ -678,7 +678,21 @@ export function ChatArea({
 
   // P2P mesajlarını Firebase mesajlarıyla birleştir (duplikat engelle)
   const p2pMessages = (!isDm && activeSpaceId) ? getMessages(activeSpaceId, activeChannelId) : [];
-  const allMessages = mergeMessages(firebaseMessages, p2pMessages);
+  const allMessages = useMemo(() => {
+    return mergeMessages(firebaseMessages, p2pMessages).map(m => {
+      if (isDm) {
+        const senderId = m.senderId || m.sender;
+        const isOwn = senderId === identity?.uid;
+        return {
+          ...m,
+          own: isOwn,
+          senderUid: senderId,
+          sender: isOwn ? identity?.username : (dmTargetProfile?.username || 'Bilinmiyor')
+        };
+      }
+      return m;
+    });
+  }, [firebaseMessages, p2pMessages, isDm, identity, dmTargetProfile]);
   const groups = groupMessages(allMessages);
 
   // Auto-scroll
