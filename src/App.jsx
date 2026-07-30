@@ -9,13 +9,24 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { syncTimeOffset } from './lib/time';
 
 export default function App() {
-  const { view, setView } = useUIStore();
+  const { view, setView, setInviteCodeToJoin, inviteCodeToJoin, setJoinModalOpen } = useUIStore();
   const { identity } = useIdentityStore();
   const { loading } = useAuth(); // Firebase auth state'i izle
 
   useEffect(() => {
     syncTimeOffset();
-  }, []);
+    
+    // Davet linki kontrolü
+    const path = window.location.pathname;
+    if (path.startsWith('/join/')) {
+      const code = path.split('/join/')[1];
+      if (code) {
+        setInviteCodeToJoin(code);
+        // Temiz URL'ye dön
+        window.history.replaceState({}, document.title, '/');
+      }
+    }
+  }, [setInviteCodeToJoin]);
 
   useEffect(() => {
     if (identity && view === 'landing') {
@@ -24,6 +35,12 @@ export default function App() {
       setView('landing');
     }
   }, [identity, view, setView]);
+
+  useEffect(() => {
+    if (identity && view === 'home' && inviteCodeToJoin) {
+      setJoinModalOpen(true);
+    }
+  }, [identity, view, inviteCodeToJoin, setJoinModalOpen]);
 
   if (loading) return <LoadingScreen />;
 

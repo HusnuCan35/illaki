@@ -71,10 +71,11 @@ export function CreateSpaceModal({ isOpen, onClose }) {
 
   const copyCode = async () => {
     if (!created?.code) return;
-    await navigator.clipboard.writeText(created.code);
+    const inviteLink = `${window.location.origin}/join/${created.code}`;
+    await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
-    addToast({ type: 'success', message: 'Oda kodu kopyalandı!' });
+    addToast({ type: 'success', message: 'Davet bağlantısı kopyalandı!' });
   };
 
   const handleDone = () => {
@@ -211,13 +212,19 @@ export function CreateSpaceModal({ isOpen, onClose }) {
 
 // ─── Space'e Katıl Modal ────────────────────────────────────────────────────────
 export function JoinSpaceModal({ isOpen, onClose, connectToPeer }) {
-  const [code, setCode] = useState('');
+  const { addSpace, setActiveSpace } = useSpaceStore();
+  const { identity } = useIdentityStore();
+  const { addToast, inviteCodeToJoin, setInviteCodeToJoin } = useUIStore();
+
+  const [code, setCode] = useState(inviteCodeToJoin || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { addSpace, setActiveSpace } = useSpaceStore();
-  const { identity } = useIdentityStore();
-  const { addToast } = useUIStore();
+  useEffect(() => {
+    if (inviteCodeToJoin) {
+      setCode(inviteCodeToJoin);
+    }
+  }, [inviteCodeToJoin]);
 
   const handleJoin = async (e) => {
     e.preventDefault();
@@ -276,6 +283,7 @@ export function JoinSpaceModal({ isOpen, onClose, connectToPeer }) {
 
       addToast({ type: 'success', message: `${space.name} sunucusuna katıldın!` });
       setCode('');
+      setInviteCodeToJoin(null);
       onClose();
     } catch (err) {
       setError(err.message || 'Bağlanılamadı. Kod doğru mu?');
@@ -290,8 +298,15 @@ export function JoinSpaceModal({ isOpen, onClose, connectToPeer }) {
     if (error) setError('');
   };
 
+  const handleClose = () => {
+    setCode('');
+    setError('');
+    setInviteCodeToJoin(null);
+    onClose();
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={() => { setCode(''); setError(''); onClose(); }} title="Space'e Katıl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Sunucuya Katıl">
       <form onSubmit={handleJoin} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor="room-code" className={styles.label}>Oda Kodu</label>

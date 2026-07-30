@@ -590,10 +590,11 @@ function InviteFriendsModal({ isOpen, onClose, activeSpace, identity }) {
 
   const copyCode = async () => {
     if (!activeSpace?.code) return;
-    await navigator.clipboard.writeText(activeSpace.code);
+    const inviteLink = `${window.location.origin}/join/${activeSpace.code}`;
+    await navigator.clipboard.writeText(inviteLink);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
-    addToast({ type: 'success', message: 'Sunucu davet kodu kopyalandı!' });
+    addToast({ type: 'success', message: 'Sunucu davet bağlantısı kopyalandı!' });
   };
 
   const copyLink = async () => {

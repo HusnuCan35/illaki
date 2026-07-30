@@ -175,6 +175,7 @@ export const useUIStore = create((set) => ({
   createModalOpen: false,
   toasts: [],
   musicVolume: 50, // 0-100
+  inviteCodeToJoin: null,
 
   setView: (view) => set({ view }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -183,6 +184,7 @@ export const useUIStore = create((set) => ({
   setJoinModalOpen: (v) => set({ joinModalOpen: v }),
   setCreateModalOpen: (v) => set({ createModalOpen: v }),
   setMusicVolume: (v) => set({ musicVolume: v }),
+  setInviteCodeToJoin: (v) => set({ inviteCodeToJoin: v }),
 
   addToast: (toast) => set((s) => ({
     toasts: [...s.toasts, { id: Date.now(), ...toast }],
