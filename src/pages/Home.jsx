@@ -31,7 +31,7 @@ export function Home() {
   const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar, addToast } = useUIStore();
   const { identity } = useIdentityStore();
   const { activeSpaceId, spaces, setActiveSpace, removeSpace } = useSpaceStore();
-  const { activeDmId, setActiveDm } = useDmStore();
+  const { activeDmId, setActiveDm, dms } = useDmStore();
 
   const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, kickFromVoice, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
   const voice = useVoice(getPeer, broadcastVoiceStatus);
@@ -167,6 +167,50 @@ export function Home() {
       unsubMembers();
     };
   }, [activeSpaceId, identity?.uid, activeSpace?.hostUid]);
+
+  // --- DM Ringing Listener ---
+  const [incomingCall, setIncomingCall] = useState(null);
+  
+  useEffect(() => {
+    if (!identity?.uid) return;
+    
+    // Find if any DM has an activeCall with status 'ringing' where we are not the caller
+    const ringingDm = dms.find(dm => 
+      dm.activeCall && 
+      dm.activeCall.status === 'ringing' && 
+      dm.activeCall.caller !== identity.uid
+    );
+    
+    if (ringingDm && !voice.isInVoice) {
+      setIncomingCall(ringingDm);
+    } else {
+      setIncomingCall(null);
+    }
+  }, [dms, identity?.uid, voice.isInVoice]);
+
+  const handleAcceptCall = async () => {
+    if (incomingCall) {
+      const dmId = incomingCall.id;
+      const withVideo = incomingCall.activeCall?.hasVideo || false;
+      import('../lib/firestore').then(({ updateDmCallStatus }) => {
+        updateDmCallStatus(dmId, 'accepted', incomingCall.activeCall.caller);
+      });
+      setActiveSpace(null);
+      setActiveDm(dmId);
+      voice.joinVoice(dmId, true, withVideo);
+      setIncomingCall(null);
+    }
+  };
+
+  const handleRejectCall = async () => {
+    if (incomingCall) {
+      const dmId = incomingCall.id;
+      import('../lib/firestore').then(({ updateDmCallStatus }) => {
+        updateDmCallStatus(dmId, 'rejected', incomingCall.activeCall.caller);
+      });
+      setIncomingCall(null);
+    }
+  };
 
   const connectedPeerIds = Object.keys(peers);
 
@@ -312,6 +356,75 @@ export function Home() {
           <MusicBotPanel onClose={() => setRightPanel(null)} isVoiceConnected={voice.isInVoice} />
         )}
       </div>
+
+      {/* --- Incoming Call Modal --- */}
+      {incomingCall && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          color: 'white',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{
+            background: 'var(--surface)',
+            padding: '40px',
+            borderRadius: '24px',
+            textAlign: 'center',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            border: '1px solid var(--border)'
+          }}>
+            <h2 style={{ margin: '0 0 10px', fontSize: '24px' }}>Gelen Arama 📞</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>
+              Biri sizi arıyor...
+            </p>
+            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+              <button 
+                onClick={handleRejectCall}
+                style={{
+                  background: '#EF4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 30px',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                Reddet
+              </button>
+              <button 
+                onClick={handleAcceptCall}
+                style={{
+                  background: '#10B981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 30px',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                Kabul Et
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stream Viewer Modal / Fullscreen Stage */}
       <StreamStageModal

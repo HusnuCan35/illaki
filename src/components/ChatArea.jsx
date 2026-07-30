@@ -10,7 +10,7 @@ import {
   useMessageStore, useSpaceStore, useIdentityStore,
   usePeerStore, useUIStore,
 } from '../stores';
-import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel, subscribeToMembers, subscribeToDmMessages, sendDmMessage, getUserProfile } from '../lib/firestore';
+import { sendEncryptedMessage, subscribeToMessages, uploadMedia, subscribeToDuels, createDuel, subscribeToMembers, subscribeToDmMessages, sendDmMessage, getUserProfile, updateDmCallStatus } from '../lib/firestore';
 import { processMediaFile, formatFileSize } from '../lib/mediaProcessor';
 import { loadUserKeyPair, deriveSharedKey } from '../lib/crypto';
 import EmojiPicker from 'emoji-picker-react';
@@ -773,13 +773,19 @@ export function ChatArea({
       if (isGameCommand && gameResult) {
         // Sistemi mesajı olarak Firebase'e yaz
         content = gameResult;
-        await sendEncryptedMessage(activeSpaceId, activeChannelId, 'system', 'Sistem', content, 'system', null, currentReply);
-        
-        // Puan ekle
-        if (pointsAwarded > 0) {
-          import('../lib/firestore').then(({ updateMemberPoints }) => {
-            updateMemberPoints(activeSpaceId, identity.uid, pointsAwarded).catch(console.error);
-          });
+        if (isDm) {
+          if (sharedKey) {
+            await sendDmMessage(dmId, sharedKey, identity.uid, content, currentReply, null, 'system');
+          }
+        } else {
+          await sendEncryptedMessage(activeSpaceId, activeChannelId, 'system', 'Sistem', content, 'system', null, currentReply);
+          
+          // Puan ekle (sadece sunucularda)
+          if (pointsAwarded > 0) {
+            import('../lib/firestore').then(({ updateMemberPoints }) => {
+              updateMemberPoints(activeSpaceId, identity.uid, pointsAwarded).catch(console.error);
+            });
+          }
         }
       } else {
         if (isDm) {
@@ -988,6 +994,7 @@ export function ChatArea({
                 className={styles.headerBtn}
                 onClick={async () => {
                   window.dispatchEvent(new CustomEvent('illaki:join-dm-voice', { detail: { dmId, withVideo: false } }));
+                  await updateDmCallStatus(dmId, 'ringing', identity.uid, false);
                   if (sharedKey && identity?.uid) {
                     await sendDmMessage(dmId, sharedKey, identity.uid, "📞 Sesli arama başlattı. Katılmak için sağ üstteki arama butonuna tıklayın.", null, null, 'system');
                   }
@@ -1000,6 +1007,7 @@ export function ChatArea({
                 className={styles.headerBtn}
                 onClick={async () => {
                   window.dispatchEvent(new CustomEvent('illaki:join-dm-voice', { detail: { dmId, withVideo: true } }));
+                  await updateDmCallStatus(dmId, 'ringing', identity.uid, true);
                   if (sharedKey && identity?.uid) {
                     await sendDmMessage(dmId, sharedKey, identity.uid, "📹 Görüntülü arama başlattı. Katılmak için sağ üstteki kamera butonuna tıklayın.", null, null, 'system');
                   }
@@ -1022,15 +1030,13 @@ export function ChatArea({
               <CheckSquare size={16} />
             </button>
           )}
-          {!isDm && (
-            <button
-              className={`${styles.headerBtn} ${rightPanel === 'music' ? styles.headerBtnActive : ''}`}
-              onClick={onToggleMusic}
-              title="Müzik Botu"
-            >
-              <Music size={16} />
-            </button>
-          )}
+          <button
+            className={`${styles.headerBtn} ${rightPanel === 'music' ? styles.headerBtnActive : ''}`}
+            onClick={onToggleMusic}
+            title="Müzik Botu"
+          >
+            <Music size={16} />
+          </button>
           {!isDm && (
             <button
               className={`${styles.headerBtn} ${rightPanel === 'members' ? styles.headerBtnActive : ''}`}

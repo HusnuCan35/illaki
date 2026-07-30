@@ -1661,6 +1661,30 @@ export function subscribeToDmMessages(dmId, sharedKey, callback) {
   });
 }
 
+export async function updateDmCallStatus(dmId, status, callerUid, hasVideo = false) {
+  if (!dmId) return;
+  const dmRef = doc(db, 'dms', dmId);
+  if (status === 'ringing') {
+    await updateDoc(dmRef, {
+      activeCall: {
+        status,
+        caller: callerUid,
+        hasVideo,
+        timestamp: serverTimestamp()
+      }
+    });
+  } else {
+    // accepted, rejected, ended
+    await updateDoc(dmRef, {
+      activeCall: {
+        status,
+        caller: callerUid,
+        timestamp: serverTimestamp()
+      }
+    });
+  }
+}
+
 export async function sendDmMessage(dmId, sharedKey, senderUid, content, replyTo = null, mediaData = null, systemType = 'dm') {
   if (!dmId || !sharedKey || !senderUid) return;
   const { ciphertext, iv } = await encryptMessage(sharedKey, content || '');

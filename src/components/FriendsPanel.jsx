@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, UserX, Check, X, LogIn, MessageSquare } from 'lucide-react';
-import { useIdentityStore, useSpaceStore, useUIStore } from '../stores';
+import { Users, UserPlus, UserX, Check, X, LogIn, MessageSquare, Clock, Globe } from 'lucide-react';
+import { useIdentityStore, useSpaceStore, useUIStore, usePeerStore } from '../stores';
 import { subscribeToFriends, subscribeToFriendRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend, subscribeToServerInvites, acceptServerInvite, rejectServerInvite } from '../lib/firestore';
 import styles from './FriendsPanel.module.css';
 
@@ -8,11 +8,13 @@ export function FriendsPanel({ onJoinSpace, onStartDm }) {
   const { identity } = useIdentityStore();
   const { spaces } = useSpaceStore();
   const { addToast } = useUIStore();
+  const { peers } = usePeerStore();
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
   const [invites, setInvites] = useState([]);
   const [addInput, setAddInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('online'); // 'online', 'all', 'pending', 'add'
 
   useEffect(() => {
     if (!identity?.uid) return;
@@ -34,6 +36,7 @@ export function FriendsPanel({ onJoinSpace, onStartDm }) {
       await sendFriendRequest(identity.uid, addInput.trim());
       setAddInput('');
       addToast({ type: 'success', message: 'Arkadaşlık isteği gönderildi!' });
+      setActiveTab('pending');
     } catch (err) {
       addToast({ type: 'error', message: err.message });
     } finally {
@@ -51,140 +54,241 @@ export function FriendsPanel({ onJoinSpace, onStartDm }) {
     }
   };
 
+  // derived states
+  const onlineFriends = friends.filter(f => peers[f.peerId]);
+  const pendingCount = requests.length + invites.length;
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2><Users size={20} className={styles.icon} /> Arkadaşlar</h2>
+        <h2><Users size={20} style={{ color: '#8b929a' }} /> Arkadaşlar</h2>
+        
+        <div className={styles.tabs}>
+          <button 
+            className={`${styles.tabBtn} ${activeTab === 'online' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('online')}
+          >
+            Çevrimiçi
+          </button>
+          <button 
+            className={`${styles.tabBtn} ${activeTab === 'all' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            Tümü
+          </button>
+          <button 
+            className={`${styles.tabBtn} ${activeTab === 'pending' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('pending')}
+          >
+            Bekleyenler 
+            {pendingCount > 0 && <span className={styles.badge}>{pendingCount}</span>}
+          </button>
+          <button 
+            className={`${styles.tabBtn} ${styles.addTabBtn}`}
+            onClick={() => setActiveTab('add')}
+          >
+            Arkadaş Ekle
+          </button>
+        </div>
       </div>
 
       <div className={styles.content}>
-        <div className={styles.myIdSection} style={{ marginBottom: '16px', background: '#252932', padding: '12px', borderRadius: '8px' }}>
-          <h3 style={{ fontSize: '13px', color: '#8b929a', marginBottom: '8px', textTransform: 'uppercase' }}>Senin Kullanıcı ID'n</h3>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <code style={{ flex: 1, background: '#1c1f26', padding: '8px', borderRadius: '4px', fontSize: '14px', wordBreak: 'break-all' }}>
-              {identity?.customId || identity?.uid}
-            </code>
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(identity?.customId || identity?.uid);
-                addToast({ type: 'info', message: 'ID Kopyalandı!' });
-              }}
-              style={{ padding: '8px 12px', background: '#45A29E', color: '#1c1f26', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Kopyala
-            </button>
-          </div>
-        </div>
+        {activeTab === 'add' && (
+          <div className={styles.addSection}>
+            <h3>Arkadaş Ekle</h3>
+            <p>Arkadaşlarını ID'leri ile ekleyebilirsin.</p>
+            <form onSubmit={handleAddFriend} className={styles.addForm}>
+              <input 
+                type="text" 
+                placeholder="Arkadaşının ID'sini buraya yapıştır..." 
+                value={addInput}
+                onChange={e => setAddInput(e.target.value)}
+                disabled={loading}
+                className={styles.input}
+              />
+              <button type="submit" disabled={loading || !addInput.trim()} className={styles.addBtn}>
+                Arkadaşlık İsteği Gönder
+              </button>
+            </form>
 
-        <div className={styles.addSection}>
-          <h3>Arkadaş Ekle</h3>
-          <form onSubmit={handleAddFriend} className={styles.addForm}>
-            <input 
-              type="text" 
-              placeholder="Kullanıcı ID (örn: husnucan123)" 
-              value={addInput}
-              onChange={e => setAddInput(e.target.value)}
-              disabled={loading}
-              className={styles.input}
-            />
-            <button type="submit" disabled={loading || !addInput.trim()} className={styles.addBtn}>
-              <UserPlus size={16} /> Ekle
-            </button>
-          </form>
-        </div>
-
-        {invites.length > 0 && (
-          <div className={styles.requestsSection}>
-            <h3>Sunucu Davetleri ({invites.length})</h3>
-            <div className={styles.list}>
-              {invites.map(invite => (
-                <div key={invite.id} className={styles.listItem}>
-                  <div className={styles.userInfo}>
-                    <div className={styles.avatar} style={{ backgroundColor: '#45A29E' }}>
-                      {invite.spaceName.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '14px' }}>{invite.spaceName}</span>
-                      <span style={{ fontSize: '11px', color: '#8b929a' }}>{invite.senderUsername} davet etti</span>
-                    </div>
-                  </div>
-                  <div className={styles.actions}>
-                    <button className={styles.acceptBtn} onClick={() => handleAcceptInvite(invite)} title="Katıl">
-                      <Check size={16} />
-                    </button>
-                    <button className={styles.rejectBtn} onClick={() => rejectServerInvite(identity.uid, invite.spaceId)} title="Reddet">
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {requests.length > 0 && (
-          <div className={styles.requestsSection}>
-            <h3>Gelen İstekler ({requests.length})</h3>
-            <div className={styles.list}>
-              {requests.map(req => (
-                <div key={req.id} className={styles.listItem}>
-                  <div className={styles.userInfo}>
-                    <div className={styles.avatar} style={{ backgroundColor: req.senderAvatarColor }}>
-                      {req.senderUsername.charAt(0).toUpperCase()}
-                    </div>
-                    <span>{req.senderUsername}</span>
-                  </div>
-                  <div className={styles.actions}>
-                    <button className={styles.acceptBtn} onClick={() => acceptFriendRequest(identity.uid, req.senderUid)} title="Kabul Et">
-                      <Check size={16} />
-                    </button>
-                    <button className={styles.rejectBtn} onClick={() => rejectFriendRequest(identity.uid, req.senderUid)} title="Reddet">
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className={styles.friendsSection}>
-          <h3>Arkadaşların ({friends.length})</h3>
-          <div className={styles.list}>
-            {friends.length > 0 ? friends.map(friend => (
-              <div key={friend.uid} className={styles.listItem}>
-                <div className={styles.userInfo}>
-                  <div className={styles.avatar} style={{ backgroundColor: friend.avatarColor || '#333' }}>
-                    {friend.username?.charAt(0).toUpperCase()}
-                  </div>
-                  <span>{friend.username}</span>
-                </div>
-                <div className={styles.actions}>
-                  <button className={styles.acceptBtn} onClick={async () => {
-                    if (onStartDm) {
-                      try {
-                        await onStartDm(friend.uid);
-                      } catch (err) {
-                        addToast({ type: 'error', message: 'Sohbet başlatılamadı: ' + err.message });
-                      }
-                    }
-                  }} title="Mesaj Gönder" style={{ marginRight: '8px' }}>
-                    <MessageSquare size={16} />
-                  </button>
-                  <button className={styles.rejectBtn} onClick={() => {
-                    if (window.confirm('Arkadaşlıktan çıkarmak istediğine emin misin?')) {
-                      removeFriend(identity.uid, friend.uid);
-                    }
-                  }} title="Çıkar">
-                    <UserX size={16} />
-                  </button>
-                </div>
+            <div className={styles.myIdSection} style={{ marginTop: '40px' }}>
+              <h3 style={{ fontSize: '13px', color: '#8b929a', marginBottom: '8px', textTransform: 'uppercase' }}>Senin Kullanıcı ID'n</h3>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <code style={{ flex: 1, background: '#1c1f26', padding: '12px', borderRadius: '8px', fontSize: '14px', wordBreak: 'break-all' }}>
+                  {identity?.customId || identity?.uid}
+                </code>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(identity?.customId || identity?.uid);
+                    addToast({ type: 'info', message: 'ID Kopyalandı!' });
+                  }}
+                  className={styles.addBtn}
+                  style={{ background: '#374151' }}
+                >
+                  Kopyala
+                </button>
               </div>
-            )) : (
-              <div className={styles.empty}>Henüz arkadaşın yok.</div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'pending' && (
+          <div className={styles.listSection}>
+            {requests.length === 0 && invites.length === 0 ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyIcon}>
+                  <Check size={48} />
+                </div>
+                <h3>Bekleyen İstek Yok</h3>
+                <p>Şu an için bekleyen bir arkadaşlık veya sunucu davetin bulunmuyor.</p>
+              </div>
+            ) : (
+              <>
+                {invites.length > 0 && (
+                  <div style={{ marginBottom: '32px' }}>
+                    <div className={styles.listTitle}>Sunucu Davetleri — {invites.length}</div>
+                    <div className={styles.list}>
+                      {invites.map(invite => (
+                        <div key={invite.id} className={styles.listItem}>
+                          <div className={styles.userInfo}>
+                            <div className={styles.avatar} style={{ backgroundColor: '#45A29E' }}>
+                              {invite.spaceName.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span className={styles.username}>{invite.spaceName}</span>
+                              <span className={styles.status}>{invite.senderUsername} davet etti</span>
+                            </div>
+                          </div>
+                          <div className={styles.actions}>
+                            <button className={`${styles.iconBtn} ${styles.acceptBtn}`} onClick={() => handleAcceptInvite(invite)} title="Katıl">
+                              <Check size={18} />
+                            </button>
+                            <button className={`${styles.iconBtn} ${styles.rejectBtn}`} onClick={() => rejectServerInvite(identity.uid, invite.spaceId)} title="Reddet">
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {requests.length > 0 && (
+                  <div>
+                    <div className={styles.listTitle}>Arkadaşlık İstekleri — {requests.length}</div>
+                    <div className={styles.list}>
+                      {requests.map(req => (
+                        <div key={req.id} className={styles.listItem}>
+                          <div className={styles.userInfo}>
+                            <div className={styles.avatar} style={{ backgroundColor: req.senderAvatarColor || '#45A29E' }}>
+                              {req.senderUsername.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span className={styles.username}>{req.senderUsername}</span>
+                              <span className={styles.status}>Gelen İstek</span>
+                            </div>
+                          </div>
+                          <div className={styles.actions}>
+                            <button className={`${styles.iconBtn} ${styles.acceptBtn}`} onClick={() => acceptFriendRequest(identity.uid, req.senderUid)} title="Kabul Et">
+                              <Check size={18} />
+                            </button>
+                            <button className={`${styles.iconBtn} ${styles.rejectBtn}`} onClick={() => rejectFriendRequest(identity.uid, req.senderUid)} title="Reddet">
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
-        </div>
+        )}
+
+        {(activeTab === 'all' || activeTab === 'online') && (
+          <div className={styles.listSection}>
+            {friends.length === 0 ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyIcon}>
+                  <Globe size={48} />
+                </div>
+                <h3>Hiç Arkadaşın Yok</h3>
+                <p>Wumpus burada çok yalnız. Arkadaş Ekle sekmesinden birilerini ekleyebilirsin.</p>
+                <button 
+                  onClick={() => setActiveTab('add')}
+                  className={styles.addBtn}
+                  style={{ marginTop: '20px' }}
+                >
+                  Arkadaş Ekle
+                </button>
+              </div>
+            ) : (activeTab === 'online' && onlineFriends.length === 0) ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyIcon}>
+                  <Clock size={48} />
+                </div>
+                <h3>Kimse Çevrimiçi Değil</h3>
+                <p>Şu an aktif olan bir arkadaşın yok. Tümü sekmesinden arkadaşlarına mesaj atabilirsin.</p>
+              </div>
+            ) : (
+              <>
+                <div className={styles.listTitle}>
+                  {activeTab === 'online' ? `Çevrimiçi — ${onlineFriends.length}` : `Tüm Arkadaşlar — ${friends.length}`}
+                </div>
+                <div className={styles.list}>
+                  {(activeTab === 'online' ? onlineFriends : friends).map(friend => (
+                    <div key={friend.uid} className={styles.listItem}>
+                      <div className={styles.userInfo}>
+                        <div style={{ position: 'relative' }}>
+                          <div className={styles.avatar} style={{ backgroundColor: friend.avatarColor || '#333' }}>
+                            {friend.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            right: 0,
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            background: peers[friend.peerId] ? '#10B981' : '#6B7280',
+                            border: '2px solid var(--surface)'
+                          }}></div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className={styles.username}>{friend.username}</span>
+                          <span className={styles.status}>
+                            {peers[friend.peerId] ? 'Çevrimiçi' : 'Çevrimdışı'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={styles.actions}>
+                        <button className={`${styles.iconBtn} ${styles.msgBtn}`} onClick={async () => {
+                          if (onStartDm) {
+                            try {
+                              await onStartDm(friend.uid);
+                            } catch (err) {
+                              addToast({ type: 'error', message: 'Sohbet başlatılamadı: ' + err.message });
+                            }
+                          }
+                        }} title="Mesaj Gönder">
+                          <MessageSquare size={18} />
+                        </button>
+                        <button className={`${styles.iconBtn} ${styles.rejectBtn}`} onClick={() => {
+                          if (window.confirm('Arkadaşlıktan çıkarmak istediğine emin misin?')) {
+                            removeFriend(identity.uid, friend.uid);
+                          }
+                        }} title="Çıkar">
+                          <UserX size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
