@@ -982,6 +982,34 @@ export function ChatArea({
         </div>
 
         <div className={styles.headerActions}>
+          {isDm && (
+            <>
+              <button
+                className={styles.headerBtn}
+                onClick={async () => {
+                  window.dispatchEvent(new CustomEvent('illaki:join-dm-voice', { detail: { dmId, withVideo: false } }));
+                  if (sharedKey && identity?.uid) {
+                    await sendDmMessage(dmId, sharedKey, identity.uid, "📞 Sesli arama başlattı. Katılmak için sağ üstteki arama butonuna tıklayın.", null, null, 'system');
+                  }
+                }}
+                title="Sesli Arama Başlat"
+              >
+                <Phone size={16} />
+              </button>
+              <button
+                className={styles.headerBtn}
+                onClick={async () => {
+                  window.dispatchEvent(new CustomEvent('illaki:join-dm-voice', { detail: { dmId, withVideo: true } }));
+                  if (sharedKey && identity?.uid) {
+                    await sendDmMessage(dmId, sharedKey, identity.uid, "📹 Görüntülü arama başlattı. Katılmak için sağ üstteki kamera butonuna tıklayın.", null, null, 'system');
+                  }
+                }}
+                title="Görüntülü Arama Başlat"
+              >
+                <Video size={16} />
+              </button>
+            </>
+          )}
           {!isDm && isPrivileged && (
             <button
               className={`${styles.headerBtn} ${isSelectMode ? styles.headerBtnActive : ''}`}

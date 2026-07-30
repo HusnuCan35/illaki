@@ -654,8 +654,17 @@ export async function getSpaceOnlineMembers(spaceId, myUid) {
 }
 
 // ────────────────────────────────────────────────────────────
-// Kanallar (Channels)
-// ────────────────────────────────────────────────────────────
+export async function setUserPeerId(uid, peerId) {
+  if (!uid || !peerId) return;
+  try {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, { peerId });
+  } catch (err) {
+    console.error('setUserPeerId error:', err);
+  }
+}
+
+// ── Sunucu & Kanallar (Spaces & Channels) ────────────────────────────────────────────────────────────
 
 export async function createChannel(spaceId, requesterUid, { name, type = 'text', allowedRoles = ['all'] }) {
   const spaceRef = doc(db, 'spaces', spaceId);
@@ -1652,7 +1661,7 @@ export function subscribeToDmMessages(dmId, sharedKey, callback) {
   });
 }
 
-export async function sendDmMessage(dmId, sharedKey, senderUid, content, replyTo = null, mediaData = null) {
+export async function sendDmMessage(dmId, sharedKey, senderUid, content, replyTo = null, mediaData = null, systemType = 'dm') {
   if (!dmId || !sharedKey || !senderUid) return;
   const { ciphertext, iv } = await encryptMessage(sharedKey, content || '');
   
@@ -1690,7 +1699,7 @@ export async function sendDmMessage(dmId, sharedKey, senderUid, content, replyTo
     fileName: mediaData?.fileName || null,
     fileSize: mediaData?.fileSize || null,
     replyTo: encryptedReplyTo,
-    type: 'dm'
+    type: systemType
   };
 
   const msgRef = await addDoc(collection(db, 'dms', dmId, 'messages'), msgData);

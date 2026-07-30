@@ -175,8 +175,16 @@ export function Home() {
       const { channelId } = e.detail;
       voice.joinVoice(channelId, connectedPeerIds);
     };
+    const handleJoinDmVoice = (e) => {
+      const { dmId, withVideo } = e.detail;
+      voice.joinVoice(dmId, connectedPeerIds, true, withVideo);
+    };
     window.addEventListener('illaki:join-voice', handleJoinVoice);
-    return () => window.removeEventListener('illaki:join-voice', handleJoinVoice);
+    window.addEventListener('illaki:join-dm-voice', handleJoinDmVoice);
+    return () => {
+      window.removeEventListener('illaki:join-voice', handleJoinVoice);
+      window.removeEventListener('illaki:join-dm-voice', handleJoinDmVoice);
+    };
   }, [voice.joinVoice, connectedPeerIds]);
 
   // Ekran paylaşımı sadece ses kanalındayken görünsün
@@ -223,7 +231,24 @@ export function Home() {
             }
           />
         ) : (
-          <DmSidebar onSelectFriends={() => setActiveDm(null)} />
+          <DmSidebar
+            onSelectFriends={() => setActiveDm(null)}
+            voiceSlot={
+              <VoiceChannel
+                {...voice}
+                connectedPeerIds={connectedPeerIds}
+                onJoin={voice.joinVoice}
+                onLeave={() => {
+                  voice.leaveVoice();
+                  screenShare.stopScreenShare();
+                }}
+                onToggleMute={voice.toggleMute}
+                onToggleDeafen={voice.toggleDeafen}
+                onToggleCamera={voice.toggleCamera}
+                screenShare={screenShare}
+              />
+            }
+          />
         )}
       </div>
 

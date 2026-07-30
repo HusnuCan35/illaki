@@ -468,10 +468,10 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
   }, [isInVoice, answerCall]);
 
   // ── Ses Kanalına Katıl ────────────────────────────────────────────────────
-  const joinVoice = useCallback(async (channelId, connectedPeerIds = []) => {
+  const joinVoice = useCallback(async (channelId, connectedPeerIds = [], isDm = false) => {
     try {
       const { activeSpaceId } = useSpaceStore.getState();
-      if (activeSpaceId && identity?.uid) {
+      if (!isDm && activeSpaceId && identity?.uid) {
         const { doc, getDoc } = await import('firebase/firestore');
         const { db } = await import('../lib/firebase');
         const mSnap = await getDoc(doc(db, 'spaces', activeSpaceId, 'members', identity.uid));
@@ -499,7 +499,7 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       setVoiceChannelId(channelId);
       if (broadcastVoiceStatus) broadcastVoiceStatus({ channelId, isMuted, isDeafened });
 
-      if (activeSpaceId && identity?.uid) {
+      if (!isDm && activeSpaceId && identity?.uid) {
         updateMemberVoiceStatus(activeSpaceId, identity.uid, channelId);
       }
 
@@ -521,7 +521,22 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       // Sadece hedef kanalda olan ya da tüm online üyeleri al (henuz kanalda olmayanlara da ulaşmak için)
       let allPeerIds = [];
 
-      if (activeSpaceId) {
+      if (isDm) {
+        const uids = channelId.split('_');
+        const targetUid = uids.find(id => id !== identity?.uid);
+        if (targetUid) {
+          try {
+            const { doc, getDoc } = await import('firebase/firestore');
+            const { db } = await import('../lib/firebase');
+            const targetDoc = await getDoc(doc(db, 'users', targetUid));
+            if (targetDoc.exists() && targetDoc.data().peerId) {
+              allPeerIds.push(targetDoc.data().peerId);
+            }
+          } catch (err) {
+            console.warn('[Voice] Hedef kullanıcının peerId bilgisi alınamadı:', err);
+          }
+        }
+      } else if (activeSpaceId) {
         try {
           const { identity: ident } = useIdentityStore.getState();
           const members = await getSpaceOnlineMembers(activeSpaceId, ident?.uid);

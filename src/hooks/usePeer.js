@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { usePeerStore, useMessageStore, useSpaceStore, useUIStore, useIdentityStore } from '../stores';
-import { updateMemberPeerId, getSpaceOnlineMembers, kickMemberFromVoice } from '../lib/firestore';
+import { updateMemberPeerId, getSpaceOnlineMembers, kickMemberFromVoice, setUserPeerId } from '../lib/firestore';
 
 /**
  * Peer ID formatı: "illaki-XXXXXXXX" (8 büyük harf/rakam)
@@ -27,13 +27,17 @@ export function usePeer() {
 
   // Peer ID'yi sunucularla (spaces) senkronize tut
   useEffect(() => {
-    if (peerId && identity?.uid && spaces && spaces.length > 0) {
-      spaces.forEach(space => {
-        updateMemberPeerId(space.id, identity.uid, peerId, {
-          username: identity.username,
-          avatarColor: identity.avatarColor,
-        }).catch(() => {});
-      });
+    if (peerId && identity?.uid) {
+      setUserPeerId(identity.uid, peerId).catch(() => {});
+      
+      if (spaces && spaces.length > 0) {
+        spaces.forEach(space => {
+          updateMemberPeerId(space.id, identity.uid, peerId, {
+            username: identity.username,
+            avatarColor: identity.avatarColor,
+          }).catch(() => {});
+        });
+      }
     }
   }, [peerId, identity?.uid, identity?.username, identity?.avatarColor, spaces]);
 

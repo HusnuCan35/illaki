@@ -4,7 +4,7 @@ import { useDmStore, useIdentityStore } from '../stores';
 import { subscribeToDms, getUserProfile } from '../lib/firestore';
 import styles from './DmSidebar.module.css';
 
-export function DmSidebar({ onSelectFriends }) {
+export function DmSidebar({ onSelectFriends, voiceSlot }) {
   const { identity } = useIdentityStore();
   const { dms, setDms, activeDmId, setActiveDm, clearUnread } = useDmStore();
   const [dmProfiles, setDmProfiles] = useState({});
@@ -103,6 +103,7 @@ export function DmSidebar({ onSelectFriends }) {
           </div>
         </div>
       </div>
+      {voiceSlot}
     </div>
   );
 }
