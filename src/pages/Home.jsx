@@ -183,11 +183,19 @@ export function Home() {
     if (!identity?.uid) return;
     
     // Find if any DM has an activeCall with status 'ringing' where we are not the caller
-    const ringingDm = dms.find(dm => 
-      dm.activeCall && 
-      dm.activeCall.status === 'ringing' && 
-      dm.activeCall.caller !== identity.uid
-    );
+    const ringingDm = dms.find(dm => {
+      if (!dm.activeCall || dm.activeCall.status !== 'ringing' || dm.activeCall.caller === identity.uid) return false;
+      
+      // Ignore stale calls (older than 60 seconds)
+      if (dm.activeCall.timestamp) {
+        const callTime = typeof dm.activeCall.timestamp.toMillis === 'function' 
+          ? dm.activeCall.timestamp.toMillis() 
+          : dm.activeCall.timestamp.seconds * 1000;
+        
+        if (Date.now() - callTime > 60000) return false;
+      }
+      return true;
+    });
     
     if (ringingDm && !voice.isInVoice) {
       setIncomingCall(ringingDm);
@@ -205,7 +213,11 @@ export function Home() {
       });
       setActiveSpace(null);
       setActiveDm(dmId);
-      voice.joinVoice(dmId, true, withVideo);
+      
+      const { peers } = usePeerStore.getState();
+      const currentConnectedPeers = Object.keys(peers);
+      voice.joinVoice(dmId, currentConnectedPeers, true, withVideo);
+      
       setIncomingCall(null);
     }
   };
