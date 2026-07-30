@@ -2,13 +2,13 @@ import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection } from 'firebase
 import { db } from './firebase';
 import { getSyncedTime } from './time';
 
-const getMusicStateRef = (spaceId) => doc(db, 'spaces', spaceId, 'music', 'state');
+const getMusicStateRef = (contextId, isDm = false) => isDm ? doc(db, 'dms', contextId, 'music', 'state') : doc(db, 'spaces', contextId, 'music', 'state');
 
 /**
  * Müzik durumunu dinler
  */
-export function subscribeToMusic(spaceId, callback) {
-  const ref = getMusicStateRef(spaceId);
+export function subscribeToMusic(contextId, isDm, callback) {
+  const ref = getMusicStateRef(contextId, isDm);
   return onSnapshot(ref, (snap) => {
     if (snap.exists()) {
       callback(snap.data());
@@ -141,13 +141,13 @@ export async function searchSongByName(query) {
 /**
  * Şarkıyı veya YouTube Çalma Listesini sıraya ekler
  */
-export async function addSongToQueue(spaceId, input, requestedBy) {
+export async function addSongToQueue(contextId, isDm, input, requestedBy) {
   // YouTube Çalma Listesi mi?
   const playlistId = extractPlaylistId(input);
   if (playlistId) {
     const songs = await fetchPlaylistSongs(playlistId);
     if (!songs || songs.length === 0) throw new Error("Çalma listesinde şarkı bulunamadı.");
-    await loadPlaylistToQueue(spaceId, songs, requestedBy);
+    await loadPlaylistToQueue(contextId, isDm, songs, requestedBy);
     return { isPlaylist: true, count: songs.length };
   }
 
@@ -178,7 +178,7 @@ export async function addSongToQueue(spaceId, input, requestedBy) {
     requestedBy
   };
 
-  const ref = getMusicStateRef(spaceId);
+  const ref = getMusicStateRef(contextId, isDm);
   const snap = await getDoc(ref);
   
   if (!snap.exists()) {
@@ -212,8 +212,9 @@ export async function addSongToQueue(spaceId, input, requestedBy) {
 // Çalma Listeleri (Playlists)
 // ────────────────────────────────────────────────────────────
 
-export async function createPlaylist(spaceId, { name, songs = [], createdBy }) {
-  const plRef = doc(collection(db, 'spaces', spaceId, 'playlists'));
+export async function createPlaylist(contextId, isDm, { name, songs = [], createdBy }) {
+  const collectionRef = isDm ? collection(db, 'dms', contextId, 'playlists') : collection(db, 'spaces', contextId, 'playlists');
+  const plRef = doc(collectionRef);
   await setDoc(plRef, {
     id: plRef.id,
     name: name.trim(),
@@ -224,17 +225,16 @@ export async function createPlaylist(spaceId, { name, songs = [], createdBy }) {
   return plRef.id;
 }
 
-export function subscribeToPlaylists(spaceId, onPlaylists) {
-  if (!spaceId) return () => {};
-  const q = collection(db, 'spaces', spaceId, 'playlists');
-  return onSnapshot(q, (snap) => {
+export function subscribeToPlaylists(contextId, isDm, onPlaylists) {
+  const collectionRef = isDm ? collection(db, 'dms', contextId, 'playlists') : collection(db, 'spaces', contextId, 'playlists');
+  return onSnapshot(collectionRef, (snap) => {
     onPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   });
 }
 
-export async function loadPlaylistToQueue(spaceId, songs, requestedBy) {
+export async function loadPlaylistToQueue(contextId, isDm, songs, requestedBy) {
   if (!songs || songs.length === 0) return;
-  const ref = getMusicStateRef(spaceId);
+  const ref = getMusicStateRef(contextId, isDm);
   const snap = await getDoc(ref);
   
   const formattedSongs = songs.map(s => ({
@@ -263,11 +263,12 @@ export async function loadPlaylistToQueue(spaceId, songs, requestedBy) {
 
 /**
  * Sonraki şarkıya geçer
- * @param {string} spaceId
+ * @param {string} contextId
+ * @param {boolean} isDm
  * @param {string} expectedSongId - Eğer bu şarkı zaten geçilmişse işlemi iptal et (race condition önleme)
  */
-export async function playNextSong(spaceId, expectedSongId) {
-  const ref = getMusicStateRef(spaceId);
+export async function playNextSong(contextId, isDm, expectedSongId) {
+  const ref = getMusicStateRef(contextId, isDm);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
 
@@ -304,8 +305,8 @@ export async function playNextSong(spaceId, expectedSongId) {
 /**
  * Şarkı oynatma durumunu (Play/Pause/Seek) günceller
  */
-export async function updatePlaybackStatus(spaceId, status, currentTime) {
-  const ref = getMusicStateRef(spaceId);
+export async function updatePlaybackStatus(contextId, isDm, status, currentTime = 0) {
+  const ref = getMusicStateRef(contextId, isDm);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   
@@ -323,8 +324,8 @@ export async function updatePlaybackStatus(spaceId, status, currentTime) {
 /**
  * Şarkıyı sıradan kaldırır
  */
-export async function removeSongFromQueue(spaceId, songId) {
-  const ref = getMusicStateRef(spaceId);
+export async function removeSongFromQueue(contextId, isDm, songId) {
+  const ref = getMusicStateRef(contextId, isDm);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   

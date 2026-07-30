@@ -1479,17 +1479,18 @@ export function subscribeToRoles(spaceId, onRoles) {
 // PvP Taş Kağıt Makas Düellosu (RPS Duels)
 // ────────────────────────────────────────────────────────────
 
-export async function createDuel(spaceId, challenger, opponent) {
+export async function createDuel(contextId, isDm, challenger, opponent) {
   const cUid = challenger?.uid || challenger?.id || '';
   const cName = challenger?.username || challenger?.name || 'Oyuncu 1';
   const oUid = opponent?.uid || opponent?.id || '';
   const oName = opponent?.username || opponent?.name || 'Oyuncu 2';
 
-  if (!spaceId || !cUid || !oUid) {
+  if (!contextId || !cUid || !oUid) {
     throw new Error('Geçersiz düello bilgileri.');
   }
 
-  const duelRef = doc(collection(db, 'spaces', spaceId, 'duels'));
+  const collectionRef = isDm ? collection(db, 'dms', contextId, 'duels') : collection(db, 'spaces', contextId, 'duels');
+  const duelRef = doc(collectionRef);
   const duelData = {
     id: duelRef.id,
     spaceId,
@@ -1507,21 +1508,21 @@ export async function createDuel(spaceId, challenger, opponent) {
   return duelRef.id;
 }
 
-export async function respondDuel(spaceId, duelId, accept) {
-  const duelRef = doc(db, 'spaces', spaceId, 'duels', duelId);
+export async function acceptDuel(contextId, isDm, duelId, accept) {
+  const duelRef = isDm ? doc(db, 'dms', contextId, 'duels', duelId) : doc(db, 'spaces', contextId, 'duels', duelId);
   await updateDoc(duelRef, {
     status: accept ? 'accepted' : 'declined',
   });
 }
 
-export async function submitDuelChoice(spaceId, duelId, uid, choice) {
-  const duelRef = doc(db, 'spaces', spaceId, 'duels', duelId);
+export async function playTurn(contextId, isDm, duelId, playerUid, choice) {
+  const duelRef = isDm ? doc(db, 'dms', contextId, 'duels', duelId) : doc(db, 'spaces', contextId, 'duels', duelId);
   const snap = await getDoc(duelRef);
   if (!snap.exists()) return;
   const d = snap.data();
 
-  const isChallenger = uid === d.challengerUid;
-  const isOpponent = uid === d.opponentUid;
+  const isChallenger = playerUid === d.challengerUid;
+  const isOpponent = playerUid === d.opponentUid;
 
   if (!isChallenger && !isOpponent) return;
 
@@ -1532,7 +1533,6 @@ export async function submitDuelChoice(spaceId, duelId, uid, choice) {
   const nextChallengerChoice = isChallenger ? choice : d.challengerChoice;
   const nextOpponentChoice = isOpponent ? choice : d.opponentChoice;
 
-  // İki oyuncu da seçim yaptıysa kazananı hesapla
   if (nextChallengerChoice && nextOpponentChoice) {
     updates.status = 'completed';
     const c1 = nextChallengerChoice;
@@ -1553,11 +1553,13 @@ export async function submitDuelChoice(spaceId, duelId, uid, choice) {
   await updateDoc(duelRef, updates);
 }
 
-export function subscribeToDuels(spaceId, onDuels) {
-  if (!spaceId) return () => {};
+export function subscribeToDuels(contextId, isDm, onDuels) {
+  if (!contextId) return () => {};
+  const collectionRef = isDm ? collection(db, 'dms', contextId, 'duels') : collection(db, 'spaces', contextId, 'duels');
   const q = query(
-    collection(db, 'spaces', spaceId, 'duels'),
-    where('createdAt', '>=', Date.now() - 1000 * 60 * 10) // Son 10 dakika
+    collectionRef,
+    orderBy('createdAt', 'desc'),
+    limit(20)
   );
   return onSnapshot(q, (snap) => {
     onDuels(snap.docs.map(d => ({ id: d.id, ...d.data() })));

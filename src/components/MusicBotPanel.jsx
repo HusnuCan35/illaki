@@ -4,8 +4,7 @@ import { useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import { subscribeToMusic, addSongToQueue, playNextSong, updatePlaybackStatus, removeSongFromQueue, searchSongByName, createPlaylist, subscribeToPlaylists, loadPlaylistToQueue } from '../lib/music';
 import styles from './MusicBotPanel.module.css';
 
-export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
-  const { activeSpaceId } = useSpaceStore();
+export function MusicBotPanel({ onClose, isVoiceConnected = true, contextId, isDm = false }) {
   const { identity } = useIdentityStore();
   const { musicVolume, setMusicVolume } = useUIStore();
   const [musicState, setMusicState] = useState(null);
@@ -21,18 +20,18 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
   const [savingPlaylist, setSavingPlaylist] = useState(false);
 
   useEffect(() => {
-    if (!activeSpaceId) return;
-    const unsubMusic = subscribeToMusic(activeSpaceId, (state) => {
+    if (!contextId) return;
+    const unsubMusic = subscribeToMusic(contextId, isDm, (state) => {
       setMusicState(state);
     });
-    const unsubPlaylists = subscribeToPlaylists(activeSpaceId, (pl) => {
+    const unsubPlaylists = subscribeToPlaylists(contextId, isDm, (pl) => {
       setPlaylists(pl);
     });
     return () => {
       unsubMusic();
       unsubPlaylists();
     };
-  }, [activeSpaceId]);
+  }, [contextId, isDm]);
 
   // Debounced Song Search by Name
   useEffect(() => {
@@ -58,7 +57,7 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
     setLoading(true);
     setSearchResults([]);
     try {
-      const res = await addSongToQueue(activeSpaceId, query, identity.username);
+      const res = await addSongToQueue(contextId, isDm, query, identity.username);
       setUrlInput('');
       if (res?.isPlaylist) {
         useUIStore.getState().addToast({ type: 'success', message: `YouTube Çalma Listesindeki ${res.count} şarkı sıraya eklendi!` });
@@ -87,17 +86,17 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
         currentTime = window.__illakiMusicPlayer.getCurrentTime() || 0;
       }
     } catch (e) {}
-    updatePlaybackStatus(activeSpaceId, newStatus, currentTime);
+    updatePlaybackStatus(contextId, isDm, newStatus, currentTime);
   };
 
   const handleStop = () => {
     if (!musicState?.currentSong) return;
     setMusicState(prev => prev ? { ...prev, status: 'stopped', currentSong: null } : prev);
-    updatePlaybackStatus(activeSpaceId, 'stopped', 0);
+    updatePlaybackStatus(contextId, isDm, 'stopped', 0);
   };
 
   const handleSkip = () => {
-    playNextSong(activeSpaceId, musicState?.currentSong?.id);
+    playNextSong(contextId, isDm, musicState?.currentSong?.id);
   };
 
   const handleSaveCurrentQueueAsPlaylist = async (e) => {
@@ -114,7 +113,7 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
 
     setSavingPlaylist(true);
     try {
-      await createPlaylist(activeSpaceId, {
+      await createPlaylist(contextId, isDm, {
         name: playlistName.trim(),
         songs: allSongs.map(s => ({ videoId: s.videoId, title: s.title, thumbnail: s.thumbnail })),
         createdBy: identity.username
@@ -130,7 +129,7 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
 
   const handleLoadPlaylist = async (pl) => {
     try {
-      await loadPlaylistToQueue(activeSpaceId, pl.songs, identity.username);
+      await loadPlaylistToQueue(contextId, isDm, pl.songs, identity.username);
       useUIStore.getState().addToast({ type: 'success', message: `"${pl.name}" listesi sıraya eklendi!` });
     } catch (err) {
       useUIStore.getState().addToast({ type: 'error', message: 'Liste yüklenemedi.' });
@@ -335,7 +334,7 @@ export function MusicBotPanel({ onClose, isVoiceConnected = true }) {
                   </div>
                   <button 
                     className={styles.removeBtn} 
-                    onClick={() => removeSongFromQueue(activeSpaceId, song.id)}
+                    onClick={() => removeSongFromQueue(contextId, isDm, song.id)}
                     title="Sıradan Çıkar"
                   >
                     <Trash2 size={14} />

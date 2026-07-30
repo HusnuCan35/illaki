@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Swords, Check, X } from 'lucide-react';
-import { submitDuelChoice, respondDuel } from '../lib/firestore';
+import { playTurn, acceptDuel } from '../lib/firestore';
 import { useSpaceStore, useIdentityStore, useUIStore } from '../stores';
 import styles from './DuelModal.module.css';
 
-export function DuelModal({ isOpen, onClose, duel }) {
-  const { activeSpaceId } = useSpaceStore();
+export function DuelModal({ isOpen, onClose, duel, contextId, isDm = false }) {
   const { identity } = useIdentityStore();
   const { addToast } = useUIStore();
   const [selectedChoice, setSelectedChoice] = useState(null);
@@ -30,7 +29,7 @@ export function DuelModal({ isOpen, onClose, duel }) {
     if (!selectedChoice) return;
     setLoading(true);
     try {
-      await submitDuelChoice(activeSpaceId, duel.id, identity.uid, selectedChoice);
+      await playTurn(contextId, isDm, duel.id, identity.uid, selectedChoice);
       addToast({ type: 'success', message: 'Hamlen kaydedildi! Rakip bekleniyor...' });
     } catch (err) {
       addToast({ type: 'error', message: 'Hamle gönderilemedi.' });
@@ -41,7 +40,7 @@ export function DuelModal({ isOpen, onClose, duel }) {
 
   const handleAccept = async () => {
     try {
-      await respondDuel(activeSpaceId, duel.id, true);
+      await acceptDuel(contextId, isDm, duel.id, true);
       addToast({ type: 'info', message: 'Düello kabul edildi! Hamleni seç.' });
     } catch (err) {
       addToast({ type: 'error', message: 'Düello kabul edilemedi.' });
@@ -50,7 +49,7 @@ export function DuelModal({ isOpen, onClose, duel }) {
 
   const handleDecline = async () => {
     try {
-      await respondDuel(activeSpaceId, duel.id, false);
+      await acceptDuel(contextId, isDm, duel.id, false);
       addToast({ type: 'info', message: 'Düello reddedildi.' });
       onClose();
     } catch (err) {}

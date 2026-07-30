@@ -627,7 +627,7 @@ export function ChatArea({
       }
     });
     return () => unsub();
-  }, [activeSpaceId, identity?.uid]);
+  }, [activeSpaceId, dmId, isDm, identity?.uid]);
 
   // Sunucu üyeleri dinleyicisi
   useEffect(() => {
@@ -1152,6 +1152,8 @@ export function ChatArea({
         isOpen={!!activeDuel}
         duel={activeDuel}
         onClose={() => setActiveDuel(null)}
+        contextId={activeSpaceId || dmId}
+        isDm={isDm}
       />
 
       <BotDuelModal
@@ -1331,7 +1333,16 @@ export function ChatArea({
                     onClose={() => setShowGameZone(false)}
                     onGameCommand={(cmd) => handleSend(cmd)}
                     onOpenBotDuel={() => setShowBotDuel(true)}
-                    onOpenFriendDuel={() => setShowMemberSelectDuel(true)}
+                    onOpenFriendDuel={() => {
+                      if (isDm) {
+                        const friendUid = dmId.split('_').find(u => u !== identity.uid);
+                        createDuel(dmId, true, identity, { uid: friendUid, username: 'Rakip' });
+                        useUIStore.getState().addToast({ type: 'success', message: `Düello teklifi gönderildi!` });
+                        setShowGameZone(false);
+                      } else {
+                        setShowMemberSelectDuel(true);
+                      }
+                    }}
                   />
                 )}
               </div>

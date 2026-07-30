@@ -116,6 +116,8 @@ export function VoiceChannel({
   onToggleCamera,
   screenShare,
   connectedPeerIds = [],
+  contextId,
+  isDm = false
 }) {
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [res, setRes] = useState('1080');
@@ -441,7 +443,8 @@ export function VoiceChannel({
 
       {/* Arka plan müzik motoru */}
       <MusicPlayerCore
-        activeSpaceId={activeSpaceId}
+        contextId={contextId || activeSpaceId}
+        isDm={isDm}
         onMusicStateChange={setMusicState}
       />
     </div>

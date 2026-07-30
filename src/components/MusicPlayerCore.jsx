@@ -4,22 +4,22 @@ import { subscribeToMusic, playNextSong } from '../lib/music';
 import { useUIStore } from '../stores';
 import { getSyncedTime } from '../lib/time';
 
-export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
+export function MusicPlayerCore({ contextId, isDm = false, onMusicStateChange }) {
   const { musicVolume } = useUIStore();
   const [musicState, setMusicState] = useState(null);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const playerRef = useRef(null);
 
   useEffect(() => {
-    if (!activeSpaceId) return;
-    const unsubscribe = subscribeToMusic(activeSpaceId, (state) => {
+    if (!contextId) return;
+    const unsubscribe = subscribeToMusic(contextId, isDm, (state) => {
       setMusicState(state);
       if (onMusicStateChange) {
         onMusicStateChange(state);
       }
     });
     return () => unsubscribe();
-  }, [activeSpaceId, onMusicStateChange]);
+  }, [contextId, isDm, onMusicStateChange]);
 
   // Senkronizasyon (Sync with remote)
   useEffect(() => {
@@ -91,13 +91,13 @@ export function MusicPlayerCore({ activeSpaceId, onMusicStateChange }) {
 
   const onPlayerEnd = () => {
     console.log("[MusicBot] Video ended, playing next...");
-    playNextSong(activeSpaceId, musicState?.currentSong?.id);
+    playNextSong(contextId, isDm, musicState?.currentSong?.id);
   };
 
   const onPlayerError = (event) => {
     console.error("[MusicBot] YouTube Player Error:", event.data);
     setTimeout(() => {
-      playNextSong(activeSpaceId, musicState?.currentSong?.id);
+      playNextSong(contextId, isDm, musicState?.currentSong?.id);
     }, 2000);
   };
 

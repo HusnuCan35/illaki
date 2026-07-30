@@ -271,6 +271,8 @@ export function Home() {
                 onToggleDeafen={voice.toggleDeafen}
                 onToggleCamera={voice.toggleCamera}
                 screenShare={screenShare}
+                contextId={activeSpaceId || activeDmId}
+                isDm={!!activeDmId}
               />
             }
           />
@@ -290,6 +292,8 @@ export function Home() {
                 onToggleDeafen={voice.toggleDeafen}
                 onToggleCamera={voice.toggleCamera}
                 screenShare={screenShare}
+                contextId={activeSpaceId || activeDmId}
+                isDm={!!activeDmId}
               />
             }
           />
@@ -352,8 +356,13 @@ export function Home() {
         {activeSpaceId && rightPanel === 'members' && (
           <MembersPanel kickPeer={kickPeer} onClose={() => setRightPanel(null)} />
         )}
-        {activeSpaceId && rightPanel === 'music' && (
-          <MusicBotPanel onClose={() => setRightPanel(null)} isVoiceConnected={voice.isInVoice} />
+        {(activeSpaceId || activeDmId) && rightPanel === 'music' && (
+          <MusicBotPanel 
+            onClose={() => setRightPanel(null)} 
+            isVoiceConnected={voice.isInVoice} 
+            contextId={activeSpaceId || activeDmId}
+            isDm={!!activeDmId}
+          />
         )}
       </div>
 
