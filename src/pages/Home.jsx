@@ -31,7 +31,7 @@ export function Home() {
   const { settingsOpen, setSettingsOpen, sidebarOpen, toggleSidebar, addToast } = useUIStore();
   const { identity } = useIdentityStore();
   const { activeSpaceId, spaces, setActiveSpace, removeSpace } = useSpaceStore();
-  const { activeDmId, setActiveDm, dms } = useDmStore();
+  const { activeDmId, setActiveDm, dms, setDms } = useDmStore();
 
   const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, kickFromVoice, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
   const voice = useVoice(getPeer, broadcastVoiceStatus);
