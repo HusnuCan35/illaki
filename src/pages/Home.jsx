@@ -15,7 +15,7 @@ import { usePeer } from '../hooks/usePeer';
 import { useVoice } from '../hooks/useVoice';
 import { useScreenShare } from '../hooks/useScreenShare';
 import { useUIStore, usePeerStore, useSpaceStore, useIdentityStore, useDmStore } from '../stores';
-import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile, createOrGetDm } from '../lib/firestore';
+import { subscribeToUserBanStatus, subscribeToMembers, updateMemberOnlineStatus, updateMemberVoiceStatus, syncMemberProfile, createOrGetDm, subscribeToDms } from '../lib/firestore';
 import { DmSidebar } from '../components/DmSidebar';
 import styles from './Home.module.css';
 
