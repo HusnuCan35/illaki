@@ -799,6 +799,91 @@ export function useVoice(getPeer, initPeer, broadcastVoiceStatus) {
     };
   }, [leaveVoice]);
 
+  // ── Dynamic Mesh Recovery ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isInVoice) return;
+    const myVoiceChannelId = usePeerStore.getState().voiceChannelId;
+    const { activeSpaceId } = useSpaceStore.getState();
+    const { identity: ident } = useIdentityStore.getState();
+    const peer = getPeer();
+
+    if (!myVoiceChannelId || !activeSpaceId || !ident?.uid || !peer) return;
+
+    let unsub;
+    const pendingCalls = new Set();
+    
+    import('firebase/firestore').then(({ collection, onSnapshot }) => {
+      import('../lib/firebase').then(({ db }) => {
+        unsub = onSnapshot(collection(db, 'spaces', activeSpaceId, 'members'), (snap) => {
+          snap.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.uid === ident.uid) return;
+            
+            if (data.voiceChannelId === myVoiceChannelId && data.peerId && data.peerId !== peer.id) {
+              if (!callsRef.current[data.peerId] && !pendingCalls.has(data.peerId)) {
+                pendingCalls.add(data.peerId);
+                
+                // Arama çakışmalarını (Double connection loop) önlemek için UID tabanlı gecikme
+                const delay = (ident.uid < data.uid) ? 500 : 3500;
+                
+                setTimeout(() => {
+                  pendingCalls.delete(data.peerId);
+                  if (usePeerStore.getState().voiceChannelId !== myVoiceChannelId) return; // kanal değiştiyse iptal
+                  
+                  if (!callsRef.current[data.peerId]) {
+                    let streamToSend = localStreamRef.current;
+                    if (localVideoRef.current && streamToSend) {
+                      const vTracks = localVideoRef.current.getVideoTracks();
+                      if (vTracks.length > 0) {
+                        streamToSend = new MediaStream([...streamToSend.getAudioTracks(), ...vTracks]);
+                      }
+                    }
+                    if (!streamToSend) return;
+                    
+                    try {
+                      const call = peer.call(data.peerId, streamToSend, {
+                        metadata: {
+                          username: ident.username,
+                          avatarColor: ident.avatarColor,
+                          voiceChannelId: myVoiceChannelId
+                        },
+                        sdpTransform: (sdp) => preferOpusHD(sdp),
+                      });
+
+                      if (call) {
+                        call.on('stream', (remoteStream) => {
+                          if (!remoteStream || remoteStream.getAudioTracks().length === 0) return;
+                          attachAudio(remoteStream, call.peer);
+                          setVoiceParticipants(prev => ({
+                            ...prev,
+                            [call.peer]: {
+                              username: call.metadata?.username || data.username || 'Kullanıcı',
+                              avatarColor: call.metadata?.avatarColor || data.avatarColor || '#3b82f6',
+                              speaking: false,
+                              isSelf: false,
+                              videoStream: remoteStream.getVideoTracks().length > 0 ? remoteStream : null,
+                            },
+                          }));
+                        });
+                        callsRef.current[data.peerId] = call;
+                      }
+                    } catch(err) {
+                      console.warn('[Voice] Mesh recovery call failed:', err);
+                    }
+                  }
+                }, delay);
+              }
+            }
+          });
+        });
+      });
+    });
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [isInVoice, attachAudio]);
+
   return {
     isInVoice,
     isMuted,
