@@ -242,14 +242,21 @@ export function usePeer() {
     if (peerRef.current && !peerRef.current.destroyed) {
       return peerRef.current;
     }
+    
+    // Eğer halihazırda başlatılıyorsa, devam eden işlemi bekle
+    if (initPromiseRef.current) {
+      return await initPromiseRef.current;
+    }
 
-    const { Peer } = await import('peerjs');
-    setConnectionStatus('connecting');
+    initPromiseRef.current = (async () => {
+      try {
+        const { Peer } = await import('peerjs');
+        setConnectionStatus('connecting');
 
-    const existingPeerId = usePeerStore.getState().peerId;
-    const myPeerId = existingPeerId || generateReadablePeerId();
+        const existingPeerId = usePeerStore.getState().peerId;
+        const myPeerId = existingPeerId || generateReadablePeerId();
 
-    const peer = new Peer(myPeerId, {
+        const peer = new Peer(myPeerId, {
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -313,7 +320,16 @@ export function usePeer() {
       setTimeout(() => { if (peer && !peer.destroyed) peer.reconnect(); }, 2000);
     });
 
-    return peer;
+      return peer;
+    } catch (err) {
+      console.error('[Illaki] Peer başlatılamadı:', err);
+      throw err;
+    } finally {
+      initPromiseRef.current = null;
+    }
+    })();
+
+    return await initPromiseRef.current;
   }, [handleIncomingConnection]);
 
   // ── Tek bir peer'e bağlan ──────────────────────────────────────────────────

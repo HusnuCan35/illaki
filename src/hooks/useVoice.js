@@ -493,11 +493,12 @@ export function useVoice(getPeer, initPeer, broadcastVoiceStatus) {
           peer = await initPeer();
         } catch (err) {
           console.error('[Voice] Peer başlatılamadı:', err);
+          addToast({ type: 'error', message: `PeerJS Hatası: ${err.message}` });
         }
       }
 
       if (!peer) {
-        addToast({ type: 'error', message: 'P2P bağlantısı yok' });
+        addToast({ type: 'error', message: 'P2P bağlantısı yok (Başlatılamadı)' });
         return;
       }
 
