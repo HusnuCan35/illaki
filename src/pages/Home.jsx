@@ -35,7 +35,7 @@ export function Home() {
   const { activeDmId, setActiveDm, dms, setDms } = useDmStore();
 
   const { initPeer, connectToPeer, sendMessage, getPeer, kickPeer, kickFromVoice, broadcastSpaceUpdate, broadcastSpaceDelete, broadcastVoiceStatus } = usePeer();
-  const voice = useVoice(getPeer, broadcastVoiceStatus);
+  const voice = useVoice(getPeer, initPeer, broadcastVoiceStatus);
   const screenShare = useScreenShare(getPeer);
   const { peers } = usePeerStore();
 

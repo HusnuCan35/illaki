@@ -15,7 +15,7 @@ import { playSelfJoinVoice, playUserJoinVoice, playUserLeaveVoice, playCamOn, pl
  * - Çoklu katılımcı yönetimi
  * - Kamera paylaşımı (WebRTC video track)
  */
-export function useVoice(getPeer, broadcastVoiceStatus) {
+export function useVoice(getPeer, initPeer, broadcastVoiceStatus) {
   const localStreamRef = useRef(null);       // ses akışı
   const localVideoRef  = useRef(null);       // kamera akışı
   const audioContextRef = useRef(null);
@@ -485,7 +485,16 @@ export function useVoice(getPeer, broadcastVoiceStatus) {
       }
 
       const audioStream = await getLocalStream();
-      const peer = getPeer();
+      let peer = getPeer();
+
+      if (!peer) {
+        addToast({ type: 'info', message: 'Bağlantı hazırlanıyor...' });
+        try {
+          peer = await initPeer();
+        } catch (err) {
+          console.error('[Voice] Peer başlatılamadı:', err);
+        }
+      }
 
       if (!peer) {
         addToast({ type: 'error', message: 'P2P bağlantısı yok' });
