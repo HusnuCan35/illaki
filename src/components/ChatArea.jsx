@@ -1340,12 +1340,16 @@ export function ChatArea({
                     onClose={() => setShowGameZone(false)}
                     onGameCommand={(cmd) => handleSend(cmd)}
                     onOpenBotDuel={() => setShowBotDuel(true)}
-                    onOpenFriendDuel={() => {
+                    onOpenFriendDuel={async () => {
                       if (isDm) {
-                        const friendUid = dmId.split('_').find(u => u !== identity.uid);
-                        createDuel(dmId, true, identity, { uid: friendUid, username: 'Rakip' });
-                        useUIStore.getState().addToast({ type: 'success', message: `Düello teklifi gönderildi!` });
-                        setShowGameZone(false);
+                        try {
+                          const friendUid = dmId.split('_').find(u => u !== identity.uid);
+                          await createDuel(dmId, true, identity, { uid: friendUid, username: 'Rakip' });
+                          useUIStore.getState().addToast({ type: 'success', message: `Düello teklifi gönderildi!` });
+                          setShowGameZone(false);
+                        } catch (err) {
+                          useUIStore.getState().addToast({ type: 'error', message: 'Hata: ' + err.message });
+                        }
                       } else {
                         setShowMemberSelectDuel(true);
                       }

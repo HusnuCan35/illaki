@@ -287,7 +287,7 @@ export function UserProfileModal({ isOpen, onClose, user }) {
                         addToast({ type: 'error', message: 'Düello için oda veya üye bilgisi bulunamadı.' });
                         return;
                       }
-                      await createDuel(activeSpaceId, identity, { uid: opponentUid, username: opponentName });
+                      await createDuel(activeSpaceId, false, identity, { uid: opponentUid, username: opponentName });
                       addToast({ type: 'success', message: `${opponentName} kullanıcısına düello teklifi gönderildi!` });
                       onClose();
                     } catch (err) {

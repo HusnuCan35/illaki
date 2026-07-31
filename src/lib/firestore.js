@@ -1493,7 +1493,7 @@ export async function createDuel(contextId, isDm, challenger, opponent) {
   const duelRef = doc(collectionRef);
   const duelData = {
     id: duelRef.id,
-    spaceId,
+    contextId,
     challengerUid: cUid,
     challengerName: cName,
     opponentUid: oUid,
