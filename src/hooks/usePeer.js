@@ -17,6 +17,7 @@ export { generateReadablePeerId, codeFromPeerId, peerIdFromCode, generateRoomCod
 export function usePeer() {
   const peerRef       = useRef(null);
   const connectionsRef = useRef({});
+  const initPromiseRef = useRef(null);
   const identityRef   = useRef(null);
 
   const { peerId, setPeerId, setConnectionStatus, addPeer, removePeer, updatePeer } = usePeerStore();
