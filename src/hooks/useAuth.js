@@ -15,7 +15,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { upsertUserProfile, getUserSpaces, subscribeToUserSpaces } from '../lib/firestore';
+import { upsertUserProfile, getUserSpaces, subscribeToUserSpaces, getUserProfile } from '../lib/firestore';
 import { loadUserKeyPair, generateKeyPair, saveUserKeyPair } from '../lib/crypto';
 import { useIdentityStore, useSpaceStore } from '../stores';
 
@@ -42,66 +42,79 @@ export function useAuth() {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // Güvenlik zaman aşımı: Firebase Auth gecikirse en fazla 2.5 sn sonra ekranı aç
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      clearTimeout(timer);
       if (unsubSpacesRef.current) {
         unsubSpacesRef.current();
         unsubSpacesRef.current = null;
       }
 
       if (user) {
-        const avatarColor = hashColor(user.displayName || user.email || user.uid);
-        
-        // Önce Firestore'daki kayıttan profil bilgilerini çek
-        let savedProfile = null;
-        try {
-          const { getUserProfile } = await import('../lib/firestore');
-          savedProfile = await getUserProfile(user.uid);
-        } catch (err) {
-          console.warn('Firestore profil alınamadı:', err);
-        }
+        const defaultColor = hashColor(user.displayName || user.email || user.uid);
+        const defaultName = user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
 
-        const username = savedProfile?.username || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
-        const customId = savedProfile?.customId || null;
-
-        const identity = {
+        // İlk identity bilgilerini hızla ayarla ve yükleme ekranını derhal kapat
+        setIdentity({
           id: user.uid,
           uid: user.uid,
-          username,
-          customId,
-          avatarColor: savedProfile?.avatarColor || avatarColor,
+          username: defaultName,
+          customId: null,
+          avatarColor: defaultColor,
           email: user.email,
-          photoURL: savedProfile?.photoURL || user.photoURL,
+          photoURL: user.photoURL,
           isFirebaseUser: true,
-        };
-        setIdentity(identity);
+        });
 
-        // Profili ve Odaları gerçek zamanlı senkronize et
-        try {
-          await upsertUserProfile(user.uid, {
-            username: identity.username,
-            avatarColor: identity.avatarColor,
-            photoURL: identity.photoURL,
-          });
-          
-          // İlk yükleme
-          const initialSpaces = await getUserSpaces(user.uid);
-          setSpaces(initialSpaces);
+        setLoading(false);
 
-          // Real-time spaces listener
-          unsubSpacesRef.current = subscribeToUserSpaces(user.uid, (spaces) => {
-            setSpaces(spaces);
-          });
-        } catch (err) {
-          console.error('Profil veya odaları güncelleme hatası:', err);
-        }
+        // Detaylı profil ve oda verilerini arka planda eşzamanla
+        (async () => {
+          try {
+            const savedProfile = await getUserProfile(user.uid);
+            const username = savedProfile?.username || defaultName;
+            const avatarColor = savedProfile?.avatarColor || defaultColor;
+
+            const updatedIdentity = {
+              id: user.uid,
+              uid: user.uid,
+              username,
+              customId: savedProfile?.customId || null,
+              avatarColor,
+              email: user.email,
+              photoURL: savedProfile?.photoURL || user.photoURL,
+              isFirebaseUser: true,
+            };
+            setIdentity(updatedIdentity);
+
+            await upsertUserProfile(user.uid, {
+              username: updatedIdentity.username,
+              avatarColor: updatedIdentity.avatarColor,
+              photoURL: updatedIdentity.photoURL,
+            });
+
+            // Anlık oda takibi başlat
+            unsubSpacesRef.current = subscribeToUserSpaces(user.uid, (spaces) => {
+              setSpaces(spaces);
+            });
+          } catch (err) {
+            console.warn('[useAuth] Arka plan verisi yükleme uyarısı:', err);
+          }
+        })();
+
       } else {
         clearIdentity();
         setSpaces([]);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
+      clearTimeout(timer);
       unsubscribe();
       if (unsubSpacesRef.current) {
         unsubSpacesRef.current();

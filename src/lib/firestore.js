@@ -771,8 +771,9 @@ export async function getUserSpaces(uid) {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
       const joined = userDoc.data().joinedSpaces || [];
-      for (const spaceId of joined) {
-        if (!spaceIds.has(spaceId)) {
+      const joinedPromises = joined
+        .filter(spaceId => !spaceIds.has(spaceId))
+        .map(async (spaceId) => {
           let spaceData = null;
           let isBanned = false;
 
@@ -785,7 +786,7 @@ export async function getUserSpaces(uid) {
             await updateDoc(doc(db, 'users', uid), {
               joinedSpaces: arrayRemove(spaceId)
             }).catch(() => {});
-            continue;
+            return null;
           }
 
           try {
@@ -797,7 +798,6 @@ export async function getUserSpaces(uid) {
             console.warn('[getUserSpaces] Oda dökümanı okuma uyarısı:', spaceId, e);
           }
 
-          // Fallback: getDoc ağ/izin gecikmesi yaşasa dahi joinedSpaces içinde olduğu için odayı göster
           if (!spaceData) {
             const cleanCode = spaceId.replace(/^space_/, '');
             spaceData = {
@@ -810,10 +810,16 @@ export async function getUserSpaces(uid) {
             };
           }
 
-          results.push(spaceData);
-          spaceIds.add(spaceId);
+          return spaceData;
+        });
+
+      const joinedResults = await Promise.all(joinedPromises);
+      joinedResults.forEach(space => {
+        if (space && !spaceIds.has(space.id)) {
+          results.push(space);
+          spaceIds.add(space.id);
         }
-      }
+      });
     }
   } catch (e) {
     console.warn('[getUserSpaces] Kullanıcı odaları alma uyarısı:', e);
